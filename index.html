@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hudson Fleet</title>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+<style>
+:root{--bg:#fafaf9;--fg:#1c1917;--mute:#78716c;--line:#e7e5e4;--card:#fff;--acc:#c2410c}
+@media (prefers-color-scheme:dark){:root{--bg:#1c1917;--fg:#f5f5f4;--mute:#a8a29e;--line:#44403c;--card:#292524;--acc:#fb923c}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+header{padding:12px 16px;border-bottom:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+header h1{font-size:16px;margin:0 12px 0 0}input,button{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}
+button{cursor:pointer}button.pri{background:var(--acc);color:#fff;border:0}
+main{display:grid;grid-template-columns:1fr minmax(300px,38%);height:calc(100vh - 58px)}
+@media (max-width:760px){main{grid-template-columns:1fr;grid-template-rows:60vh auto;height:auto}}
+#cy{border-right:1px solid var(--line);min-height:300px}
+#side{overflow:auto;padding:16px}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;margin:0;font-size:12px}
+h3{margin:0 0 8px;font-size:13px;color:var(--mute);word-break:break-all}
+#menu{position:fixed;display:none;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 16px #0003;padding:4px;z-index:9}
+#menu div{padding:6px 12px;border-radius:4px;cursor:pointer}#menu div:hover{background:var(--line)}#menu .danger{color:#dc2626}
+.legend{display:flex;gap:12px;color:var(--mute);font-size:12px;margin-left:auto}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:middle}
+</style></head><body>
+<header><h1>Hudson Fleet</h1>
+<input id="cwd" placeholder="작업 폴더 (~/Project/...)" size="26">
+<input id="prompt" placeholder="백그라운드 에이전트에게 맡길 일" size="36">
+<button class="pri" onclick="run()">실행</button><span id="msg" style="color:var(--mute)"></span>
+<label style="color:var(--mute)"><input type="checkbox" id="showDead" onchange="load()"> 종료된 세션 보기</label>
+<span class="legend"><span><i style="background:#57534e"></i>프로젝트</span><span><i style="background:#2563eb"></i>세션</span><span><i style="background:#9333ea"></i>서브에이전트</span><span><i style="background:#d6d3d1"></i>파일</span></span></header>
+<div id="menu"><div data-act="focus">세션 화면으로 이동</div><div data-act="stop" class="danger">세션 종료</div></div>
+<main><div id="cy"></div><div id="side"><h3>노드를 누르세요</h3><pre>세션 → 마지막 답변 · 파일 → 내용</pre></div></main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const dark=matchMedia('(prefers-color-scheme: dark)').matches, txt=dark?'#f5f5f4':'#1c1917';
+const STATUS={busy:'#16a34a',idle:'#78716c',blocked:'#dc2626',failed:'#dc2626',running:'#16a34a'};
+const DEAD=['stopped','failed','completed','done'];  // 끝난 세션: 흐리게, 종료 메뉴 숨김
+const cy=cytoscape({container:$('cy'),wheelSensitivity:0.3,style:[
+  {selector:'node',style:{label:'data(short)','font-size':11,color:txt,'text-valign':'center','text-halign':'right','text-margin-x':6,width:16,height:16}},
+  {selector:'node[type="project"]',style:{shape:'round-rectangle',width:22,height:22,'background-color':'#57534e','font-weight':'bold'}},
+  {selector:'node[type="session"]',style:{'background-color':'#2563eb','border-width':4,'border-color':'data(ring)'}},
+  {selector:'node[?dead]',style:{opacity:0.3,'border-style':'dashed'}},
+  {selector:'node[type="agent"]',style:{shape:'diamond','background-color':'#9333ea'}},
+  {selector:'node[type="file"]',style:{shape:'rectangle',width:10,height:12,'background-color':'#d6d3d1'}},
+  {selector:'edge',style:{width:1,'line-color':'#a8a29e','target-arrow-color':'#a8a29e','target-arrow-shape':'triangle','arrow-scale':0.7,'curve-style':'bezier'}},
+  {selector:':selected',style:{'overlay-color':'#c2410c','overlay-opacity':0.25}}]});
+let sig='';
+async function load(){
+  const g=await (await fetch('/api/graph')).json();
+  g.nodes.forEach(n=>{n.dead=DEAD.includes(n.status);const l=(n.dead?'⏹ ':'')+n.label;
+    n.short=l.length>28?l.slice(0,27)+'…':l;n.ring=STATUS[n.status]||'#a8a29e'});
+  const showDead=$('showDead').checked;
+  const s=g.nodes.map(n=>n.id+(n.dead?'x':'')).sort().join()+'|'+g.edges.length+'|'+showDead;
+  if(s===sig){g.nodes.forEach(n=>cy.getElementById(n.id).data(n));return} // 구조 그대로면 상태만 갱신
+  sig=s;cy.elements().remove();
+  cy.add([...g.nodes.map(d=>({data:d})),...g.edges.map(e=>({data:{id:e.source+'>'+e.target,...e}}))]);
+  if(!showDead){ // 살아 있는 세션과 그 위(프로젝트)·아래(서브에이전트·파일)만 남긴다
+    const alive=cy.nodes('[type="session"][!dead]');
+    cy.elements().not(alive.union(alive.successors()).union(alive.predecessors())).remove();
+  }
+  cy.layout({name:'dagre',rankDir:'LR',nodeSep:8,rankSep:140}).run();
+}
+cy.on('tap','node',async e=>{
+  const d=e.target.data();let head=esc(d.label),body='',btn='';
+  if(d.type==='session'){
+    body=(await (await fetch('/api/last?sid='+encodeURIComponent(d.sessionId))).json()).text||'(답변 없음)';
+    head+=` <small>· ${esc(d.status)} · ${esc(d.kind)}</small><br><small>${esc(d.cwd)}</small>`;
+    if(d.kind==='background')btn=`<p><button data-act="logs">로그</button></p>`;
+  }else if(d.type==='file'){
+    head=esc(d.path);const r=await fetch(`/api/file?sid=${encodeURIComponent(d.sid)}&path=${encodeURIComponent(d.path)}`);
+    body=r.ok?await r.text():'(파일 없음 — 삭제됐거나 옮겨짐)';
+  }else body=d.type==='agent'?'서브에이전트 · '+d.label:'연결된 세션 '+e.target.outgoers('node').length+'개';
+  $('side').innerHTML=`<h3>${head}</h3>${btn}<pre id="view"></pre>`;$('view').textContent=body;
+  $('side').querySelectorAll('button[data-act]').forEach(b=>b.onclick=async()=>
+    $('view').textContent=(await (await fetch('/api/logs?id='+encodeURIComponent(d.bgId))).json()).text);
+});
+// 우클릭 메뉴 — 세션 노드에만
+let target=null;const menu=$('menu'),hide=()=>menu.style.display='none';
+cy.on('cxttap','node[type="session"]',e=>{target=e.target.data();const o=e.originalEvent;
+  menu.querySelector('.danger').style.display=target.dead?'none':'';
+  menu.style.left=o.clientX+'px';menu.style.top=o.clientY+'px';menu.style.display='block'});
+cy.on('tap cxttap',e=>{if(e.target===cy)hide()});document.addEventListener('click',hide);
+$('cy').addEventListener('contextmenu',e=>e.preventDefault());
+menu.querySelectorAll('div').forEach(el=>el.onclick=async()=>{
+  const act=el.dataset.act,d=target;hide();
+  if(act==='stop'&&!confirm(`"${d.label}" 세션을 종료할까요?\n진행 중인 작업이 중단됩니다.`))return;
+  const r=await post('/api/'+act,{sid:d.sessionId});$('msg').textContent=r.text||r.error;load();
+});
+async function post(p,b){return (await fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json()}
+async function run(){$('msg').textContent='실행 중…';const r=await post('/api/run',{cwd:$('cwd').value,prompt:$('prompt').value});
+  $('msg').textContent=r.text||r.error;$('prompt').value='';load()}
+load();setInterval(load,5000);
+</script></body></html>
