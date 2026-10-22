@@ -96,7 +96,7 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--mute);font-size:12px;margin-left:auto}
 </style></head><body>
 <header><h1>Hudson <span>Fleet</span></h1>
-<nav><a href="#home" data-pg="home">현황</a><a href="#history" data-pg="history">세션 기록</a><a href="#mcp" data-pg="mcp">MCP 서버</a><a href="#settings" data-pg="settings">설정</a></nav><span id="msg" class="meta" style="margin-left:auto"></span><button class="sm" id="noti" title="세션이 입력 대기로 바뀌거나 끝나면 알립니다">알림 켜기</button><div class="hu" id="hu"><span>사용량<span class="dots"></span></span></div>
+<nav><a href="#home" data-pg="home">현황</a><a href="#history" data-pg="history">세션 기록</a><a href="#pushes" data-pg="pushes">Push 기록</a><a href="#mcp" data-pg="mcp">MCP 서버</a><a href="#settings" data-pg="settings">설정</a></nav><span id="msg" class="meta" style="margin-left:auto"></span><button class="sm" id="noti" title="세션이 입력 대기로 바뀌거나 끝나면 알립니다">알림 켜기</button><div class="hu" id="hu"><span>사용량<span class="dots"></span></span></div>
 </header>
 <div id="menu"><div data-act="stop" class="danger">세션 종료하기</div></div>
 <main id="main" class="noside"><div id="dash"><div class="pg" id="pg-home">
@@ -108,6 +108,9 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
   <section class="card"><div class="sh"><h2>끝난 세션</h2><span class="meta" id="hsum"></span><button class="sm" id="href" style="margin-left:auto">새로 고침</button></div>
     <div class="tw"><table id="htbl" class="tbl"></table></div>
     <p class="meta" style="margin:10px 0 0">대시보드 서버가 켜져 있는 동안 끝난 세션을 1분 안에 저장합니다. 저장 전에 haiku 로 작업 내용을 요약합니다.</p></section>
+</div><div class="pg" id="pg-pushes" hidden>
+  <section class="card"><div class="sh"><h2>Push 기록</h2><span class="meta" id="psum">Claude 가 실행한 git push 만 모읍니다</span><button class="sm" id="pref" style="margin-left:auto">새로 고침</button></div>
+    <div class="tw"><table id="ptbl" class="tbl"></table></div></section>
 </div><div class="pg" id="pg-settings" hidden>
   <section class="card"><div class="sh"><h2>설정</h2><span class="meta">모두 환경 변수로 정합니다 · 이 화면은 지금 서버에 적용된 값입니다</span></div>
     <div class="tw"><table id="ctbl" class="tbl"></table></div>
@@ -487,6 +490,19 @@ $('sidec').addEventListener('click',async e=>{const b=e.target.closest('[data-re
   b.disabled=true;const r=await post('/api/reopen',{sid:sideKey.slice(2),fork:b.dataset.reopen==='1'});
   $('msg').textContent=r.text||r.error;b.disabled=false});
 // ── 설정: 환경 변수 (읽기 전용) ──
+// ── Push 기록: 언제 · 어느 레포·브랜치 · 어떤 커밋 · 어느 세션 ──
+const repoName=r=>(r||'').replace(/^.*github\.com[:/]/,'').replace(/\.git$/,'')||'?';
+async function loadPushes(){
+  $('ptbl').innerHTML='<tr><td class="meta">불러오는 중…</td></tr>';
+  const ps=await (await fetch('/api/pushes')).json();
+  $('psum').textContent=`Claude 가 실행한 git push ${ps.length}건 · 커밋 ${ps.reduce((a,p)=>a+p.commits.length,0)}개`;
+  $('ptbl').innerHTML='<tr><th>시각</th><th>레포 · 브랜치</th><th>커밋</th><th>세션</th></tr>'+ps.map(p=>`<tr>
+    <td class="meta">${when(p.ts)}</td>
+    <td><b>${esc(repoName(p.remote))}</b><div class="meta">${esc(p.ref)}</div></td>
+    <td style="white-space:normal">${p.commits.length?p.commits.map(([h,m])=>`<div><code>${esc(h)}</code> ${esc(m||'')}</div>`).join(''):`<span class="meta">${esc(p.old.slice(0,7))}..${esc(p.new.slice(0,7))}</span>`}</td>
+    <td class="meta">${esc(p.session||p.sid.slice(0,8))}</td></tr>`).join('')||'<tr><td class="meta">아직 기록된 push 가 없습니다</td></tr>';
+}
+$('pref').onclick=loadPushes;
 async function loadConfig(){
   const cs=await (await fetch('/api/config')).json();
   $('ctbl').innerHTML='<tr><th>환경 변수</th><th>지금 값</th><th>설명</th></tr>'+cs.map(c=>`<tr>
@@ -498,13 +514,14 @@ async function loadConfig(){
 }
 // ── 상단 메뉴: #home / #history / #mcp ──
 function route(){
-  const pg={'#mcp':'mcp','#history':'history','#settings':'settings'}[location.hash]||'home';
+  const pg={'#mcp':'mcp','#history':'history','#pushes':'pushes','#settings':'settings'}[location.hash]||'home';
   document.querySelectorAll('.pg').forEach(x=>x.hidden=x.id!=='pg-'+pg);
   document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.pg===pg));
   sideClose();
   if(pg==='mcp'&&!mcy)loadMcp();
   if(pg==='history')loadHistory();
   if(pg==='settings')loadConfig();
+  if(pg==='pushes')loadPushes();
   if(pg==='home')fitBox(cy,1020);  // 숨겨진 채로 그려졌을 수 있다
 }
 addEventListener('hashchange',route);

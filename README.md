@@ -102,6 +102,7 @@ SQLite 파일 하나에 저장합니다 (`HUDSON_FLEET_DB`).
 | 경로 | 내용 |
 |---|---|
 | `GET /api/sessions?status=closed\|work\|wait\|idle&limit=50` | 세션과 작업·파일 목록 |
+| `GET /api/pushes?limit=200` | Claude 가 실행한 git push (시각·레포·브랜치·커밋 메시지·세션). 대화 기록이 지워져도 DB 에 남습니다 |
 | `GET /api/metrics?hours=24` | 1분 단위 지표 |
 | `GET /api/daily` | 날짜별 토큰 (최근 1년) |
 | `GET /api/usage` | 5시간·1주일 사용률 (`/usage` 결과) |
