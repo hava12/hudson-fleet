@@ -284,7 +284,8 @@ function renderSide(){
       <div><b>${esc(ov.title||'(제목 없음)')}</b> <button class="sm" data-title="${esc(s.sessionId)}" title="대시보드에서만 쓰는 제목으로 바꿉니다">제목 바꾸기</button></div>
       <div class="meta">${when(ov.first)} → ${when(ov.last)}</div>
       <details id="taskbox" ${taskOpen?'open':''}><summary><h4 style="display:inline-block;font-size:13px">기록할 작업 · ${cur.tasks.length}건</h4></summary><div id="tflt" class="tflt"></div><div id="aitext"></div>
-      <div style="margin-top:6px"><button class="sm" id="aisum">${cur.tasks.length?'다시 정리':'작업 정리'}</button> <span class="meta">haiku · 토큰 사용 · 기록이 그대로면 저장본 재사용</span></div></details></details>`}`;
+      <div style="margin-top:6px"><button class="sm" id="aisum">${cur.tasks.length?'다시 정리':'작업 정리'}</button> <span class="meta">haiku · 토큰 사용 · 기록이 그대로면 저장본 재사용</span></div></details></details>`}${pushBox}`;
+  sessionPushes(s.sessionId);
   if($('sumbox'))$('sumbox').ontoggle=e=>{if(e.target===$('sumbox'))sumOpen=e.target.open};  // 안쪽 접기의 이벤트는 따로
   if($('taskbox'))$('taskbox').ontoggle=e=>{e.stopPropagation();taskOpen=e.target.open};
   if($('aitext')){drawTasks();$('tflt').onclick=e=>{const b=e.target.closest('[data-f]');if(b){const k=b.dataset.f;k?taskF.has(k)?taskF.delete(k):taskF.add(k):taskF.clear();drawTasks()}}}
@@ -401,7 +402,8 @@ $('htbl').addEventListener('click',e=>{const a=e.target.closest('[data-hi]');if(
     <div style="display:flex;gap:6px;margin-top:8px">
       <button class="sm" data-reopen="0" title="같은 세션 ID 로 이어서 엽니다. 다시 살아나면 현황으로 돌아갑니다">이어서 열기</button>
       <button class="sm" data-reopen="1" title="대화를 복사한 새 세션으로 엽니다 (--fork-session). 이 기록은 그대로 남습니다">복사해 열기</button></div>
-    <details open><summary><h4 style="display:inline-block">기록한 작업 · ${s.tasks.length}건</h4></summary>${s.tasks.length?taskList(s.tasks):'<div class="meta">기록할 작업 없음</div>'}</details>`});
+    <details open><summary><h4 style="display:inline-block">기록한 작업 · ${s.tasks.length}건</h4></summary>${s.tasks.length?taskList(s.tasks):'<div class="meta">기록할 작업 없음</div>'}</details>${pushBox}`;
+  sessionPushes(s.sid)});
 $('href').onclick=loadHistory;
 // 끝난 세션 다시 열기: 터미널 새 창에서 claude --resume (HUDSON_FLEET_TERMINAL)
 $('sidec').addEventListener('click',async e=>{const b=e.target.closest('[data-title]');if(!b)return;  // 제목 바꾸기 (대시보드 DB에만)
@@ -417,14 +419,25 @@ $('sidec').addEventListener('click',async e=>{const b=e.target.closest('[data-re
 // ── 설정: 환경 변수 (읽기 전용) ──
 // ── Push 기록: 언제 · 어느 레포·브랜치 · 어떤 커밋 · 어느 세션 ──
 const repoName=r=>(r||'').replace(/^.*github\.com[:/]/,'').replace(/\.git$/,'')||'?';
+const ghUrl=r=>/github\.com[:/]/.test(r||'')?'https://github.com/'+repoName(r):'';  // GitHub 이 아닌 원격은 링크 없이
+const ghA=(u,t)=>u?`<a class="lk" href="${esc(u)}" target="_blank" rel="noopener">${esc(t)}</a>`:esc(t);
+const commitRows=p=>p.commits.length?p.commits.map(([h,m])=>`<div><code>${ghA(ghUrl(p.remote)&&ghUrl(p.remote)+'/commit/'+h,h)}</code> ${esc(m||'')}</div>`).join('')
+  :`<span class="meta">${ghA(ghUrl(p.remote)&&`${ghUrl(p.remote)}/compare/${p.old}...${p.new}`,p.old.slice(0,7)+'..'+p.new.slice(0,7))}</span>`;
+// 세션 상세의 Push 칸: 그 세션이 한 push 만. push 안 한 커밋은 대화 기록에 push 결과가 없어 여기 안 나온다
+async function sessionPushes(sid){const el=$('spush');if(!el)return;
+  const ps=await (await fetch('/api/pushes?sid='+encodeURIComponent(sid))).json();if(!$('spush'))return;
+  $('spushh').textContent=`Push · ${ps.length}건`;
+  el.innerHTML=ps.map(p=>`<div style="margin-bottom:8px"><div class="meta">${when(p.ts)} · ${ghA(ghUrl(p.remote),repoName(p.remote))} ${esc(p.ref)}</div>${commitRows(p)}</div>`).join('')
+    ||'<div class="meta">이 세션에서 push 한 기록이 없습니다</div>'}
+const pushBox='<details open><summary><h4 style="display:inline-block" id="spushh">Push</h4></summary><div id="spush" class="meta">불러오는 중…</div></details>';
 async function loadPushes(){
   $('ptbl').innerHTML='<tr><td class="meta">불러오는 중…</td></tr>';
   const ps=await (await fetch('/api/pushes')).json();
   $('psum').textContent=`Claude 가 실행한 git push ${ps.length}건 · 커밋 ${ps.reduce((a,p)=>a+p.commits.length,0)}개`;
   $('ptbl').innerHTML='<tr><th>시각</th><th>레포 · 브랜치</th><th>커밋</th><th>세션</th></tr>'+ps.map(p=>`<tr>
     <td class="meta">${when(p.ts)}</td>
-    <td><b>${esc(repoName(p.remote))}</b><div class="meta">${esc(p.ref)}</div></td>
-    <td style="white-space:normal">${p.commits.length?p.commits.map(([h,m])=>`<div><code>${esc(h)}</code> ${esc(m||'')}</div>`).join(''):`<span class="meta">${esc(p.old.slice(0,7))}..${esc(p.new.slice(0,7))}</span>`}</td>
+    <td><b>${ghA(ghUrl(p.remote),repoName(p.remote))}</b><div class="meta">${esc(p.ref)}</div></td>
+    <td style="white-space:normal">${commitRows(p)}</td>
     <td class="meta">${esc(p.session||p.sid.slice(0,8))}</td></tr>`).join('')||'<tr><td class="meta">아직 기록된 push 가 없습니다</td></tr>';
 }
 $('pref').onclick=loadPushes;

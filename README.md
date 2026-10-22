@@ -58,7 +58,7 @@ python3 server.py   # → http://127.0.0.1:8765
 - **숫자 타일**: 상태별 세션 수와 서브에이전트 수. 누르면 그 상태의 세션만 표와 그래프에 남깁니다.
 - **위치별 실행 중인 세션**: 작업 폴더별 표. 실행 앱(IntelliJ IDEA, Ghostty 등)과 종료 버튼이 있습니다.
 - **작업 현황 리스트**: 세션마다 정리된 작업 3건(완료·중단·남은 일). 더보기는 오른쪽 패널에서 전체를 엽니다.
-- **오른쪽 패널** (폭 조절 가능): 세션 제목, 실행 경로, 기록할 작업.
+- **오른쪽 패널** (폭 조절 가능): 세션 제목, 실행 경로, 기록할 작업, 그 세션의 push (커밋마다 GitHub 링크).
 
 **세션 기록**
 
@@ -125,7 +125,7 @@ SQLite 파일 하나에 저장합니다 (`HUDSON_FLEET_DB`).
 | 경로 | 내용 |
 |---|---|
 | `GET /api/sessions?status=closed\|work\|wait\|idle&limit=50` | 세션과 작업 목록 |
-| `GET /api/pushes?limit=200` | Claude 가 실행한 git push (시각·레포·브랜치·커밋 메시지·세션). 대화 기록이 지워져도 DB 에 남습니다 |
+| `GET /api/pushes?limit=200&sid=` | Claude 가 실행한 git push (시각·레포·브랜치·커밋 메시지·세션). `sid` 를 주면 그 세션 것만. 대화 기록이 지워져도 DB 에 남습니다 |
 | `GET /api/metrics?hours=24` | 1분 단위 지표 |
 | `GET /api/daily` | 날짜별 토큰 (최근 1년) |
 | `GET /api/usage` | 5시간·1주일 사용률 (`/usage` 결과) |

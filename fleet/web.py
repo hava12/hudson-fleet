@@ -86,8 +86,8 @@ class H(BaseHTTPRequestHandler):
             return self.send(usage())
         if u.path == "/api/mcp":
             return self.send(mcp_servers(q.get("refresh") == "1"))
-        if u.path == "/api/pushes":  # Claude 가 한 git push 목록 (?limit=)
-            return self.send(pushes(int(q.get("limit", 200))))
+        if u.path == "/api/pushes":  # Claude 가 한 git push 목록 (?limit= &sid= 그 세션 것만)
+            return self.send(pushes(int(q.get("limit", 200)), q.get("sid")))
         if u.path == "/api/usage5h":
             return self.send(usage5h_all())
         if u.path == "/api/feed":
