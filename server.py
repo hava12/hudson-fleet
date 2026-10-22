@@ -1,12 +1,16 @@
 """Hudson Fleet — Claude Code 세션 대시보드. 실행: python3 server.py → http://127.0.0.1:8765"""
 import difflib
 import glob
+import itertools
 import json
 import os
 import re
 import signal
+import sqlite3
 import subprocess
+import threading
 import time
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -14,6 +18,7 @@ from urllib.parse import parse_qs, urlparse
 PORT = 8765
 ORIGIN = f"http://127.0.0.1:{PORT}"
 PROJECTS = Path.home() / ".claude" / "projects"
+SESSIONS = Path.home() / ".claude" / "sessions"
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 DEAD = {"stopped", "completed", "done", "failed"}
 
@@ -139,7 +144,57 @@ def session(sid):
     base = {"home": str(Path.home()), "proc": proc_chain(s["pid"]) if s.get("pid") else []}
     if not path:
         return {**base, "changes": [], "overview": {}}
-    return {**base, "changes": changes_of(sid, path), "overview": overview(path)}
+    changes, ov = changes_of(sid, path), overview(path)
+    return {**base, "changes": changes, "status": file_status(changes, ov["first"]), "overview": ov}
+
+
+def file_status(changes, started):
+    """git 처럼 D(지금 없음) · A(세션 시작 때 없었음) · M(그 밖).
+    A 는 첫 편집이 새 파일 만들기이거나, 파일이 처음 생긴 시각(macOS birthtime)이 세션 시작보다 뒤인 경우.
+    셸 mv 로 옮긴 파일도 birthtime 이 유지돼 생성으로 잡힌다."""
+    t0 = datetime.fromisoformat(started.replace("Z", "+00:00")).timestamp() if started else 0
+    status = {}
+    for e in changes:
+        f = e["file"]
+        if f in status:
+            continue
+        if not os.path.exists(f):
+            status[f] = "D"
+        elif e["diff"].startswith("--- /dev/null") or getattr(os.stat(f), "st_birthtime", 0) >= t0 > 0:
+            status[f] = "A"
+        else:
+            status[f] = "M"
+    return status
+
+
+FILE_HISTORY = Path.home() / ".claude" / "file-history"
+
+
+def net_diff(sid, fp, changes, created):
+    """세션이 처음 손대기 전 → 지금 디스크 상태를 한 번에 비교한 diff.
+    처음 상태는 Claude Code 의 되돌리기(/rewind)용 백업 중 가장 이른 판. 없으면 diff=None (옛 기록·정리됨)."""
+    first = next(e for e in changes if e["file"] == fp)
+    if created or first["diff"].startswith("--- /dev/null"):  # 세션 중에 생긴 파일(지운 것 포함) — 빈 파일에서 시작
+        base, src = "", "new"
+        base, src = "", "new"
+    else:
+        h = None
+        for line in transcript(sid).open(encoding="utf-8", errors="replace"):
+            if '"file-history-snapshot"' not in line:
+                continue
+            for rel, b in json.loads(line).get("snapshot", {}).get("trackedFileBackups", {}).items():
+                if b.get("backupFileName") and os.path.join(b.get("realParentDir", ""), os.path.basename(rel)) == fp:
+                    h = b["backupFileName"].split("@")[0]
+            if h:
+                break
+        vs = sorted(FILE_HISTORY.glob(f"{sid}/{h}@v*"), key=lambda p: int(p.name.rsplit("@v", 1)[1])) if h else []
+        if not vs:
+            return {"diff": None}
+        base, src = vs[0].read_text(errors="replace"), "backup"
+    cur = Path(fp).read_text(errors="replace") if os.path.isfile(fp) else ""
+    lines = difflib.unified_diff(base.splitlines(), cur.splitlines(), "/dev/null" if src == "new" else f"a{fp}",
+                                 f"b{fp}", lineterm="", n=3)
+    return {"diff": "\n".join(lines), "src": src, "deleted": not os.path.isfile(fp)}
 
 
 def changes_of(sid, path):
@@ -152,36 +207,85 @@ def changes_of(sid, path):
 def feed():
     """세션별 작업 게시글: 개요 + 변경 수 + 저장해 둔 AI 요약. 새 요약은 만들지 않는다 (토큰 절약)."""
     posts = []
-    for s in json.loads(claude("agents", "--json", "--all") or "[]"):
+    for s in agents():
         sid = s["sessionId"]
         path = transcript(sid)
         if not path or (s.get("status") or s.get("state")) in DEAD:  # 끝난 세션은 게시글에서도 뺀다
             continue
         ov, ch = overview(path), changes_of(sid, path)
-        cache = CACHE / f"{sid}.json"
-        c = json.loads(cache.read_text()) if cache.exists() else {}
+        tasks, tmt = saved_tasks(sid)
         ps = ov["prompts"]
         posts.append({"sid": sid, "name": s.get("name") or s.get("id"), "cwd": s["cwd"], "kind": s["kind"],
                       "status": s.get("status") or s.get("state", ""), "title": ov["title"],
                       "first": ov["first"], "last": ov["last"], "nprompts": len(ps),
                       "goal": ps[0]["text"] if ps else "", "recent": ps[-1]["text"] if len(ps) > 1 else "",
                       "files": len({e["file"] for e in ch}), "edits": len(ch),
-                      "summary": c.get("text", ""), "stale": bool(c) and c["mtime"] != path.stat().st_mtime})
+                      "tasks": tasks, "stale": tmt is not None and tmt != path.stat().st_mtime})
     return sorted(posts, key=lambda p: p["last"], reverse=True)
 
 
-CACHE = Path.home() / ".cache" / "hudson-fleet"  # 플러그인 폴더는 업데이트 때 덮이므로 밖에 둔다
-
-
 def summarize(sid):
-    """haiku 로 세션 요약. 기록이 바뀌지 않았으면 저장해 둔 요약을 다시 쓴다 (토큰 절약)."""
+    """기록할 작업 목록을 haiku 로 만든다. 대화 기록이 그대로면 DB 에 저장해 둔 것을 쓴다 (토큰 절약)."""
     path = transcript(sid)
     if not path:
         return {"error": "기록 없음"}
-    cache = CACHE / f"{sid}.json"
     mtime = path.stat().st_mtime
-    if cache.exists() and (c := json.loads(cache.read_text()))["mtime"] == mtime:
-        return {**c, "cached": True}
+    tasks, tmt = saved_tasks(sid)
+    if tmt == mtime:
+        return {"tasks": tasks, "cached": True}
+    items = work_items(sid)  # 수십 초 — DB 연결은 그 뒤에 연다
+    if not items:  # haiku 가 가끔 빈 답을 낸다 — 저장본으로 굳히지 않고 다음에 다시 시도
+        return {"tasks": tasks, "cached": False}
+    c = db()
+    c.execute("INSERT INTO sessions (sid) VALUES (?) ON CONFLICT(sid) DO NOTHING", (sid,))
+    c.execute("UPDATE sessions SET tasks_mtime = ? WHERE sid = ?", (mtime, sid))
+    c.execute("DELETE FROM session_tasks WHERE sid = ?", (sid,))
+    c.executemany("INSERT INTO session_tasks VALUES (?,?,?,?)", [(sid, i, st, t) for i, (st, t) in enumerate(items, 1)])
+    c.commit()
+    c.close()
+    return {"tasks": saved_tasks(sid)[0], "cached": False}
+
+
+def saved_tasks(sid):
+    """DB 에 저장된 작업 목록과 그때의 대화 기록 수정 시각. 아직 없으면 ([], None)."""
+    c = db()
+    c.row_factory = sqlite3.Row
+    row = c.execute("SELECT tasks_mtime FROM sessions WHERE sid = ?", (sid,)).fetchone()
+    tasks = [dict(r) for r in c.execute("SELECT seq, status, text FROM session_tasks WHERE sid = ? ORDER BY seq", (sid,))]
+    c.close()
+    return tasks, row["tasks_mtime"] if row else None
+
+
+TASK_STATUS = {"완료": "done", "중단": "stopped", "남은일": "todo"}
+
+
+def work_items(sid):
+    """기록할 가치가 있는 작업만 [(분류, 작업)] — 항목당 최대 2줄. 히스토리에 모든 걸 남기지 않는다."""
+    path = transcript(sid)
+    text = ask_haiku("다음은 Claude Code 세션 기록이다. 나중에 다시 찾아볼 가치가 있는 작업만 골라 한국어로 적어라.\n"
+                     "형식: 한 줄에 '분류|작업' 하나. 분류는 완료·중단·남은일 중 하나다.\n"
+                     "  완료 = 끝까지 마친 작업, 중단 = 시작했지만 끝내지 못하고 멈춘 작업, 남은일 = 하기로 했지만 시작하지 않은 작업\n"
+                     "작업은 120자 이내 1~2문장, 동사로 끝낸다. 번호·기호·제목은 붙이지 않는다.\n"
+                     "질문·확인·잡담·되돌린 시도는 뺀다. 기록할 작업이 없으면 아무것도 출력하지 않는다.",
+                     digest(sid, path)) if path else ""
+    out = []
+    for line in text.splitlines():
+        kind, _, task = line.partition("|")
+        if not task:  # 형식을 어긴 줄은 버린다
+            continue
+        task = re.sub(r"^\s*(\d+[.)]|[-*•])\s*", "", task).strip()[:160]
+        if task:
+            out.append((TASK_STATUS.get(re.sub(r"[^가-힣]", "", kind), "done"), task))
+    return out[:20]
+
+
+def ask_haiku(instr, body):
+    return subprocess.run(["claude", "-p", "--model", "haiku", "--no-session-persistence", instr],
+                          input=body, capture_output=True, text=True, timeout=180).stdout.strip()
+
+
+def digest(sid, path):
+    """요약용 입력: 사용자 요청·Claude 답변(각각 잘라서) + 바뀐 파일 목록. 4만 자 이내."""
     parts = []
     for line in path.open(encoding="utf-8", errors="replace"):
         try:
@@ -199,17 +303,189 @@ def summarize(sid):
     body = "\n".join(parts)
     if len(body) > 40_000:
         body = parts[0] + "\n...(중략)...\n" + body[-38_000:]
-    instr = ("다음은 Claude Code 세션 기록이다. 한국어로 아래 형식만 출력하라.\n"
-             "목표: 한 줄\n한 일: 3개 이내 글머리표\n결과: 한 줄\n남은 일: 없으면 '없음'")
-    text = subprocess.run(["claude", "-p", "--model", "haiku", "--no-session-persistence", instr],
-                          input=body + "\n\n[변경 파일]\n" + "\n".join(files),
-                          capture_output=True, text=True, timeout=180).stdout.strip()
-    if not text:
-        return {"error": "요약 실패"}
-    CACHE.mkdir(parents=True, exist_ok=True)
-    out = {"text": text, "mtime": mtime}
-    cache.write_text(json.dumps(out, ensure_ascii=False))
-    return {**out, "cached": False}
+    return body + "\n\n[변경 파일]\n" + "\n".join(files)
+
+
+_usage = {"at": 0, "data": {}}
+
+
+def usage():
+    """/usage 의 한도(Current session = 5시간, Current week = 1주일). 1분 동안 재사용."""
+    if time.time() - _usage["at"] >= 60:
+        # 내장 명령이라 모델을 부르지 않는다 (~4초)
+        text = claude("-p", "/usage", "--no-session-persistence", cwd=Path.home())
+        _usage.update(at=time.time(), data={"limits": [
+            {"label": m[1], "pct": int(m[2]), "resets": m[3]}
+            for m in re.finditer(r"^(Current [^:]+): (\d+)% used · resets (.+)$", text, re.M)]})
+    return _usage["data"]
+
+
+# 지표 저장소. 대화 기록은 cleanupPeriodDays(기본 30일) 뒤 지워지지만 이 표는 남는다.
+# ponytail: SQLite 고정, 공유 서버(Postgres 등)가 필요해지면 db()/record() 두 곳만 바꾸면 된다
+DB = Path(os.environ.get("HUDSON_FLEET_DB") or Path.home() / ".local" / "share" / "hudson-fleet" / "metrics.db")
+STATE = {"busy": "work", "running": "work", "blocked": "wait", "waiting": "wait", "needs_input": "wait"}
+
+
+def db():
+    DB.parent.mkdir(parents=True, exist_ok=True)
+    c = sqlite3.connect(DB)
+    c.execute("CREATE TABLE IF NOT EXISTS samples (ts INTEGER PRIMARY KEY, work INT, wait INT, idle INT,"
+              " agents INT, pct5h INT, pct1w INT)")
+    c.execute("CREATE TABLE IF NOT EXISTS daily (day TEXT PRIMARY KEY, tokens INT)")
+    # 세션 1 : 작업 N · 파일 N. 살아 있는 세션도 1분마다 상태를 남기고, 끝나면 status=closed 로 바뀐다
+    c.execute("CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, name TEXT, title TEXT, cwd TEXT, kind TEXT,"
+              " app TEXT, status TEXT, status_since TEXT, started_at TEXT, last_seen TEXT, ended_at TEXT,"
+              " end_reason TEXT, tokens INT, tasks_mtime REAL)")  # status: work · wait · idle · closed
+    c.execute("CREATE TABLE IF NOT EXISTS session_tasks (sid TEXT REFERENCES sessions(sid), seq INT,"
+              " status TEXT, text TEXT, PRIMARY KEY (sid, seq))")  # status: done 완료 · stopped 중단 · todo 남은 일
+    c.execute("CREATE TABLE IF NOT EXISTS session_files (sid TEXT REFERENCES sessions(sid), path TEXT,"
+              " status TEXT, edits INT, first_at TEXT, last_at TEXT, added INT, removed INT, PRIMARY KEY (sid, path))")
+    return c
+
+
+def token_rows(paths):
+    """대화 기록들 → (timestamp, 토큰) 응답당 한 번. 입력+캐시 생성+출력, 캐시 읽기는 뺀다."""
+    seen = set()
+    for p in paths:
+        for line in p.open(encoding="utf-8", errors="replace"):
+            if '"usage"' not in line:  # 대부분의 줄은 json 해석 없이 건너뛴다
+                continue
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            m = rec.get("message") or {}
+            u, mid = m.get("usage"), m.get("id")
+            if rec.get("type") != "assistant" or not u or not rec.get("timestamp") or mid in seen:
+                continue
+            seen.add(mid)  # 응답 하나가 내용 블록마다 기록돼 같은 usage 가 반복된다
+            yield rec["timestamp"], u.get("input_tokens", 0) + u.get("cache_creation_input_tokens", 0) \
+                + u.get("output_tokens", 0)
+
+
+def daily_tokens():
+    """대화 기록 전체 → 날짜(로컬)별 토큰 합계 (283MB 기준 ~1초)."""
+    days = {}
+    for ts, n in token_rows([*PROJECTS.glob("*/*.jsonl"), *PROJECTS.glob("*/*/subagents/agent-*.jsonl")]):
+        d = datetime.fromisoformat(ts.replace("Z", "+00:00")).astimezone().strftime("%Y-%m-%d")
+        days[d] = days.get(d, 0) + n
+    return days
+
+
+def archive(n, status):
+    """끝난 세션을 sessions 에 status=closed 로 마감하고 session_files(N) 를 남긴다.
+    기록할 작업(session_tasks)은 summarize 로 채운다 — 저장본이 최신이면 haiku 를 다시 부르지 않는다."""
+    sid = n["sessionId"]
+    path = transcript(sid)
+    if not path:
+        return
+    if n["kind"] == "background":
+        reason = status
+    else:
+        try:
+            os.kill(n["pid"], 0)
+            reason = "switched"  # 프로세스는 살아 있고 세션만 바뀜 (/clear·/resume)
+        except OSError:
+            reason = "exited"  # 직접 종료·창 닫기·크래시 — 여기서는 구분 못 한다
+    se, ov = session(sid), overview(path)
+    files = {}
+    for e in se["changes"]:
+        files.setdefault(e["file"], []).append(e)
+    rows = []
+    for f, evs in files.items():
+        d = (net_diff(sid, f, se["changes"], se["status"][f] == "A").get("diff") or "").splitlines()[2:]
+        rows.append((sid, f, se["status"][f], len(evs), evs[0]["ts"], evs[-1]["ts"],
+                     sum(x.startswith("+") for x in d), sum(x.startswith("-") for x in d)))
+    tokens = sum(t for _, t in token_rows([path, *(p for *_, p in subagents(sid))]))
+    summarize(sid)
+    c = db()
+    # summarize 가 sid 만 있는 행을 먼저 만들 수 있다 — 비어 있는 칸만 채운다
+    c.execute("INSERT INTO sessions (sid, name, cwd, kind, app, started_at) VALUES (?,?,?,?,?,?)"
+              " ON CONFLICT(sid) DO UPDATE SET name=coalesce(sessions.name, excluded.name),"
+              " cwd=coalesce(sessions.cwd, excluded.cwd), kind=coalesce(sessions.kind, excluded.kind),"
+              " app=coalesce(sessions.app, excluded.app), started_at=coalesce(sessions.started_at, excluded.started_at)",
+              (sid, n.get("label"), n["cwd"], n["kind"], n.get("app"), ov["first"]))
+    c.execute("UPDATE sessions SET title=?, status='closed', status_since=?, ended_at=?, end_reason=?, tokens=?"
+              " WHERE sid=?", (ov["title"], now_iso(), ov["last"], reason, tokens, sid))
+    c.execute("DELETE FROM session_files WHERE sid = ?", (sid,))
+    c.executemany("INSERT INTO session_files VALUES (?,?,?,?,?,?,?,?)", rows)
+    c.commit()
+    c.close()
+
+
+def now_iso():
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def track(alive):
+    """살아 있는 세션의 상태를 sessions 에 남긴다. 상태가 바뀐 때만 status_since 를 새로 적는다."""
+    t = now_iso()
+    c = db()
+    for sid, n in alive.items():
+        started = datetime.fromtimestamp(n["startedAt"] / 1000, timezone.utc).isoformat(timespec="seconds") \
+            if n.get("startedAt") else None
+        c.execute("INSERT INTO sessions (sid, name, cwd, kind, app, status, status_since, started_at, last_seen)"
+                  " VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(sid) DO UPDATE SET name=excluded.name, app=excluded.app,"
+                  " last_seen=excluded.last_seen, status_since=CASE WHEN sessions.status IS excluded.status"
+                  " THEN sessions.status_since ELSE excluded.status_since END, status=excluded.status",
+                  (sid, n.get("label"), n["cwd"], n["kind"], n.get("app"), STATE.get(n["status"], "idle"), t, started, t))
+    c.commit()
+    c.close()
+
+
+def archive_safe(n, status):
+    try:
+        archive(n, status)
+    except Exception as e:  # 한 세션 정리에 실패해도 기록 스레드는 계속 돈다
+        print("종료 세션 저장 실패:", n.get("sessionId"), e)
+
+
+def save_daily():
+    # 기록 파일이 정리돼 합계가 줄어도 저장해 둔 큰 값을 지킨다 (잔디가 지워지지 않게)
+    c = db()
+    c.executemany("INSERT INTO daily VALUES (?,?) ON CONFLICT(day) DO UPDATE SET tokens=max(tokens, excluded.tokens)",
+                  daily_tokens().items())
+    c.commit()
+    c.close()
+
+
+def record():
+    """1분마다 지표 한 줄: 상태별 살아 있는 세션 수, 실행 중 서브에이전트 수, 5시간·1주일 사용률.
+    10분마다 날짜별 토큰 합계(잔디)도 갱신한다. 세션 상태는 sessions 에 남기고, 사라진 세션은 closed 로 마감한다."""
+    prev = {}
+    for i in itertools.count():
+        try:
+            if i % 10 == 0:
+                save_daily()
+            nodes = graph()["nodes"]
+            alive = {n["sessionId"]: n for n in nodes if n["type"] == "session" and n["status"] not in DEAD}
+            now = {n["sessionId"]: n["status"] for n in nodes if n["type"] == "session"}
+            for sid, n in prev.items():
+                if sid not in alive:  # 요약에 수십 초 걸릴 수 있어 따로 돌린다
+                    threading.Thread(target=archive_safe, args=(n, now.get(sid, "gone")), daemon=True).start()
+            prev = alive
+            track(alive)
+            live = {sid: STATE.get(n["status"], "idle") for sid, n in alive.items()}
+            agents = sum(n["type"] == "agent" and n["status"] == "running" and n["sid"] in live for n in nodes)
+            pct = {x["label"]: x["pct"] for x in usage()["limits"]}
+            c = db()
+            c.execute("INSERT OR REPLACE INTO samples VALUES (?,?,?,?,?,?,?)",
+                      (int(time.time()), *(list(live.values()).count(g) for g in ("work", "wait", "idle")), agents,
+                       pct.get("Current session"), pct.get("Current week (all models)")))
+            c.commit()
+            c.close()
+        except Exception as e:  # 한 번 실패해도 다음 분에 다시 시도한다
+            print("지표 기록 실패:", e)
+        time.sleep(60)
+
+
+def metrics(hours):
+    c = db()
+    cols = ("ts", "work", "wait", "idle", "agents", "pct5h", "pct1w")
+    rows = c.execute(f"SELECT {','.join(cols)} FROM samples WHERE ts >= ? ORDER BY ts",
+                     (int(time.time() - hours * 3600),)).fetchall()
+    c.close()
+    return [dict(zip(cols, r)) for r in rows]
 
 
 _mcp = {"at": 0, "data": []}
@@ -227,6 +503,21 @@ def mcp_servers(refresh=False):
                             "ok": {"✔": "ok", "✘": "fail", "!": "auth", "⏸": "pending"}[mark], "state": state})
         _mcp.update(at=time.time(), data=out)
     return _mcp["data"]
+
+
+def agents():
+    """claude agents 목록에서 1회성 `claude -p` 실행(entrypoint=sdk-cli)을 뺀다.
+    대시보드 자신의 /usage·AI 요약 호출도 여기에 해당 — 몇 초 떴다 사라지는 '유령 세션'이 된다."""
+    def headless(s):
+        if "pid" not in s:  # 백그라운드 작업은 pid 가 없다
+            return False
+        try:
+            return json.loads((SESSIONS / f"{s['pid']}.json").read_text()).get("entrypoint") == "sdk-cli"
+        except OSError:  # 목록에는 남았는데 파일은 지워짐 = 막 끝난 프로세스
+            return True
+        except ValueError:
+            return False
+    return [s for s in json.loads(claude("agents", "--json", "--all") or "[]") if not headless(s)]
 
 
 def find_session(sid):
@@ -257,7 +548,7 @@ def host_app(pid):
 def graph():
     """프로젝트 → 세션 → 서브에이전트 DAG. 파일 변경은 그래프가 아니라 탐색기 패널(/api/session)로 본다."""
     nodes, edges = {}, set()
-    for s in json.loads(claude("agents", "--json", "--all") or "[]"):
+    for s in agents():
         sid, cwd = s["sessionId"], s["cwd"]
         if s.get("pid") and (app := host_app(s["pid"])):
             s["app"] = Path(app).stem
@@ -291,12 +582,40 @@ class H(BaseHTTPRequestHandler):
             return self.send((Path(__file__).parent / "index.html").read_bytes(), "text/html")
         if u.path == "/api/graph":
             return self.send(graph())
+        if u.path == "/api/sessions":  # ?status=closed|work|wait|idle (없으면 전체) &limit=
+            c = db()
+            c.row_factory = sqlite3.Row
+            st = q.get("status")
+            out = [dict(r) for r in c.execute(
+                "SELECT * FROM sessions WHERE status IS NOT NULL" + (" AND status = ?" if st else "")
+                + " ORDER BY coalesce(ended_at, last_seen) DESC LIMIT ?", (*([st] if st else []), int(q.get("limit", 50))))]
+            for s in out:
+                s["tasks"] = [dict(r) for r in c.execute(
+                    "SELECT seq, status, text FROM session_tasks WHERE sid = ? ORDER BY seq", (s["sid"],))]
+                s["files"] = [dict(r) for r in c.execute("SELECT * FROM session_files WHERE sid = ?", (s["sid"],))]
+            c.close()
+            return self.send(out)
+        if u.path == "/api/daily":
+            c = db()
+            rows = c.execute("SELECT day, tokens FROM daily WHERE day >= date('now', '-371 days')").fetchall()
+            c.close()
+            return self.send(dict(rows))
+        if u.path == "/api/metrics":
+            return self.send(metrics(float(q.get("hours", 24))))
+        if u.path == "/api/usage":
+            return self.send(usage())
         if u.path == "/api/mcp":
             return self.send(mcp_servers(q.get("refresh") == "1"))
         if u.path == "/api/feed":
             return self.send(feed())
         if u.path == "/api/session":
-            return self.send(session(q.get("sid", "")))
+            return self.send({**session(q.get("sid", "")), "tasks": saved_tasks(q.get("sid", ""))[0]})
+        if u.path == "/api/netdiff":
+            sid, p = q.get("sid", ""), q.get("path", "")
+            se = session(sid)
+            if p not in se["status"]:  # 세션이 편집한 파일만 (임의 파일 읽기 차단)
+                return self.send({"error": "not allowed"}, code=404)
+            return self.send(net_diff(sid, p, se["changes"], se["status"][p] == "A"))
         if u.path == "/api/file":
             # 세션(서브에이전트 포함)이 실제로 편집한 파일만 열람 허용 (임의 파일 읽기 차단)
             p = q.get("path", "")
@@ -331,5 +650,6 @@ class H(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"→ {ORIGIN}")
+    print(f"→ {ORIGIN} · 지표 DB: {DB}")
+    threading.Thread(target=record, daemon=True).start()
     ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()
