@@ -424,6 +424,20 @@ def token_rows(paths):
                 + u.get("output_tokens", 0)
 
 
+def usage5h(sid):
+    """최근 5시간 토큰: 이 세션(서브에이전트 포함)과 전체 대비 비율. 그 사이 바뀐 대화 기록만 읽는다."""
+    since = time.time() - 5 * 3600
+    cut = datetime.fromtimestamp(since, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")  # 기록의 timestamp 와 문자열 비교
+    mine = total = 0
+    for p in [*PROJECTS.glob("*/*.jsonl"), *PROJECTS.glob("*/*/subagents/agent-*.jsonl")]:
+        if p.stat().st_mtime < since:
+            continue
+        n = sum(t for ts, t in token_rows([p]) if ts >= cut)
+        total += n
+        mine += n if sid in (p.stem, p.parent.parent.name) else 0
+    return {"tokens": mine, "share": round(mine * 100 / total) if total else 0}
+
+
 def daily_tokens():
     """대화 기록 전체 → 날짜(로컬)별 토큰 합계 (283MB 기준 ~1초)."""
     days = {}
@@ -714,7 +728,8 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/feed":
             return self.send(feed())
         if u.path == "/api/session":
-            return self.send({**session(q.get("sid", "")), "tasks": saved_tasks(q.get("sid", ""))[0]})
+            return self.send({**session(q.get("sid", "")), "tasks": saved_tasks(q.get("sid", ""))[0],
+                              "usage5h": usage5h(q.get("sid", ""))})
         if u.path == "/api/netdiff":
             sid, p = q.get("sid", ""), q.get("path", "")
             se = session(sid)

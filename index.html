@@ -133,7 +133,7 @@ $('legend').innerHTML=LIVE.map(k=>GINFO[k]).map(([l,c])=>`<span><i class="dot" s
 const ctx=document.createElement('canvas').getContext('2d');ctx.font='12px system-ui';
 // 이름을 상자 안에 넣는다 — 연결선이 상자 테두리에 붙어 이름을 가로지르지 않는다
 const cy=cytoscape({container:$('cy'),wheelSensitivity:0.3,maxZoom:1,minZoom:0.3,style:[
-  {selector:'node',style:{shape:'round-rectangle',label:'data(short)',width:'data(w)',height:28,'font-size':12,color:'#fff',
+  {selector:'node',style:{shape:'round-rectangle',label:'data(short)',width:'data(w)',height:'data(h)','font-size':12,color:'#fff','text-wrap':'wrap','line-height':1.5,
     'text-valign':'center','text-halign':'center','background-color':e=>e.data('type')==='session'?GINFO[grp(e.data('status'))][1]:FILL[e.data('type')],'border-width':0}},
   {selector:'node[type="project"]',style:{'font-weight':'bold'}},
   {selector:'.faded',style:{opacity:0.12}},
@@ -152,7 +152,8 @@ async function load(){
   const ids=new Set(g.nodes.map(n=>n.id));g.edges=g.edges.filter(e=>ids.has(e.source)&&ids.has(e.target));
   const used=new Set(g.edges.map(e=>e.source));g.nodes=g.nodes.filter(n=>n.type!=='project'||used.has(n.id));
   g.nodes.forEach(n=>{const l=n.label||'';
-    n.short=l.length>26?l.slice(0,25)+'…':l;n.w=Math.ceil(ctx.measureText(n.short).width)+24});
+    n.short=l.length>26?l.slice(0,25)+'…':l;n.w=Math.ceil(ctx.measureText(n.short).width)+24;n.h=28;
+    if(big&&n.id===big.id)Object.assign(n,big)});
   renderStats(g);renderTable(g);
   const s=g.nodes.map(n=>n.id).sort().join()+'|'+g.edges.length;
   if(s===sig){g.nodes.forEach(n=>cy.getElementById(n.id).data(n));return} // 구조 그대로면 상태만 갱신
@@ -164,10 +165,16 @@ async function load(){
 }
 
 // ── 오른쪽 탐색기 ──
+let big=null;  // 고른 세션 노드를 펼친 모습 {id, short, w, h}
+function grow(id,lines){  // 노드를 키워 아래에 줄을 더한다. lines 가 없으면 원래대로
+  const n=cy.getElementById(big?.id||'');big=null;
+  if(n.length){const l=n.data('label')||'',sh=l.length>26?l.slice(0,25)+'…':l;n.data({short:sh,w:Math.ceil(ctx.measureText(sh).width)+24,h:28})}
+  if(lines){const t=lines.join('\n');big={id,short:t,w:Math.max(...lines.map(x=>ctx.measureText(x).width))+24,h:20+18*lines.length};cy.getElementById(id).data(big)}
+  cy.layout({name:'dagre',rankDir:'LR',nodeSep:14,rankSep:60}).run();fitBox(cy,420)}
 let cur=null; // {s: 세션 노드 데이터, changes, by}
 cy.on('tap','node',e=>{
   const d=e.target.data();
-  if(d.type==='project'){if(sameAgain(d.id))return;sideBox().innerHTML=`<h3>${esc(d.label)}</h3><p class="meta">${esc(tilde(d.id.slice(2)))} · 세션 ${e.target.outgoers('node').length}개</p>`;return}
+  if(d.type==='project'){if(big)grow();if(sameAgain(d.id))return;sideBox().innerHTML=`<h3>${esc(d.label)}</h3><p class="meta">${esc(tilde(d.id.slice(2)))} · 세션 ${e.target.outgoers('node').length}개</p>`;return}
   openSession(d.type==='agent'?d.sid:d.sessionId,d.type==='agent'?d.label:null);
 });
 async function openSession(sid,agent,keepOpen){  // keepOpen: 이미 열려 있어도 닫지 않는다 (더보기)
@@ -176,6 +183,8 @@ async function openSession(sid,agent,keepOpen){  // keepOpen: 이미 열려 있�
   cy.$(':selected').unselect();cy.getElementById('s:'+sid).select();
   const r=await (await fetch('/api/session?sid='+encodeURIComponent(sid))).json();
   cur={s,changes:agent?r.changes.filter(c=>c.by===agent):r.changes,overview:r.overview,proc:r.proc,home:r.home,status:r.status||{},tasks:r.tasks||[],agent};
+  const u=r.usage5h||{};
+  grow('s:'+sid,[s.label,'🖥 '+(s.kind==='background'?'백그라운드':s.app||'?'),'📁 '+tilde(s.cwd),`⏱ 5시간 ${fmtTok(u.tokens)} 토큰 · 전체의 ${u.share||0}%`]);
   renderSide();if(innerWidth<=900)$('side').scrollIntoView({behavior:'smooth'});
 }
 let statF='';  // 숫자 타일로 고른 상태 ('' = 전체)
@@ -338,7 +347,7 @@ const fitGraphs=()=>requestAnimationFrame(()=>{fitBox(cy,420);if(mcy)fitBox(mcy,
 function sideBox(){if($('main').classList.contains('noside')){$('main').classList.remove('noside');fitGraphs()}return $('sidec')}
 let sideKey=null;  // 지금 패널에 열린 대상 — 같은 것을 다시 누르면 닫는다
 function sameAgain(k){if(sideKey===k&&!$('main').classList.contains('noside')){sideClose();return true}sideKey=k;return false}
-function sideClose(){sideKey=null;if(!$('main').classList.contains('noside')){$('main').classList.add('noside');fitGraphs()}
+function sideClose(){sideKey=null;if(big)grow();if(!$('main').classList.contains('noside')){$('main').classList.add('noside');fitGraphs()}
   cy.$(':selected').unselect();mcy?.$(':selected').unselect()}
 $('sideX').onclick=sideClose;
 // 패널 폭: 손잡이를 끌어 300px ~ 화면 80% 사이로. 이 브라우저에만 기억한다
