@@ -175,7 +175,7 @@ async function load(){
     if(n.type==='session')Object.assign(n,{w:NW,h:NH,big:1})});  // 세션은 늘 카드로
   renderStats(g);renderTable(g);
   const s=g.nodes.map(n=>n.id).sort().join()+'|'+g.edges.length;
-  if(s===sig){g.nodes.forEach(n=>cy.getElementById(n.id).data(n));return} // 구조 그대로면 상태만 갱신
+  if(s===sig){g.nodes.forEach(n=>cy.getElementById(n.id).data(n));renderCards();return} // 구조 그대로면 상태만 갱신 (카드는 바뀐 데이터로 다시)
   sig=s;cy.elements().remove();
   cy.add([...g.nodes.map(d=>({data:d})),...g.edges.map(e=>({data:{id:e.source+'>'+e.target,...e}}))]);
   cy.layout({name:'dagre',rankDir:'LR',nodeSep:14,rankSep:60}).run();
