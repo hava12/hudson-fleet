@@ -4,6 +4,51 @@
 
 살아 있는 세션의 상태, 서브에이전트, 작업 내용, 연결된 MCP 서버를 봅니다.
 
+## 아키텍처
+
+세션마다 뜨는 MCP 서버와 하나만 뜨는 대시보드 서버가 SQLite 파일 하나로 이어집니다. 둘은 HTTP 로 통신하지 않습니다.
+
+```mermaid
+flowchart TB
+  subgraph CC["Claude Code 세션 · 세션마다 하나"]
+    claude["claude 프로세스"]
+    hook["SessionStart 훅<br/>hooks/start.sh"]
+    mcp["mcp_server.py<br/>작업 기록 MCP · stdio<br/>표준 라이브러리만"]
+  end
+  subgraph WEB["대시보드 서버 · 하나만 · 127.0.0.1:8765"]
+    serve["hooks/serve.sh<br/>venv 의존성 설치"]
+    rec["fleet/recorder.py<br/>1분 주기 기록"]
+    web["fleet/web.py<br/>HTTP API"]
+  end
+  subgraph USER["사용자"]
+    browser["브라우저<br/>index.html"]
+    gh["GitHub<br/>커밋 · 비교 페이지"]
+  end
+  subgraph DATA["읽고 쓰는 곳"]
+    db[("SQLite<br/>metrics.db")]
+    files[("~/.claude<br/>projects/*.jsonl<br/>sessions/PID.json")]
+    cli["claude CLI<br/>agents · /usage · mcp list · haiku 정리"]
+    git["git log<br/>push 한 저장소"]
+  end
+
+  claude -- "세션 시작" --> hook
+  claude -- "띄움" --> mcp
+  hook -- "포트가 비어 있으면" --> serve
+  serve --> web
+  serve --> rec
+  web ~~~ rec
+  browser -- "/api/* 5초마다" --> web
+  browser -. "링크" .-> gh
+  mcp -- "task_start · task_update" --> db
+  mcp -. "부모 PID 로 세션 찾기" .-> files
+  rec -- "세션 상태 · 지표 · 마감" --> db
+  rec --> cli
+  web --> db
+  web -- "대화 기록" --> files
+  web --> cli
+  web -- "push 커밋 목록" --> git
+```
+
 ## 설치 (Claude Code 플러그인)
 
 ```
