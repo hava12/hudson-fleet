@@ -27,10 +27,10 @@ Claude Code 2.1.275 이전이면 두 단계로 설치합니다.
 ## 직접 실행
 
 ```sh
-python3 server.py   # → http://127.0.0.1:8765
+hooks/serve.sh      # → http://127.0.0.1:8765 (requirements.txt 가 비어 있으면 python3 server.py 와 같다)
 ```
 
-- Python 3.9 이상, 표준 라이브러리만 씁니다.
+- Python 3.9 이상. MCP 서버는 표준 라이브러리만, 웹 서버는 `requirements.txt` 의 의존성을 더 쓸 수 있습니다 (아래 "의존성").
 - `claude` CLI가 PATH에 있어야 합니다.
 - 그래프 라이브러리(cytoscape, dagre)는 CDN에서 받으므로 인터넷 연결이 필요합니다.
 
@@ -83,6 +83,7 @@ python3 server.py   # → http://127.0.0.1:8765
 | `HUDSON_FLEET_SUMMARY_MODEL` | `haiku` | 작업 정리에 쓰는 모델 |
 | `HUDSON_FLEET_RETENTION_DAYS` | `0` | 1분 지표(samples) 보관 일수. `0` 이면 지우지 않음 |
 | `HUDSON_FLEET_TERMINAL` | `Ghostty` | 끝난 세션을 다시 열 터미널 앱: `Ghostty` 또는 `Terminal` |
+| `HUDSON_FLEET_VENV` | `~/.local/share/hudson-fleet/venv` | 웹 서버 의존성을 설치할 venv 위치 (`hooks/serve.sh` 만 읽음) |
 
 ## 데이터
 
@@ -95,6 +96,25 @@ SQLite 파일 하나에 저장합니다 (`HUDSON_FLEET_DB`).
 | `task_events` | 작업마다 시작·완료·중단·반려·삭제 이력 (추가만) |
 | `samples` | 1분마다 상태별 세션 수, 서브에이전트 수, 5시간·1주일 사용률 |
 | `daily` | 날짜별 토큰 합계 (캐시 읽기 제외) |
+
+## 의존성
+
+MCP 서버와 웹 서버는 뜨는 방식이 달라 의존성 규칙도 다릅니다.
+
+| | MCP 서버 (`mcp_server.py`) | 웹 서버 (`server.py`) |
+|---|---|---|
+| 몇 개 뜨나 | 세션마다 하나 | 하나 (훅이 포트를 보고 없을 때만 띄움) |
+| Python | 시스템 `python3` | `requirements.txt` 에 패키지가 있으면 venv, 없으면 시스템 `python3` |
+| 의존성 | **표준 라이브러리만** | `requirements.txt` 에 적은 것 |
+
+- 시스템 Python(Homebrew 등)은 `pip install` 을 막습니다 (`externally-managed-environment`). 그래서 웹 서버 의존성은 venv 에 설치합니다.
+- `hooks/serve.sh` 가 `requirements.txt` 의 내용 해시를 venv 에 적어 두고, 바뀌었을 때만 다시 설치합니다. 설치가 실패하면 서버를 띄우지 않고 `~/.local/share/hudson-fleet/server.log` 에 남깁니다.
+- 설치는 세션 시작 훅(10초 제한) 밖에서 백그라운드로 돕니다. 처음 한 번은 서버가 늦게 뜰 수 있습니다.
+- `mcp_server.py` 가 가져오는 `fleet/tasks.py`·`db.py`·`config.py`·`transcripts.py` 에는 의존성을 넣지 않습니다. 확인 명령 (site-packages 없이 import):
+
+```sh
+python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
+```
 
 ## 코드 구조
 
