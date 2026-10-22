@@ -21,11 +21,16 @@ main{display:grid;grid-template-columns:1fr var(--sidew,minmax(360px,38%));heigh
 h2{font-size:13px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02em}
 .sh{display:flex;align-items:center;gap:6px 12px;margin-bottom:12px;flex-wrap:wrap}.sh h2{white-space:nowrap}
 #cy{height:160px;border-radius:8px;background:var(--soft);position:relative}
+.ncard.work::before{content:'';position:absolute;top:-3px;left:-1px;right:-1px;height:3px;border-radius:10px 10px 0 0;overflow:hidden;  /* 작업 중: 위쪽 띠에 빛이 오른쪽으로 흐른다 */
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent) no-repeat;background-size:40% 100%;animation:flow 1.4s linear infinite}
+@keyframes flow{from{background-position:-70% 0}to{background-position:170% 0}}
+@media (prefers-reduced-motion:reduce){.ncard.work::before{animation:none}}
+.ncard.on{box-shadow:0 0 0 2px var(--c),0 6px 20px rgba(0,0,0,.25)}.ncard.faded{opacity:.15}
 .ncard{position:absolute;transform-origin:0 0;pointer-events:none;z-index:5;box-sizing:border-box;background:var(--card);border:1px solid var(--line);
-  border-top:3px solid var(--c);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:10px 12px;font-size:12px;overflow:hidden}
+  border-top:3px solid var(--c);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:10px 12px;font-size:12px}
 .ncard b{display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px;white-space:nowrap}
 .ncard dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0}.ncard dt{color:var(--mute)}
-.ncard dd{margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ncard dd{min-width:0;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ncard .bar{display:inline-block;width:60px;height:5px;border-radius:3px;background:var(--soft);vertical-align:middle;margin-right:6px;overflow:hidden}
 .ncard .bar i{display:block;height:100%;background:var(--c)}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:10px}
@@ -151,7 +156,7 @@ const cy=cytoscape({container:$('cy'),wheelSensitivity:0.3,maxZoom:1,minZoom:0.3
   {selector:'node[?big]',style:{'overlay-opacity':0}}]});
 // 그래프 영역 높이를 내용에 맞춘다. 확대는 1배까지 — 노드가 적을 때 글씨가 커지지 않게
 function fitBox(c,max){const el=c.container(),h=c.elements().boundingBox().h;
-  el.style.height=Math.min(Math.max(h+48,120),max)+'px';c.resize();c.fit(undefined,24)}
+  el.style.height=Math.min(Math.max(h+48,220),max)+'px';c.resize();c.fit(undefined,24)}
 let sig='';
 async function load(){
   const g=G=await (await fetch('/api/graph')).json();
@@ -162,34 +167,45 @@ async function load(){
   const used=new Set(g.edges.map(e=>e.source));g.nodes=g.nodes.filter(n=>n.type!=='project'||used.has(n.id));
   g.nodes.forEach(n=>{const l=n.label||'';
     n.short=l.length>26?l.slice(0,25)+'…':l;n.w=Math.ceil(ctx.measureText(n.short).width)+24;n.h=28;
-    if(big&&n.id===big.id)Object.assign(n,big)});
+    if(n.type==='session')Object.assign(n,{w:NW,h:NH,big:1})});  // 세션은 늘 카드로
   renderStats(g);renderTable(g);
   const s=g.nodes.map(n=>n.id).sort().join()+'|'+g.edges.length;
   if(s===sig){g.nodes.forEach(n=>cy.getElementById(n.id).data(n));return} // 구조 그대로면 상태만 갱신
   sig=s;cy.elements().remove();
   cy.add([...g.nodes.map(d=>({data:d})),...g.edges.map(e=>({data:{id:e.source+'>'+e.target,...e}}))]);
   cy.layout({name:'dagre',rankDir:'LR',nodeSep:14,rankSep:60}).run();
-  fitBox(cy,420);
+  fitBox(cy,600);
   renderTable(g);
 }
 
 // ── 오른쪽 탐색기 ──
-let big=null;  // 고른 세션 노드를 카드로 펼친 모습 {id, w, h, big, html}
+// 세션 노드는 자리만 카드 크기로 잡고, 그 위에 HTML 카드를 겹친다 (노드 이름표로는 줄마다 모양을 줄 수 없다)
 const NW=260,NH=112;  // 카드 크기 (그래프 좌표)
-function grow(id,html,col){  // 노드 자리를 카드 크기로 넓히고 그 위에 HTML 카드를 겹친다. html 이 없으면 원래대로
-  const n=cy.getElementById(big?.id||'');big=null;$('ncard')?.remove();
-  if(n.length){const l=n.data('label')||'',sh=l.length>26?l.slice(0,25)+'…':l;n.data({short:sh,w:Math.ceil(ctx.measureText(sh).width)+24,h:28,big:0})}
-  if(html){big={id,w:NW,h:NH,big:1};cy.getElementById(id).data(big);
-    const c=document.createElement('div');c.id='ncard';c.className='ncard';c.style.setProperty('--c',col);c.innerHTML=html;$('cy').appendChild(c)}
-  cy.layout({name:'dagre',rankDir:'LR',nodeSep:14,rankSep:60}).run();fitBox(cy,420);place()}
-function place(){const c=$('ncard'),n=big&&cy.getElementById(big.id);if(!c||!n?.length)return;  // 이동·확대에 맞춰 카드 위치 갱신
-  const b=n.renderedBoundingBox({includeLabels:false,includeOverlays:false});
-  Object.assign(c.style,{left:b.x1+'px',top:b.y1+'px',width:NW+'px',height:NH+'px',transform:`scale(${cy.zoom()})`})}
+let U5={};  // 세션별 5시간 사용량 (/api/usage5h, 1분마다)
+async function loadU5(){U5=await (await fetch('/api/usage5h')).json();renderCards()}
+function renderCards(){
+  let lay=$('cards');if(!lay){lay=document.createElement('div');lay.id='cards';$('cy').appendChild(lay)}
+  const h=cy.nodes('[type="session"]').map(e=>{const n=e.data(),u=U5[n.sessionId]||{},col=GINFO[grp(n.status)][1];
+    return `<div class="ncard ${grp(n.status)}${sideKey==='s:'+n.sessionId?' on':''}${e.hasClass('faded')?' faded':''}" data-id="${esc(n.id)}" style="--c:${col}">
+    <b><i class="dot" style="background:${col}"></i>${esc(n.label)}</b><dl>
+    <dt>실행 앱</dt><dd>${esc(n.kind==='background'?'백그라운드':n.app||'?')}</dd>
+    <dt>실행 위치</dt><dd title="${esc(n.cwd)}">${esc(tilde(n.cwd))}</dd>
+    <dt>5시간 사용량</dt><dd><span class="bar"><i style="width:${Math.min(u.pct||0,100)}%"></i></span>${u.pct==null?'?':u.pct+'%'} <span class="meta">· ${fmtTok(u.tokens)} 토큰</span></dd></dl></div>`}).join('');
+  if(lay._h!==h){lay.innerHTML=h;lay._h=h}  // 그대로면 두어서 애니메이션이 끊기지 않게
+  place()}
+function place(){  // 이동·확대에 맞춰 카드 위치 갱신
+  for(const c of $('cards')?.children||[]){const n=cy.getElementById(c.dataset.id);if(!n.length)continue;
+    const b=n.renderedBoundingBox({includeLabels:false,includeOverlays:false});
+    Object.assign(c.style,{left:b.x1+'px',top:b.y1+'px',width:NW+'px',height:NH+'px',transform:`scale(${cy.zoom()})`})}}
 cy.on('render',place);
+let dash=0;(function flowEdges(){dash=(dash-0.5)%16;  // 작업 중 세션으로 들어가는 선이 오른쪽으로 흐른다
+  if(!matchMedia('(prefers-reduced-motion:reduce)').matches)cy.edges().filter(e=>grp(e.target().data('status'))==='work'&&e.target().data('type')==='session')
+    .style({'line-style':'dashed','line-dash-pattern':[6,4],'line-dash-offset':dash,'line-color':GINFO.work[1],'target-arrow-color':GINFO.work[1]});
+  requestAnimationFrame(flowEdges)})();
 let cur=null; // {s: 세션 노드 데이터, changes, by}
 cy.on('tap','node',e=>{
   const d=e.target.data();
-  if(d.type==='project'){if(big)grow();if(sameAgain(d.id))return;sideBox().innerHTML=`<h3>${esc(d.label)}</h3><p class="meta">${esc(tilde(d.id.slice(2)))} · 세션 ${e.target.outgoers('node').length}개</p>`;return}
+  if(d.type==='project'){if(sameAgain(d.id))return;sideBox().innerHTML=`<h3>${esc(d.label)}</h3><p class="meta">${esc(tilde(d.id.slice(2)))} · 세션 ${e.target.outgoers('node').length}개</p>`;return}
   openSession(d.type==='agent'?d.sid:d.sessionId,d.type==='agent'?d.label:null);
 });
 async function openSession(sid,agent,keepOpen){  // keepOpen: 이미 열려 있어도 닫지 않는다 (더보기)
@@ -198,12 +214,7 @@ async function openSession(sid,agent,keepOpen){  // keepOpen: 이미 열려 있�
   cy.$(':selected').unselect();cy.getElementById('s:'+sid).select();
   const r=await (await fetch('/api/session?sid='+encodeURIComponent(sid))).json();
   cur={s,changes:agent?r.changes.filter(c=>c.by===agent):r.changes,overview:r.overview,proc:r.proc,home:r.home,status:r.status||{},tasks:r.tasks||[],agent};
-  const u=r.usage5h||{};
-  const col=GINFO[grp(s.status)][1];
-  grow('s:'+sid,`<div><b><i class="dot" style="background:${col}"></i>${esc(s.label)}</b><dl>
-    <dt>실행 앱</dt><dd>${esc(s.kind==='background'?'백그라운드':s.app||'?')}</dd>
-    <dt>실행 위치</dt><dd title="${esc(s.cwd)}">${esc(tilde(s.cwd))}</dd>
-    <dt>5시간 사용량</dt><dd><span class="bar"><i style="width:${Math.min(u.pct||0,100)}%"></i></span>${u.pct==null?'?':u.pct+'%'} <span class="meta">· ${fmtTok(u.tokens)} 토큰</span></dd></dl></div>`,col);
+  renderCards();
   renderSide();if(innerWidth<=900)$('side').scrollIntoView({behavior:'smooth'});
 }
 let statF='';  // 숫자 타일로 고른 상태 ('' = 전체)
@@ -235,6 +246,7 @@ function renderTable(g){  // 남은 일 한 줄씩: [세션] - 할 일. 숫자 �
   cy.elements().removeClass('faded');
   if(statF){const on=cy.nodes('[type="session"]').filter(n=>pick(n.data()));
     cy.elements().not(on.union(on.successors()).union(on.predecessors())).addClass('faded')}
+  renderCards();
 }
 async function loadFeed(){
   const ps=await (await fetch('/api/feed')).json();
@@ -362,11 +374,11 @@ function stopSession(d){if(d&&confirm(`"${d.label}" 세션을 종료할까요?\n
 async function doAct(act,sid){const r=await post('/api/'+act,{sid});$('msg').textContent=r.text||r.error;load()}
 async function post(p,b){return (await fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json()}
 // ── 오른쪽 패널: 고른 것이 있을 때만 연다 ──
-const fitGraphs=()=>requestAnimationFrame(()=>{fitBox(cy,420);if(mcy)fitBox(mcy,640)});  // 그리드 폭이 바뀌면 캔버스 크기를 다시 잰다
+const fitGraphs=()=>requestAnimationFrame(()=>{fitBox(cy,600);if(mcy)fitBox(mcy,640)});  // 그리드 폭이 바뀌면 캔버스 크기를 다시 잰다
 function sideBox(){if($('main').classList.contains('noside')){$('main').classList.remove('noside');fitGraphs()}return $('sidec')}
 let sideKey=null;  // 지금 패널에 열린 대상 — 같은 것을 다시 누르면 닫는다
 function sameAgain(k){if(sideKey===k&&!$('main').classList.contains('noside')){sideClose();return true}sideKey=k;return false}
-function sideClose(){sideKey=null;if(big)grow();if(!$('main').classList.contains('noside')){$('main').classList.add('noside');fitGraphs()}
+function sideClose(){sideKey=null;renderCards();if(!$('main').classList.contains('noside')){$('main').classList.add('noside');fitGraphs()}
   cy.$(':selected').unselect();mcy?.$(':selected').unselect()}
 $('sideX').onclick=sideClose;
 // 패널 폭: 손잡이를 끌어 300px ~ 화면 80% 사이로. 이 브라우저에만 기억한다
@@ -466,10 +478,10 @@ function route(){
   if(pg==='mcp'&&!mcy)loadMcp();
   if(pg==='history')loadHistory();
   if(pg==='settings')loadConfig();
-  if(pg==='home')fitBox(cy,420);  // 숨겨진 채로 그려졌을 수 있다
+  if(pg==='home')fitBox(cy,600);  // 숨겨진 채로 그려졌을 수 있다
 }
 addEventListener('hashchange',route);
 load().catch(()=>{}).finally(route);setInterval(load,5000);  // 홈 경로(~ 표시용)를 먼저 받고 페이지를 그린다
 const keep=(fn,ms)=>{const run=()=>fn().then(()=>setTimeout(run,ms),()=>setTimeout(run,3000));run()};  // 실패하면 3초 뒤 다시
-keep(loadFeed,60000);keep(loadTodo,10000);keep(loadUsage,60000);
+keep(loadFeed,60000);keep(loadTodo,10000);keep(loadU5,60000);keep(loadUsage,60000);
 </script></body></html>
