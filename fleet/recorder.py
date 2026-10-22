@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from .agents import graph
 from .config import CFG, DEAD, now_iso
 from .db import db
-from .files import net_diff, session
 from .tasks import summarize
 from .transcripts import overview, subagents, token_rows, transcript
 from .usage import daily_tokens, usage
@@ -18,7 +17,7 @@ STATE = {"busy": "work", "running": "work", "blocked": "wait", "waiting": "wait"
 
 
 def archive(n, status):
-    """끝난 세션을 sessions 에 status=closed 로 마감하고 session_files(N) 를 남긴다.
+    """끝난 세션을 sessions 에 status=closed 로 마감한다.
     기록할 작업(session_tasks)은 summarize 로 채운다 — 저장본이 최신이면 haiku 를 다시 부르지 않는다."""
     sid = n["sessionId"]
     path = transcript(sid)
@@ -32,15 +31,7 @@ def archive(n, status):
             reason = "switched"  # 프로세스는 살아 있고 세션만 바뀜 (/clear·/resume)
         except OSError:
             reason = "exited"  # 직접 종료·창 닫기·크래시 — 여기서는 구분 못 한다
-    se, ov = session(sid), overview(path)
-    files = {}
-    for e in se["changes"]:
-        files.setdefault(e["file"], []).append(e)
-    rows = []
-    for f, evs in files.items():
-        d = (net_diff(sid, f, se["changes"], se["status"][f] == "A").get("diff") or "").splitlines()[2:]
-        rows.append((sid, f, se["status"][f], len(evs), evs[0]["ts"], evs[-1]["ts"],
-                     sum(x.startswith("+") for x in d), sum(x.startswith("-") for x in d)))
+    ov = overview(path)
     tokens = sum(t for _, t in token_rows([path, *(p for *_, p in subagents(sid))]))
     if CFG["HUDSON_FLEET_AUTO_SUMMARY"] != "0":
         summarize(sid)
@@ -53,8 +44,6 @@ def archive(n, status):
               (sid, n.get("label"), n["cwd"], n["kind"], n.get("app"), ov["first"]))
     c.execute("UPDATE sessions SET title=?, status='closed', status_since=?, ended_at=?, end_reason=?, tokens=?"
               " WHERE sid=?", (ov["title"], now_iso(), ov["last"], reason, tokens, sid))
-    c.execute("DELETE FROM session_files WHERE sid = ?", (sid,))
-    c.executemany("INSERT INTO session_files VALUES (?,?,?,?,?,?,?,?)", rows)
     c.commit()
     c.close()
 

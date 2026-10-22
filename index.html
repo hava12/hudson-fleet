@@ -4,8 +4,6 @@
 <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.2/dist/cytoscape.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/css/diff2html.min.css">
-<script src="https://cdn.jsdelivr.net/npm/diff2html@3.4.48/bundles/js/diff2html-ui-base.min.js"></script>
 <style>
 :root{--warn:#b45309;--add:#067d17;--mod:#0032a0;--del:#6c707e;--bg:#f6f7f9;--fg:#0f172a;--mute:#64748b;--line:#e2e8f0;--card:#fff;--acc:#2563eb;--soft:#f1f5f9}
 @media (prefers-color-scheme:dark){:root{--warn:#fbbf24;--add:#629755;--mod:#6897bb;--del:#868a91;--bg:#0b1120;--fg:#e2e8f0;--mute:#94a3b8;--line:#1e293b;--card:#111827;--acc:#60a5fa;--soft:#1e293b}}
@@ -58,23 +56,10 @@ a.lk{color:var(--fg);font-weight:600;cursor:pointer;text-decoration:none}a.lk:ho
 /* 왼쪽 가장자리를 끌어 폭 조절 — 패널은 스크롤하지 않고 안쪽(#sidec)만 스크롤해 손잡이가 제자리에 있다 */
 #sideH{position:absolute;left:0;top:0;bottom:0;width:6px;cursor:col-resize;z-index:3}#sideH:hover,#sideH.on{background:var(--acc);opacity:.4}
 main.noside{grid-template-columns:1fr}main.noside #side{display:none}#sideX{position:absolute;top:14px;right:14px}
-h3{margin:0 0 4px;font-size:15px;word-break:break-all}h4{margin:16px 0 6px;font-size:14px;font-weight:600;color:var(--fg)}#hh{font-size:13px;color:var(--mute)}
+h3{margin:0 0 4px;font-size:15px;word-break:break-all}h4{margin:16px 0 6px;font-size:14px;font-weight:600;color:var(--fg)}
 .meta{color:var(--mute);font-size:12px;word-break:break-all}
 pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:10px;margin:0;font-size:12px;max-height:50vh;overflow:auto}
 details>summary{cursor:pointer}
-#tree{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 0;font-size:13px}
-#tree details{padding-left:14px}#tree>details{padding-left:6px}#tree summary{padding:1px 0;color:var(--mute)}
-.f{display:flex;gap:8px;padding:2px 8px 2px 20px;cursor:pointer;border-radius:4px}.f:hover{background:var(--soft)}.f.on{background:var(--soft);font-weight:600}
-.f .nm{flex:1;word-break:break-all}
-/* A(생성)·M(수정)·D(삭제) — 색은 IntelliJ VCS 파일 상태 색 */
-.st{font:700 11px ui-monospace,monospace;min-width:12px;text-align:center}
-.st-A{--c:var(--add)}.st-M{--c:var(--mod)}.st-D{--c:var(--del)}.st,.f .nm.st-A,.f .nm.st-M,.f .nm.st-D{color:var(--c)}
-.f .nm.st-D{text-decoration:line-through}.f .t{color:var(--mute);font-size:11px;white-space:nowrap}
-.ev{border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--card)}
-.ev>summary{padding:6px 10px;font-size:12px;display:flex;gap:8px;flex-wrap:wrap}
-.ev .d2h-wrapper{border-top:1px solid var(--line);font-size:12px}.ev .d2h-file-wrapper{margin:0;border:0;border-radius:0 0 8px 8px}
-.ev .d2h-file-header{display:none}
-.ev .d2h-wrapper{line-height:1.4}
 .tag{padding:0 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute);font-size:12px}
 #menu{position:fixed;display:none;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #0003;padding:4px;z-index:9}
 #menu div{padding:6px 12px;border-radius:4px;cursor:pointer}#menu div:hover{background:var(--soft)}
@@ -217,7 +202,7 @@ cy.on('pan zoom resize position layoutstop',place);  // 화면이 움직일 때�
 let dash=0;if(!matchMedia('(prefers-reduced-motion:reduce)').matches)setInterval(()=>{
   const f=cy.edges('.flow');if(!f.length||document.hidden||$('pg-home').hidden)return;
   dash=(dash-2)%20;f.style('line-dash-offset',dash)},83);
-let cur=null; // {s: 세션 노드 데이터, changes, by}
+let cur=null; // {s: 세션 노드 데이터, overview, proc, tasks, agent}
 cy.on('tap','node',e=>{
   const d=e.target.data();
   if(d.type==='project'){if(sameAgain(d.id))return;sideBox().innerHTML=`<h3>${esc(d.label)}</h3><p class="meta">${esc(tilde(d.id.slice(2)))} · 세션 ${e.target.outgoers('node').length}개</p>`;return}
@@ -229,7 +214,7 @@ async function openSession(sid,agent,keepOpen){  // keepOpen: 이미 열려 있�
   cy.$(':selected').unselect();cy.getElementById('s:'+sid).select();renderCards();
   sideBox().innerHTML=`<h3>${esc(agent?'🔷 '+agent:s.label)}</h3><div class="meta">불러오는 중…</div>`;  // 패널은 바로 열고 내용은 받아 오는 대로
   const r=await (await fetch('/api/session?sid='+encodeURIComponent(sid))).json();
-  cur={s,changes:agent?r.changes.filter(c=>c.by===agent):r.changes,overview:r.overview,proc:r.proc,home:r.home,status:r.status||{},tasks:r.tasks||[],agent};
+  cur={s,overview:r.overview,proc:r.proc,tasks:r.tasks||[],agent};
   renderSide();if(innerWidth<=900)$('side').scrollIntoView({behavior:'smooth'});
 }
 let statF='';  // 숫자 타일로 고른 상태 ('' = 전체)
@@ -271,7 +256,7 @@ async function loadFeed(){
     <div class="ttl">${esc(p.title||p.name||p.sid.slice(0,8))}</div>
     <div class="meta">${esc(tilde(p.cwd))}</div>
     ${p.tasks.length?taskList(p.tasks,3,p.sid):'<div class="body meta">정리된 작업 없음</div>'}
-    <div class="pf">${p.tasks.length?`<span class="tag">${taskSum(p.tasks)}</span>`:''}<span class="tag">파일 ${p.files} · ${p.edits}회</span>
+    <div class="pf">${p.tasks.length?`<span class="tag">${taskSum(p.tasks)}</span>`:''}
       <span style="margin-left:auto"></span>      <button class="sm" data-act="sum" data-sid="${esc(p.sid)}">${p.tasks.length?(p.stale?'다시 정리':'정리됨'):'작업 정리'}</button></div>
   </article>`).join('')||'<div class="meta">작업 현황이 없습니다</div>';
 }
@@ -290,8 +275,6 @@ $('dash').addEventListener('click',async e=>{
 });
 function renderSide(){
   const {s,agent,proc}=cur,ov=cur.overview||{};
-  const changes=cur.changes;
-  const files={};changes.forEach(c=>(files[c.file]??=[]).push(c));
   sideBox().innerHTML=`<h3>${esc(agent?'🔷 '+agent:s.label)}</h3>
     <div class="meta">${pill(s.status)} ${esc(s.kind==='background'?'백그라운드':s.app||'?')} · ${when(s.startedAt)} 시작 · ${esc(tilde(s.cwd))}</div>
     <div style="display:flex;gap:6px;margin-top:6px">${s.kind==='background'?'<button class="sm" id="logs">로그</button>':''}<button class="sm danger" data-act="stop" data-sid="${esc(s.sessionId)}">종료하기</button></div>
@@ -301,13 +284,7 @@ function renderSide(){
       <div><b>${esc(ov.title||'(제목 없음)')}</b> <button class="sm" data-title="${esc(s.sessionId)}" title="대시보드에서만 쓰는 제목으로 바꿉니다">제목 바꾸기</button></div>
       <div class="meta">${when(ov.first)} → ${when(ov.last)}</div>
       <details id="taskbox" ${taskOpen?'open':''}><summary><h4 style="display:inline-block;font-size:13px">기록할 작업 · ${cur.tasks.length}건</h4></summary><div id="tflt" class="tflt"></div><div id="aitext"></div>
-      <div style="margin-top:6px"><button class="sm" id="aisum">${cur.tasks.length?'다시 정리':'작업 정리'}</button> <span class="meta">haiku · 토큰 사용 · 기록이 그대로면 저장본 재사용</span></div></details></details>`}
-    <details id="chgbox" ${chgOpen?'open':''}><summary><h4 style="display:inline-block">변경 내역 · 파일 ${Object.keys(files).length}개 · ${changes.length}회</h4></summary>
-      <div class="meta" style="margin-bottom:8px"><b class="st st-A">A</b> 생성 <b class="st st-M">M</b> 수정 <b class="st st-D">D</b> 삭제</div>
-      <div id="tree">${tree(files,cur.home)}</div>
-      <h4 id="hh"></h4><div id="hbar" style="display:flex;gap:6px;margin-bottom:8px"></div><div id="hist" class="meta"></div>
-    </details>`;
-  $('chgbox').ontoggle=e=>chgOpen=e.target.open;  // 세션·날짜를 바꿔도 열림/닫힘 상태 유지
+      <div style="margin-top:6px"><button class="sm" id="aisum">${cur.tasks.length?'다시 정리':'작업 정리'}</button> <span class="meta">haiku · 토큰 사용 · 기록이 그대로면 저장본 재사용</span></div></details></details>`}`;
   if($('sumbox'))$('sumbox').ontoggle=e=>{if(e.target===$('sumbox'))sumOpen=e.target.open};  // 안쪽 접기의 이벤트는 따로
   if($('taskbox'))$('taskbox').ontoggle=e=>{e.stopPropagation();taskOpen=e.target.open};
   if($('aitext')){drawTasks();$('tflt').onclick=e=>{const b=e.target.closest('[data-f]');if(b){const k=b.dataset.f;k?taskF.has(k)?taskF.delete(k):taskF.add(k):taskF.clear();drawTasks()}}}
@@ -327,27 +304,8 @@ function renderSide(){
     b.disabled=false;b.textContent=r.cached?'정리됨 (저장본)':'다시 정리'};
   if($('logs'))$('logs').onclick=async()=>{$('lg').style.display='block';$('lg').textContent='불러오는 중…';
     $('lg').textContent=(await (await fetch('/api/logs?id='+encodeURIComponent(s.bgId))).json()).text};
-  document.querySelectorAll('.f').forEach(el=>el.onclick=()=>{
-    const wasOn=el.classList.contains('on');  // 고른 파일을 다시 누르면 선택 해제 → 전체 이력
-    document.querySelectorAll('.f.on').forEach(x=>x.classList.remove('on'));
-    if(wasOn)return history(null,changes);
-    el.classList.add('on');history(el.dataset.p,files[el.dataset.p])});
-  history(null,changes);
 }
-function tree(files,home){ // 홈(~) 기준 전체 경로 → 중첩 객체 → <details> 폴더 트리
-  const root={};
-  for(const f in files){const rel=f.startsWith(home+'/')?'~'+f.slice(home.length):f;let n=root;
-    const parts=rel.split('/');if(parts[0]==='')parts[0]='/';  // 홈 밖 파일은 / 부터
-    parts.forEach((p,i)=>{if(i===parts.length-1)(n.__f??=[]).push([p,f]);else n=n[p]??={}})}
-  // 하위 폴더 하나뿐인 폴더는 한 줄로 합친다 (~ › Project › x → ~/Project/x)
-  const squash=(k,n)=>{for(let ks;!n.__f&&(ks=Object.keys(n)).length===1;n=n[ks[0]])k=(k==='/'?'':k)+'/'+ks[0];return [k,n]};
-  const render=n=>Object.keys(n).filter(k=>k!=='__f').sort().map(k0=>{const [k,c]=squash(k0,n[k0]);
-    return `<details open><summary title="${esc(k)}">📁 ${esc(k)}</summary>${render(c)}</details>`}).join('')
-    +(n.__f||[]).sort().map(([p,f])=>{const ev=files[f],lastTs=ev[ev.length-1].ts;
-      return `<div class="f" data-p="${esc(f)}"><span class="nm st-${cur.status[f]||'M'}">📄 ${esc(p)}</span><b class="st st-${cur.status[f]||'M'}">${cur.status[f]||'M'}</b><span class="t">${ev.length}회 · ${when(lastTs)}</span></div>`}).join('');
-  return render(root)||'<div class="meta" style="padding:4px 10px">변경한 파일 없음</div>';
-}
-let diffFormat='line-by-line',chgOpen=true,sumOpen=true,taskOpen=true,taskF=new Set();  // taskF: 기록할 작업 상태 필터 (여러 개, 비면 전체)
+let sumOpen=true,taskOpen=true,taskF=new Set();  // taskF: 기록할 작업 상태 필터 (여러 개, 비면 전체)
 function drawTasks(){  // 상태별 필터 버튼(건수)과 거른 목록
   const ts=cur.tasks,n=k=>ts.filter(t=>t.status===k).length;
   [...taskF].forEach(k=>n(k)||taskF.delete(k));
@@ -356,34 +314,6 @@ function drawTasks(){  // 상태별 필터 버튼(건수)과 거른 목록
   const f=ts.filter(t=>!taskF.size||taskF.has(t.status));
   $('aitext').innerHTML=f.length?taskList(f,0,0,true):'<div class="meta">아직 정리하지 않았습니다</div>';
   $('taskbox').querySelector('h4').textContent=`기록할 작업 · ${ts.length}건`}
-function history(path,evs){  // 파일마다 "처음(세션이 손대기 전) → 지금" diff 하나만
-  const files=path?[path]:[...new Set([...evs].reverse().map(c=>c.file))];  // 최근에 고친 파일부터
-  $('hh').textContent=`처음 → 지금 · ${path?path.split('/').pop():'파일 '+files.length+'개'}`;
-  $('hbar').innerHTML=`<button class="sm" id="fmt">${diffFormat==='line-by-line'?'나란히 보기':'한 줄 보기'}</button> <button class="sm" id="all">모두 펼치기</button>`
-    +(path?' <button class="sm" id="cur">현재 내용</button>':'');
-  $('all').onclick=()=>{const els=[...document.querySelectorAll('.ev')],open=!els.every(x=>x.open);
-    els.forEach(x=>x.open=open);$('all').textContent=open?'모두 접기':'모두 펼치기'};
-  $('fmt').onclick=()=>{diffFormat=diffFormat==='line-by-line'?'side-by-side':'line-by-line';history(path,evs)};
-  $('hist').innerHTML=files.map((f,i)=>{const e=evs.filter(c=>c.file===f);
-    return `<details class="ev" data-i="${i}"><summary><b class="st st-${cur.status[f]||'M'}">${cur.status[f]||'M'}</b><b class="st-${cur.status[f]||'M'}" style="color:var(--c)${cur.status[f]==='D'?';text-decoration:line-through':''}">${esc(f.split('/').pop())}</b><span class="tag">편집 ${e.length}회</span>
-      <span class="meta">${when(e[0].ts)} → ${when(e[e.length-1].ts)}</span></summary><div class="dv"></div></details>`}).join('')||'<div class="meta">변경 없음</div>';
-  // diff 는 펼칠 때 받아 그린다
-  document.querySelectorAll('.ev').forEach(el=>el.addEventListener('toggle',async()=>{
-    const dv=el.querySelector('.dv'),f=files[el.dataset.i];if(!el.open||dv.dataset.done)return;dv.dataset.done=1;
-    dv.innerHTML='<div class="meta" style="padding:8px 10px">비교하는 중<span class="dots"></span></div>';
-    const r=await (await fetch(`/api/netdiff?sid=${encodeURIComponent(cur.s.sessionId)}&path=${encodeURIComponent(f)}`)).json();
-    let diff=r.diff,note=r.deleted?'지금은 삭제된 파일입니다':'';
-    if(diff==null){  // 처음 상태 백업이 없으면 세션의 편집 조각을 이어 붙여 보여 준다
-      diff=evs.filter(c=>c.file===f).map(c=>c.diff).join('\n');note='처음 상태 백업이 없어 편집 조각을 이어서 보여 줍니다'}
-    if(!diff){dv.innerHTML='<div class="meta" style="padding:8px 10px">처음과 지금이 같습니다 (되돌려졌음)</div>';return}
-    dv.innerHTML=note?`<div class="meta" style="padding:6px 10px">${note}</div>`:'';
-    const box=document.createElement('div');dv.appendChild(box);
-    new Diff2HtmlUI(box,diff,{drawFileList:false,outputFormat:diffFormat,matching:'lines',colorScheme:'auto'}).draw();
-  }));
-  const first=document.querySelector('.ev');if(first&&path)first.open=true;
-  if($('cur'))$('cur').onclick=async()=>{const r=await fetch(`/api/file?sid=${encodeURIComponent(cur.s.sessionId)}&path=${encodeURIComponent(path)}`);
-    $('hist').innerHTML='<pre id="cv"></pre>';$('cv').textContent=r.ok?await r.text():'(파일 없음 — 삭제됐거나 옮겨짐)'};
-}
 
 // ── 우클릭 메뉴 — 세션 노드에만 ──
 let target=null;const menu=$('menu'),hide=()=>menu.style.display='none';
@@ -450,20 +380,18 @@ async function loadMcp(refresh){
       <h4>연결 대상</h4><pre>${esc(m.target)}</pre>`});
 }
 $('mref').onclick=()=>loadMcp(true);
-// ── 세션 기록: 끝난 세션 (sessions 1 : session_tasks N · session_files N) ──
+// ── 세션 기록: 끝난 세션 (sessions 1 : session_tasks N) ──
 const REASON={switched:'세션 전환 (/clear·/resume)',exited:'프로세스 종료',stopped:'중지',failed:'실패',completed:'완료',gone:'사라짐'};
 const fmtTok=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?Math.round(n/1e3)+'K':String(n||0);
 let H=[];
-const fileSum=fs=>{const c={A:0,M:0,D:0};let a=0,r=0;fs.forEach(f=>{c[f.status]++;a+=f.added;r+=f.removed});
-  return fs.length?['A','M','D'].filter(k=>c[k]).map(k=>`<b class="st st-${k}">${k}</b>${c[k]}`).join(' ')+` <span class="meta">+${a} −${r}</span>`:'<span class="meta">없음</span>'};
 async function loadHistory(){
   H=await (await fetch('/api/sessions?status=closed&limit=200')).json();
   $('hsum').textContent=`${H.length}개 · 토큰 합계 ${fmtTok(H.reduce((t,s)=>t+(s.tokens||0),0))}`;
-  $('htbl').innerHTML='<tr><th>끝난 시각</th><th>세션</th><th>종료 이유</th><th>작업</th><th>바뀐 파일</th><th>토큰</th></tr>'+(H.map((s,i)=>`<tr>
+  $('htbl').innerHTML='<tr><th>끝난 시각</th><th>세션</th><th>종료 이유</th><th>작업</th><th>토큰</th></tr>'+(H.map((s,i)=>`<tr>
     <td class="meta">${when(s.ended_at)}</td>
     <td><a class="lk" data-hi="${i}">${esc(s.title||s.name||s.sid.slice(0,8))}</a><div class="meta" title="${esc(s.cwd)}">${esc(tilde(s.cwd))} · ${s.kind==='background'?'백그라운드':esc(s.app||'대화형')}</div></td>
     <td><span class="pill">${esc(REASON[s.end_reason]||s.end_reason)}</span></td>
-    <td>${taskSum(s.tasks)}</td><td>${fileSum(s.files)}</td><td class="meta">${fmtTok(s.tokens)}</td></tr>`).join('')||'<tr><td colspan="6" class="meta">아직 기록된 세션이 없습니다</td></tr>');
+    <td>${taskSum(s.tasks)}</td><td class="meta">${fmtTok(s.tokens)}</td></tr>`).join('')||'<tr><td colspan="5" class="meta">아직 기록된 세션이 없습니다</td></tr>');
 }
 $('htbl').addEventListener('click',e=>{const a=e.target.closest('[data-hi]');if(!a)return;const s=H[a.dataset.hi];
   if(sameAgain('h:'+s.sid))return;
@@ -473,10 +401,7 @@ $('htbl').addEventListener('click',e=>{const a=e.target.closest('[data-hi]');if(
     <div style="display:flex;gap:6px;margin-top:8px">
       <button class="sm" data-reopen="0" title="같은 세션 ID 로 이어서 엽니다. 다시 살아나면 현황으로 돌아갑니다">이어서 열기</button>
       <button class="sm" data-reopen="1" title="대화를 복사한 새 세션으로 엽니다 (--fork-session). 이 기록은 그대로 남습니다">복사해 열기</button></div>
-    <details open><summary><h4 style="display:inline-block">기록한 작업 · ${s.tasks.length}건</h4></summary>${s.tasks.length?taskList(s.tasks):'<div class="meta">기록할 작업 없음</div>'}</details>
-    <details open><summary><h4 style="display:inline-block">바뀐 파일 · ${s.files.length}개</h4></summary>
-    <div id="tree" style="padding:6px 0">${s.files.map(f=>`<div class="f" style="cursor:default" title="${esc(f.path)}"><span class="nm st-${f.status}">📄 ${esc(tilde(f.path))}</span>
-      <b class="st st-${f.status}">${f.status}</b><span class="t">${f.edits}회 · +${f.added} −${f.removed}</span></div>`).join('')||'<div class="meta" style="padding:4px 10px">없음</div>'}</div></details>`});
+    <details open><summary><h4 style="display:inline-block">기록한 작업 · ${s.tasks.length}건</h4></summary>${s.tasks.length?taskList(s.tasks):'<div class="meta">기록할 작업 없음</div>'}</details>`});
 $('href').onclick=loadHistory;
 // 끝난 세션 다시 열기: 터미널 새 창에서 claude --resume (HUDSON_FLEET_TERMINAL)
 $('sidec').addEventListener('click',async e=>{const b=e.target.closest('[data-title]');if(!b)return;  // 제목 바꾸기 (대시보드 DB에만)

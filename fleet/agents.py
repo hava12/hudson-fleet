@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .config import CFG, SESSIONS, claude
 from .db import db
-from .transcripts import model_of, subagents
+from .transcripts import model_of, overview, subagents, transcript
 
 
 _mcp = {"at": 0, "data": []}
@@ -58,6 +58,14 @@ def find_session(sid):
     """현재 claude agents 목록에 있는 세션만 조작 대상으로 인정한다 (임의 pid 종료 차단)."""
     return next((s for s in agent_list()
                  if s["sessionId"] == sid), None)
+
+
+def session(sid):
+    """세션 개요 + 프로세스 경로 (오른쪽 패널)."""
+    path = transcript(sid)
+    s = find_session(sid) or {}
+    return {"home": str(Path.home()), "proc": proc_chain(s["pid"]) if s.get("pid") else [],
+            "overview": overview(path) if path else {}}
 
 
 def proc_chain(pid):

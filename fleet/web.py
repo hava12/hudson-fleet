@@ -7,32 +7,30 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from .agents import agents, find_session, graph, mcp_servers, reopen
+from .agents import agents, find_session, graph, mcp_servers, reopen, session
 from .config import CFG, CONFIG, DEAD, ORIGIN, claude
 from .db import db, metrics, my_title, set_title
-from .files import net_diff, session
 from .pushes import pushes
 from .tasks import TASKS_SQL, saved_tasks, set_task, summarize
-from .transcripts import changes_of, overview, transcript
+from .transcripts import overview, transcript
 from .usage import usage, usage5h_all
 
 
 def feed():
-    """세션별 작업 게시글: 개요 + 변경 수 + 저장해 둔 AI 요약. 새 요약은 만들지 않는다 (토큰 절약)."""
+    """세션별 작업 게시글: 개요 + 저장해 둔 AI 요약. 새 요약은 만들지 않는다 (토큰 절약)."""
     posts = []
     for s in agents():
         sid = s["sessionId"]
         path = transcript(sid)
         if not path or (s.get("status") or s.get("state")) in DEAD:  # 끝난 세션은 게시글에서도 뺀다
             continue
-        ov, ch = overview(path), changes_of(sid, path)
+        ov = overview(path)
         tasks, tmt = saved_tasks(sid)
         ps = ov["prompts"]
         posts.append({"sid": sid, "name": s.get("name") or s.get("id"), "cwd": s["cwd"], "kind": s["kind"],
                       "status": s.get("status") or s.get("state", ""), "title": my_title(sid) or ov["title"],
                       "first": ov["first"], "last": ov["last"], "nprompts": len(ps),
                       "goal": ps[0]["text"] if ps else "", "recent": ps[-1]["text"] if len(ps) > 1 else "",
-                      "files": len({e["file"] for e in ch}), "edits": len(ch),
                       "tasks": tasks, "stale": tmt is not None and tmt != path.stat().st_mtime})
     return sorted(posts, key=lambda p: p["last"], reverse=True)
 
@@ -66,7 +64,6 @@ class H(BaseHTTPRequestHandler):
                 s["title"] = s["my_title"] or s["title"]
                 s["tasks"] = [dict(r) for r in c.execute(
                     TASKS_SQL, (s["sid"],))]
-                s["files"] = [dict(r) for r in c.execute("SELECT * FROM session_files WHERE sid = ?", (s["sid"],))]
             c.close()
             return self.send(out)
         if u.path == "/api/todo":  # 남은 일 — 끝난 세션 것도 포함
@@ -100,18 +97,6 @@ class H(BaseHTTPRequestHandler):
             if t := my_title(q.get("sid", "")):
                 se["overview"] = {**se.get("overview", {}), "title": t}
             return self.send({**se, "tasks": saved_tasks(q.get("sid", ""))[0]})
-        if u.path == "/api/netdiff":
-            sid, p = q.get("sid", ""), q.get("path", "")
-            se = session(sid)
-            if p not in se["status"]:  # 세션이 편집한 파일만 (임의 파일 읽기 차단)
-                return self.send({"error": "not allowed"}, code=404)
-            return self.send(net_diff(sid, p, se["changes"], se["status"][p] == "A"))
-        if u.path == "/api/file":
-            # 세션(서브에이전트 포함)이 실제로 편집한 파일만 열람 허용 (임의 파일 읽기 차단)
-            p = q.get("path", "")
-            if p not in {e["file"] for e in session(q.get("sid", ""))["changes"]} or not os.path.isfile(p):
-                return self.send({"error": "not allowed or missing"}, code=404)
-            return self.send(Path(p).read_bytes()[:500_000], "text/plain")
         if u.path == "/api/logs":
             return self.send({"text": claude("logs", q.get("id", ""))})
         self.send({"error": "not found"}, code=404)

@@ -19,7 +19,6 @@ PORT = int(CFG["HUDSON_FLEET_PORT"])
 ORIGIN = f"http://127.0.0.1:{PORT}"
 PROJECTS = Path.home() / ".claude" / "projects"
 SESSIONS = Path.home() / ".claude" / "sessions"
-EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 DEAD = {"stopped", "completed", "done", "failed"}
 
 

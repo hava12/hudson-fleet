@@ -6,7 +6,6 @@ import subprocess
 
 from .config import CFG, QUIET, now_iso
 from .db import db
-from .files import session
 from .transcripts import prompt_text, transcript
 
 
@@ -146,9 +145,8 @@ def digest(sid, path):
             for c in rec.get("message", {}).get("content", []):
                 if isinstance(c, dict) and c.get("type") == "text" and c["text"].strip():
                     parts.append("[Claude] " + c["text"][:600])
-    files = sorted({e["file"] for e in session(sid)["changes"]})
     # ponytail: 앞 1건 + 뒤쪽 위주로 4만 자 자르기, 긴 세션은 구간별 요약이 필요해지면 그때
     body = "\n".join(parts)
     if len(body) > 40_000:
         body = parts[0] + "\n...(중략)...\n" + body[-38_000:]
-    return body + "\n\n[변경 파일]\n" + "\n".join(files)
+    return body
