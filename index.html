@@ -29,6 +29,7 @@ h2{font-size:13px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02e
 .ncard{position:absolute;transform-origin:0 0;pointer-events:none;z-index:5;box-sizing:border-box;background:var(--card);border:1px solid var(--line);
   border-top:3px solid var(--c);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:10px 12px;font-size:12px}
 .ncard b{display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px;white-space:nowrap}
+.ncard b .dot{flex-shrink:0}.ncard .mdl{margin-left:auto;font-size:11px;font-weight:400;color:var(--mute)}
 .ncard dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0}.ncard dt{color:var(--mute)}
 .ncard dd{min-width:0;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ncard .bar{display:inline-block;width:60px;height:5px;border-radius:3px;background:var(--soft);vertical-align:middle;margin-right:6px;overflow:hidden}
@@ -185,11 +186,12 @@ async function load(){
 const NW=260,NH=112;  // 카드 크기 (그래프 좌표)
 let U5={};  // 세션별 5시간 사용량 (/api/usage5h, 1분마다)
 async function loadU5(){U5=await (await fetch('/api/usage5h')).json();renderCards()}
+const modelName=m=>m.replace(/^claude-/,'').replace(/-(\d+)-(\d+).*$/,' $1.$2').replace(/^./,c=>c.toUpperCase());  // claude-opus-5-5 → Opus 5.5
 function renderCards(){
   let lay=$('cards');if(!lay){lay=document.createElement('div');lay.id='cards';$('cy').appendChild(lay)}
   const h=cy.nodes('[type="session"]').map(e=>{const n=e.data(),u=U5[n.sessionId]||{},col=GINFO[grp(n.status)][1];
     return `<div class="ncard ${grp(n.status)}${sideKey==='s:'+n.sessionId?' on':''}${e.hasClass('faded')?' faded':''}" data-id="${esc(n.id)}" style="--c:${col}">
-    <b><i class="dot" style="background:${col}"></i>${esc(n.label)}</b><dl>
+    <b><i class="dot" style="background:${col}"></i>${esc(n.label)}${n.model?`<span class="mdl">${esc(modelName(n.model))}${n.effort?' · '+esc(n.effort):''}</span>`:''}</b><dl>
     <dt>실행 앱</dt><dd>${esc(n.kind==='background'?'백그라운드':n.app||'?')}</dd>
     <dt>실행 위치</dt><dd title="${esc(n.cwd)}">${esc(tilde(n.cwd))}</dd>
     <dt>5시간 사용량</dt><dd><span class="bar"><i style="width:${Math.min(u.pct||0,100)}%"></i></span>${u.pct==null?'?':u.pct+'%'} <span class="meta">· ${fmtTok(u.tokens)} 토큰</span></dd></dl></div>`}).join('');

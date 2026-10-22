@@ -51,6 +51,24 @@ def transcript(sid):
     return Path(hits[0]) if sid and hits else None
 
 
+def model_of(sid):
+    """마지막 응답의 모델과 effort. 대화 기록 끝 256KB 만 읽는다."""
+    p = transcript(sid)
+    if not p:
+        return {}
+    with p.open("rb") as f:
+        f.seek(max(0, p.stat().st_size - 262144))
+        lines = f.read().decode("utf-8", "replace").splitlines()
+    for line in reversed(lines):
+        if '"type":"assistant"' in line:
+            try:
+                rec = json.loads(line)
+            except ValueError:  # 잘려 시작한 첫 줄
+                continue
+            return {"model": (rec.get("message") or {}).get("model"), "effort": rec.get("effort")}
+    return {}
+
+
 def diff_of(tool, inp):
     """편집 도구 입력 → unified diff 본문. Write 는 전체가 추가로 보인다."""
     if tool == "Edit":
@@ -703,7 +721,7 @@ def graph():
             s["app"] = Path(app).stem
         nodes["p:" + cwd] = {"type": "project", "label": os.path.basename(cwd) or cwd}
         nodes["s:" + sid] = {"type": "session", "label": s.get("name") or s.get("id"),
-                             "status": s.get("status") or s.get("state", ""), **s}
+                             "status": s.get("status") or s.get("state", ""), **s, **model_of(sid)}
         edges.add(("p:" + cwd, "s:" + sid))
         for aid, desc, p in subagents(sid):
             meta = p.with_suffix(".meta.json")  # 서브에이전트가 끝나면 finished: true 가 기록된다
