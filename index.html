@@ -153,7 +153,8 @@ const cy=cytoscape({container:$('cy'),wheelSensitivity:0.3,maxZoom:1,minZoom:0.3
   {selector:'edge',style:{width:1.5,'line-color':dark?'#57534e':'#d6d3d1','target-arrow-color':dark?'#57534e':'#d6d3d1',
     'target-arrow-shape':'triangle','arrow-scale':0.8,'curve-style':'taxi','taxi-direction':'rightward','taxi-turn':'50%'}},
   {selector:':selected',style:{'overlay-color':'#c2410c','overlay-opacity':0.2,'overlay-padding':4}},
-  {selector:'node[?big]',style:{'overlay-opacity':0}}]});
+  {selector:'node[?big]',style:{'overlay-opacity':0}},
+  {selector:'edge.flow',style:{'line-style':'dashed','line-dash-pattern':[6,4],'line-color':GINFO.work[1],'target-arrow-color':GINFO.work[1]}}]});
 // 그래프 영역 높이를 내용에 맞춘다. 확대는 1배까지 — 노드가 적을 때 글씨가 커지지 않게
 function fitBox(c,max){const el=c.container(),h=c.elements().boundingBox().h;
   el.style.height=Math.min(Math.max(h+48,220),max)+'px';c.resize();c.fit(undefined,24)}
@@ -191,17 +192,18 @@ function renderCards(){
     <dt>실행 앱</dt><dd>${esc(n.kind==='background'?'백그라운드':n.app||'?')}</dd>
     <dt>실행 위치</dt><dd title="${esc(n.cwd)}">${esc(tilde(n.cwd))}</dd>
     <dt>5시간 사용량</dt><dd><span class="bar"><i style="width:${Math.min(u.pct||0,100)}%"></i></span>${u.pct==null?'?':u.pct+'%'} <span class="meta">· ${fmtTok(u.tokens)} 토큰</span></dd></dl></div>`}).join('');
+  cy.edges().forEach(e=>e.toggleClass('flow',e.target().data('type')==='session'&&grp(e.target().data('status'))==='work'));
   if(lay._h!==h){lay.innerHTML=h;lay._h=h}  // 그대로면 두어서 애니메이션이 끊기지 않게
   place()}
 function place(){  // 이동·확대에 맞춰 카드 위치 갱신
   for(const c of $('cards')?.children||[]){const n=cy.getElementById(c.dataset.id);if(!n.length)continue;
     const b=n.renderedBoundingBox({includeLabels:false,includeOverlays:false});
     Object.assign(c.style,{left:b.x1+'px',top:b.y1+'px',width:NW+'px',height:NH+'px',transform:`scale(${cy.zoom()})`})}}
-cy.on('render',place);
-let dash=0;(function flowEdges(){dash=(dash-0.5)%16;  // 작업 중 세션으로 들어가는 선이 오른쪽으로 흐른다
-  if(!matchMedia('(prefers-reduced-motion:reduce)').matches)cy.edges().filter(e=>grp(e.target().data('status'))==='work'&&e.target().data('type')==='session')
-    .style({'line-style':'dashed','line-dash-pattern':[6,4],'line-dash-offset':dash,'line-color':GINFO.work[1],'target-arrow-color':GINFO.work[1]});
-  requestAnimationFrame(flowEdges)})();
+cy.on('pan zoom resize position layoutstop',place);  // 화면이 움직일 때만 (render 는 초당 60번이라 무겁다)
+// 작업 중 세션으로 들어가는 선이 오른쪽으로 흐른다. 초당 12번만, 화면에 보이고 흐를 선이 있을 때만
+let dash=0;if(!matchMedia('(prefers-reduced-motion:reduce)').matches)setInterval(()=>{
+  const f=cy.edges('.flow');if(!f.length||document.hidden||$('pg-home').hidden)return;
+  dash=(dash-2)%20;f.style('line-dash-offset',dash)},83);
 let cur=null; // {s: 세션 노드 데이터, changes, by}
 cy.on('tap','node',e=>{
   const d=e.target.data();
@@ -211,10 +213,10 @@ cy.on('tap','node',e=>{
 async function openSession(sid,agent,keepOpen){  // keepOpen: 이미 열려 있어도 닫지 않는다 (더보기)
   const s=G.nodes.find(n=>n.sessionId===sid);if(!s)return;
   if(keepOpen){sideKey='s:'+sid}else if(sameAgain('s:'+sid+(agent||'')))return;
-  cy.$(':selected').unselect();cy.getElementById('s:'+sid).select();
+  cy.$(':selected').unselect();cy.getElementById('s:'+sid).select();renderCards();
+  sideBox().innerHTML=`<h3>${esc(agent?'🔷 '+agent:s.label)}</h3><div class="meta">불러오는 중…</div>`;  // 패널은 바로 열고 내용은 받아 오는 대로
   const r=await (await fetch('/api/session?sid='+encodeURIComponent(sid))).json();
   cur={s,changes:agent?r.changes.filter(c=>c.by===agent):r.changes,overview:r.overview,proc:r.proc,home:r.home,status:r.status||{},tasks:r.tasks||[],agent};
-  renderCards();
   renderSide();if(innerWidth<=900)$('side').scrollIntoView({behavior:'smooth'});
 }
 let statF='';  // 숫자 타일로 고른 상태 ('' = 전체)

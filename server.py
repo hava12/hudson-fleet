@@ -137,6 +137,21 @@ def prompt_text(rec):
     return "" if c.startswith("<") else c
 
 
+_memo = {}
+
+
+def by_mtime(fn):
+    """대화 기록을 읽는 함수의 결과를 그 파일(마지막 인자)이 바뀌기 전까지 재사용한다. 36MB 기록이면 ~0.2초 아낀다."""
+    def wrap(*a):
+        key, m = (fn.__name__, *map(str, a)), a[-1].stat().st_mtime
+        hit = _memo.get(key)
+        if not hit or hit[0] != m:
+            hit = _memo[key] = (m, fn(*a))
+        return hit[1]
+    return wrap
+
+
+@by_mtime
 def overview(path):
     """토큰 없이 만드는 세션 개요: 제목(ai-title/custom-title), 시킨 일, 시작·마지막 시각."""
     title, prompts, first, last = "", [], "", ""
@@ -214,6 +229,7 @@ def net_diff(sid, fp, changes, created):
     return {"diff": "\n".join(lines), "src": src, "deleted": not os.path.isfile(fp)}
 
 
+@by_mtime
 def changes_of(sid, path):
     changes, _ = scan(path, "main")
     for aid, desc, p in subagents(sid):
@@ -640,12 +656,22 @@ def agents():
             return True
         except ValueError:
             return False
-    return [s for s in json.loads(claude("agents", "--json", "--all") or "[]") if not headless(s)]
+    return [s for s in agent_list() if not headless(s)]
+
+
+_ag = {"at": 0, "data": []}
+
+
+def agent_list():
+    """claude agents --json --all. 부를 때마다 node 를 띄워 ~0.2초 걸리므로 5초 동안 재사용한다."""
+    if time.time() - _ag["at"] >= 5:
+        _ag.update(at=time.time(), data=json.loads(claude("agents", "--json", "--all") or "[]"))
+    return _ag["data"]
 
 
 def find_session(sid):
     """현재 claude agents 목록에 있는 세션만 조작 대상으로 인정한다 (임의 pid 종료 차단)."""
-    return next((s for s in json.loads(claude("agents", "--json", "--all") or "[]")
+    return next((s for s in agent_list()
                  if s["sessionId"] == sid), None)
 
 
@@ -746,8 +772,7 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/feed":
             return self.send(feed())
         if u.path == "/api/session":
-            return self.send({**session(q.get("sid", "")), "tasks": saved_tasks(q.get("sid", ""))[0],
-                              "usage5h": usage5h_all().get(q.get("sid", ""), {"tokens": 0, "pct": 0})})
+            return self.send({**session(q.get("sid", "")), "tasks": saved_tasks(q.get("sid", ""))[0]})
         if u.path == "/api/netdiff":
             sid, p = q.get("sid", ""), q.get("path", "")
             se = session(sid)
