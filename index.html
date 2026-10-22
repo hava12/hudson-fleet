@@ -15,6 +15,7 @@ header h1{font-size:16px;margin:0 16px 0 0;letter-spacing:-.01em}header h1 span{
 input,button,select{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg)}
 button{cursor:pointer}button:hover{background:var(--soft)}button.pri{background:var(--acc);color:#fff;border:0}button.sm{padding:2px 8px;font-size:12px}
 main{display:grid;grid-template-columns:1fr var(--sidew,minmax(360px,38%));height:calc(100vh - 56px)}
+*{scrollbar-width:none}*::-webkit-scrollbar{display:none}  /* 스크롤 막대만 숨긴다. 휠·터치 스크롤은 그대로 */
 #dash{overflow:auto;padding:16px;display:flex;flex-direction:column;gap:16px}
 @media (max-width:900px){header{height:auto;flex-wrap:wrap;padding:10px 16px}main{grid-template-columns:1fr;height:auto}#dash{padding:16px}#sidec{overflow:visible}#sideH{display:none}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
@@ -48,7 +49,7 @@ h2{font-size:13px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02e
 .pill{display:inline-flex;align-items:center;padding:1px 8px;border-radius:99px;font-size:12px;background:var(--soft);white-space:nowrap}
 a.lk{color:var(--fg);font-weight:600;cursor:pointer;text-decoration:none}a.lk:hover{color:var(--acc)}
 .acts{white-space:nowrap}.acts button{margin-right:4px}.danger{color:#dc2626}
-#feed{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+#feed{display:grid;grid-template-columns:repeat(auto-fill,minmax(0,320px));gap:12px}  /* 카드 폭 고정: 패널을 열고 닫아도 칸 수만 바뀐다 */
 .post{display:flex;flex-direction:column;gap:8px}.post .ph{display:flex;gap:6px;align-items:baseline}
 .post .ttl{font-weight:600;font-size:15px;line-height:1.35}
 .post .body{font-size:13px;white-space:pre-wrap;word-break:break-word}.post .pf{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:auto}
