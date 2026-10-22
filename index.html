@@ -79,7 +79,7 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--mute);font-size:12px;margin-left:auto}
 </style></head><body>
 <header><h1>Hudson <span>Fleet</span></h1>
-<nav><a href="#home" data-pg="home">현황</a><a href="#history" data-pg="history">세션 기록</a><a href="#mcp" data-pg="mcp">MCP 서버</a></nav><span id="msg" class="meta" style="margin-left:auto"></span><div class="hu" id="hu"><span>사용량<span class="dots"></span></span></div>
+<nav><a href="#home" data-pg="home">현황</a><a href="#history" data-pg="history">세션 기록</a><a href="#mcp" data-pg="mcp">MCP 서버</a><a href="#settings" data-pg="settings">설정</a></nav><span id="msg" class="meta" style="margin-left:auto"></span><div class="hu" id="hu"><span>사용량<span class="dots"></span></span></div>
 </header>
 <div id="menu"><div data-act="stop" class="danger">세션 종료</div></div>
 <main id="main" class="noside"><div id="dash"><div class="pg" id="pg-home">
@@ -91,6 +91,15 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
   <section class="card"><div class="sh"><h2>끝난 세션</h2><span class="meta" id="hsum"></span><button class="sm" id="href" style="margin-left:auto">새로 고침</button></div>
     <div class="tw"><table id="htbl" class="tbl"></table></div>
     <p class="meta" style="margin:10px 0 0">대시보드 서버가 켜져 있는 동안 끝난 세션을 1분 안에 저장합니다. 저장 전에 haiku 로 작업 내용을 요약합니다.</p></section>
+</div><div class="pg" id="pg-settings" hidden>
+  <section class="card"><div class="sh"><h2>설정</h2><span class="meta">모두 환경 변수로 정합니다 · 이 화면은 지금 서버에 적용된 값입니다</span></div>
+    <div class="tw"><table id="ctbl" class="tbl"></table></div>
+    <h4>바꾸는 방법</h4>
+    <ol class="meta" style="margin:0;padding-left:20px;line-height:1.8">
+      <li><code>~/.claude/settings.json</code> 의 <code>"env"</code> 에 적습니다. Claude Code 가 훅·MCP 서버에 넘겨 줍니다.</li>
+      <li>떠 있는 대시보드 서버를 끕니다 (<code>lsof -ti :<span class="cport"></span> | xargs kill</code>).</li>
+      <li>새 Claude Code 세션을 시작하면 SessionStart 훅이 새 값으로 서버를 띄웁니다.</li></ol>
+    <pre id="csnip" style="margin-top:10px"></pre></section>
 </div><div class="pg" id="pg-mcp" hidden>
   <section class="card"><div class="sh"><h2>연결된 MCP 서버</h2><div class="legend" id="mlegend"></div><button class="sm" id="mref">다시 검사</button></div>
     <div class="gwrap"><div id="mcy"></div><div class="loading" id="mload" hidden>연결 상태 검사 중<span class="dots"></span>&nbsp;<span style="font-size:12px">(10초 정도 걸립니다)</span></div></div><div class="stats" id="mstats"></div>
@@ -395,14 +404,25 @@ $('htbl').addEventListener('click',e=>{const a=e.target.closest('[data-hi]');if(
     <div id="tree" style="padding:6px 0">${s.files.map(f=>`<div class="f" style="cursor:default" title="${esc(f.path)}"><span class="nm st-${f.status}">📄 ${esc(tilde(f.path))}</span>
       <b class="st st-${f.status}">${f.status}</b><span class="t">${f.edits}회 · +${f.added} −${f.removed}</span></div>`).join('')||'<div class="meta" style="padding:4px 10px">없음</div>'}</div></details>`});
 $('href').onclick=loadHistory;
+// ── 설정: 환경 변수 (읽기 전용) ──
+async function loadConfig(){
+  const cs=await (await fetch('/api/config')).json();
+  $('ctbl').innerHTML='<tr><th>환경 변수</th><th>지금 값</th><th>설명</th></tr>'+cs.map(c=>`<tr>
+    <td><code>${esc(c.name)}</code></td>
+    <td><code>${esc(tilde(c.value))}</code> <span class="pill" style="font-size:11px">${c.set?'설정됨':'기본값'}</span></td>
+    <td class="meta" style="white-space:normal">${esc(c.desc)}</td></tr>`).join('');
+  document.querySelectorAll('.cport').forEach(e=>e.textContent=cs.find(c=>c.name==='HUDSON_FLEET_PORT').value);
+  $('csnip').textContent='// ~/.claude/settings.json (예시)\n'+JSON.stringify({env:{HUDSON_FLEET_AUTO_SUMMARY:'0',HUDSON_FLEET_RETENTION_DAYS:'90'}},null,2);
+}
 // ── 상단 메뉴: #home / #history / #mcp ──
 function route(){
-  const pg={'#mcp':'mcp','#history':'history'}[location.hash]||'home';
+  const pg={'#mcp':'mcp','#history':'history','#settings':'settings'}[location.hash]||'home';
   document.querySelectorAll('.pg').forEach(x=>x.hidden=x.id!=='pg-'+pg);
   document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.pg===pg));
   sideClose();
   if(pg==='mcp'&&!mcy)loadMcp();
   if(pg==='history')loadHistory();
+  if(pg==='settings')loadConfig();
   if(pg==='home')fitBox(cy,420);  // 숨겨진 채로 그려졌을 수 있다
 }
 addEventListener('hashchange',route);

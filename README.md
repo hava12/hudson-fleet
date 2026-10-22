@@ -68,9 +68,21 @@ python3 server.py   # → http://127.0.0.1:8765
 
 작업 정리(haiku)는 버튼을 누를 때와 세션이 끝날 때만 실행되며 Claude 구독 사용량을 씁니다.
 
+## 설정 (환경 변수)
+
+모두 환경 변수로 정합니다. `~/.claude/settings.json` 의 `"env"` 에 적으면 Claude Code 가 훅·MCP 서버에 넘겨 주고, 훅이 띄우는 대시보드 서버도 같은 값을 받습니다. 바꾼 뒤에는 떠 있는 서버를 끄면 다음 세션 시작 때 새 값으로 뜹니다. 지금 적용된 값은 웹의 **설정** 메뉴에서 봅니다.
+
+| 환경 변수 | 기본값 | 설명 |
+|---|---|---|
+| `HUDSON_FLEET_PORT` | `8765` | 대시보드 서버 포트 |
+| `HUDSON_FLEET_DB` | `~/.local/share/hudson-fleet/metrics.db` | SQLite 파일 경로 |
+| `HUDSON_FLEET_AUTO_SUMMARY` | `1` | 에이전트 기록이 없는 세션이 끝날 때 AI 로 작업 정리. `0` 이면 끔 |
+| `HUDSON_FLEET_SUMMARY_MODEL` | `haiku` | 작업 정리에 쓰는 모델 |
+| `HUDSON_FLEET_RETENTION_DAYS` | `0` | 1분 지표(samples) 보관 일수. `0` 이면 지우지 않음 |
+
 ## 데이터
 
-SQLite 파일 하나에 저장합니다: `~/.local/share/hudson-fleet/metrics.db` (환경 변수 `HUDSON_FLEET_DB`로 바꿀 수 있음)
+SQLite 파일 하나에 저장합니다 (`HUDSON_FLEET_DB`).
 
 | 표 | 내용 |
 |---|---|
@@ -90,6 +102,7 @@ SQLite 파일 하나에 저장합니다: `~/.local/share/hudson-fleet/metrics.db
 | `GET /api/daily` | 날짜별 토큰 (최근 1년) |
 | `GET /api/usage` | 5시간·1주일 사용률 (`/usage` 결과) |
 | `GET /api/mcp` | MCP 서버 연결 상태 |
+| `GET /api/config` | 지금 적용된 설정 값 |
 
 ## 보안
 

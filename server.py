@@ -1,4 +1,4 @@
-"""Hudson Fleet — Claude Code 세션 대시보드. 실행: python3 server.py → http://127.0.0.1:8765"""
+"""Hudson Fleet — Claude Code 세션 대시보드. 실행: python3 server.py → http://127.0.0.1:8765 (포트는 HUDSON_FLEET_PORT)"""
 import difflib
 import glob
 import itertools
@@ -15,12 +15,27 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-PORT = 8765
+# 설정은 모두 환경 변수 — ~/.claude/settings.json 의 "env" 에 적으면 훅·MCP·서버가 함께 받는다. 바꾸면 서버 재시작.
+CONFIG = [  # (이름, 기본값, 설명)
+    ("HUDSON_FLEET_PORT", "8765", "대시보드 서버 포트"),
+    ("HUDSON_FLEET_DB", str(Path.home() / ".local" / "share" / "hudson-fleet" / "metrics.db"), "SQLite 파일 경로"),
+    ("HUDSON_FLEET_AUTO_SUMMARY", "1", "에이전트 기록이 없는 세션이 끝날 때 AI 로 작업 정리 (0 이면 끔 — 토큰 절약)"),
+    ("HUDSON_FLEET_SUMMARY_MODEL", "haiku", "작업 정리에 쓰는 모델"),
+    ("HUDSON_FLEET_RETENTION_DAYS", "0", "1분 지표(samples) 보관 일수. 0 이면 지우지 않음"),
+]
+CFG = {k: os.environ.get(k) or d for k, d, _ in CONFIG}
+PORT = int(CFG["HUDSON_FLEET_PORT"])
 ORIGIN = f"http://127.0.0.1:{PORT}"
 PROJECTS = Path.home() / ".claude" / "projects"
 SESSIONS = Path.home() / ".claude" / "sessions"
 EDIT_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
 DEAD = {"stopped", "completed", "done", "failed"}
+
+
+# 대시보드가 내부용으로 돌리는 claude -p 는 MCP 서버·훅을 띄우지 않는다.
+# 안 그러면 호출마다 사용자의 MCP 서버(예: Java 서버)와 다른 플러그인의 SessionStart 훅이 전부 실행된다.
+QUIET = ("--no-session-persistence", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
+         "--settings", '{"disableAllHooks":true}')
 
 
 def claude(*args, cwd=None):
@@ -321,7 +336,7 @@ def work_items(sid):
 
 
 def ask_haiku(instr, body):
-    return subprocess.run(["claude", "-p", "--model", "haiku", "--no-session-persistence", instr],
+    return subprocess.run(["claude", "-p", "--model", CFG["HUDSON_FLEET_SUMMARY_MODEL"], *QUIET, instr],
                           input=body, capture_output=True, text=True, timeout=180).stdout.strip()
 
 
@@ -351,10 +366,10 @@ _usage = {"at": 0, "data": {}}
 
 
 def usage():
-    """/usage 의 한도(Current session = 5시간, Current week = 1주일). 1분 동안 재사용."""
-    if time.time() - _usage["at"] >= 60:
+    """/usage 의 한도(Current session = 5시간, Current week = 1주일). 5분 동안 재사용 (호출마다 claude 를 띄운다)."""
+    if time.time() - _usage["at"] >= 300:
         # 내장 명령이라 모델을 부르지 않는다 (~4초)
-        text = claude("-p", "/usage", "--no-session-persistence", cwd=Path.home())
+        text = claude("-p", "/usage", *QUIET, cwd=Path.home())
         _usage.update(at=time.time(), data={"limits": [
             {"label": m[1], "pct": int(m[2]), "resets": m[3]}
             for m in re.finditer(r"^(Current [^:]+): (\d+)% used · resets (.+)$", text, re.M)]})
@@ -363,7 +378,7 @@ def usage():
 
 # 지표 저장소. 대화 기록은 cleanupPeriodDays(기본 30일) 뒤 지워지지만 이 표는 남는다.
 # ponytail: SQLite 고정, 공유 서버(Postgres 등)가 필요해지면 db()/record() 두 곳만 바꾸면 된다
-DB = Path(os.environ.get("HUDSON_FLEET_DB") or Path.home() / ".local" / "share" / "hudson-fleet" / "metrics.db")
+DB = Path(CFG["HUDSON_FLEET_DB"]).expanduser()
 STATE = {"busy": "work", "running": "work", "blocked": "wait", "waiting": "wait", "needs_input": "wait"}
 
 
@@ -441,7 +456,8 @@ def archive(n, status):
         rows.append((sid, f, se["status"][f], len(evs), evs[0]["ts"], evs[-1]["ts"],
                      sum(x.startswith("+") for x in d), sum(x.startswith("-") for x in d)))
     tokens = sum(t for _, t in token_rows([path, *(p for *_, p in subagents(sid))]))
-    summarize(sid)
+    if CFG["HUDSON_FLEET_AUTO_SUMMARY"] != "0":
+        summarize(sid)
     c = db()
     # summarize 가 sid 만 있는 행을 먼저 만들 수 있다 — 비어 있는 칸만 채운다
     c.execute("INSERT INTO sessions (sid, name, cwd, kind, app, started_at) VALUES (?,?,?,?,?,?)"
@@ -484,6 +500,15 @@ def archive_safe(n, status):
         print("종료 세션 저장 실패:", n.get("sessionId"), e)
 
 
+def prune():
+    days = int(CFG["HUDSON_FLEET_RETENTION_DAYS"])
+    if days > 0:
+        c = db()
+        c.execute("DELETE FROM samples WHERE ts < ?", (int(time.time()) - days * 86400,))
+        c.commit()
+        c.close()
+
+
 def save_daily():
     # 기록 파일이 정리돼 합계가 줄어도 저장해 둔 큰 값을 지킨다 (잔디가 지워지지 않게)
     c = db()
@@ -501,6 +526,8 @@ def record():
         try:
             if i % 10 == 0:
                 save_daily()
+            if i % 1440 == 0:  # 하루에 한 번
+                prune()
             nodes = graph()["nodes"]
             alive = {n["sessionId"]: n for n in nodes if n["type"] == "session" and n["status"] not in DEAD}
             now = {n["sessionId"]: n["status"] for n in nodes if n["type"] == "session"}
@@ -626,6 +653,9 @@ class H(BaseHTTPRequestHandler):
             return self.send((Path(__file__).parent / "index.html").read_bytes(), "text/html")
         if u.path == "/api/graph":
             return self.send(graph())
+        if u.path == "/api/config":
+            return self.send([{"name": k, "value": CFG[k], "default": d, "desc": desc, "set": k in os.environ}
+                              for k, d, desc in CONFIG])
         if u.path == "/api/sessions":  # ?status=closed|work|wait|idle (없으면 전체) &limit=
             c = db()
             c.row_factory = sqlite3.Row
