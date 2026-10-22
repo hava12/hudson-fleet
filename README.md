@@ -17,10 +17,11 @@ Claude Code 2.1.275 이전이면 두 단계로 설치합니다.
 /plugin install hudson-fleet@hudson-fleet
 ```
 
-설치하면 두 가지가 함께 들어옵니다.
+설치하면 세 가지가 함께 들어옵니다.
 
 - **SessionStart 훅**: 세션이 시작될 때 대시보드 서버(8765)가 없으면 백그라운드로 띄웁니다. 세션이 다 끝나도 서버는 남습니다. 플러그인을 업데이트했다면 떠 있는 서버를 한 번 꺼야 새 코드로 뜹니다.
 - **MCP 서버 `fleet`**: 에이전트가 작업을 시작·완료·중단·반려할 때 직접 기록합니다 (아래 "작업 기록").
+- **Bash 훅** (`hooks/bash_files.py`): Bash 실행 전후로 작업 폴더를 훑어, 그 사이 수정 시각이 바뀐 파일을 바뀐 파일 목록에 넣습니다. 대화 기록에는 Bash 가 바꾼 파일이 드러나지 않기 때문입니다.
 
 브라우저에서 http://127.0.0.1:8765 를 엽니다.
 
@@ -116,11 +117,12 @@ SQLite 파일 하나에 저장합니다 (`HUDSON_FLEET_DB`).
 | `mcp_server.py` | 작업 기록 MCP 서버 (stdio). `fleet/tasks.py` 로 DB 에 바로 씁니다 |
 
 ```
-5  recorder · web
-4  tasks
-3  files
-2  agents · usage · pushes
-1  db · transcripts
+6  recorder · web
+5  tasks
+4  files
+3  agents · usage · pushes
+2  transcripts
+1  db
 0  config
 ```
 
@@ -147,5 +149,6 @@ SQLite 파일 하나에 저장합니다 (`HUDSON_FLEET_DB`).
 
 - 종료된 대화형 세션은 서버가 켜져 있을 때 끝난 것만 기록됩니다.
 - 종료 이유 `exited`는 직접 종료·창 닫기·크래시를 구분하지 못합니다.
+- Bash 가 바꾼 파일은 수정 시각으로만 찾습니다. 지운 파일은 못 잡고, Bash 가 도는 동안 사람이 고친 파일도 섞이며, 편집 조각(diff)이 없어 새로 만든 파일만 내용 비교가 됩니다. `.git`·`node_modules`·`build` 등은 건너뛰고 한 번에 5만 개까지만 훑습니다.
 - 서브에이전트 실행 여부(`meta.json`의 `finished`)와 "처음" 파일 상태(`~/.claude/file-history`)는 공식 형식이 아니라 바뀔 수 있습니다.
 - MCP 목록은 홈 폴더 기준입니다. 프로젝트에만 설정한 서버는 빠질 수 있습니다.

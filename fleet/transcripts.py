@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from .config import EDIT_TOOLS, PROJECTS
+from .db import db
 
 
 def transcript(sid):
@@ -157,11 +158,20 @@ def overview(path):
 
 
 @by_mtime
-def changes_of(sid, path):
+def edits_of(sid, path):
     changes, _ = scan(path, "main")
     for aid, desc, p in subagents(sid):
         changes += scan(p, desc or aid)[0]
-    return sorted(changes, key=lambda e: e["ts"])
+    return changes
+
+
+def changes_of(sid, path):
+    """편집 도구 기록(대화 기록) + Bash 가 바꾼 파일(훅이 DB 에 남김), 시간순. Bash 쪽은 편집 조각(diff)이 없다."""
+    c = db()
+    bash = [{"file": p, "ts": ts, "tool": "Bash", "by": "main", "diff": ""}
+            for p, ts in c.execute("SELECT path, ts FROM bash_files WHERE sid = ?", (sid,))]
+    c.close()
+    return sorted(edits_of(sid, path) + bash, key=lambda e: e["ts"])
 
 
 def token_rows(paths):

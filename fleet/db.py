@@ -33,6 +33,9 @@ def db():
               " note TEXT)")  # 시작·완료·중단·반려·순서 변경 이력 (추가만)
     c.execute("CREATE TABLE IF NOT EXISTS session_files (sid TEXT REFERENCES sessions(sid), path TEXT,"
               " status TEXT, edits INT, first_at TEXT, last_at TEXT, added INT, removed INT, PRIMARY KEY (sid, path))")
+    # Bash 가 바꾼 파일 (hooks/bash_files.py 가 남긴다). 편집 도구와 달리 대화 기록에 드러나지 않는다
+    c.execute("CREATE TABLE IF NOT EXISTS bash_files (sid TEXT, tool_use_id TEXT, path TEXT, ts TEXT,"
+              " PRIMARY KEY (tool_use_id, path))")
     # Claude 가 한 git push. 대화 기록이 지워져도 남도록 커밋 메시지까지 저장한다
     c.execute("CREATE TABLE IF NOT EXISTS pushes (id TEXT PRIMARY KEY, ts TEXT, sid TEXT, cwd TEXT, remote TEXT,"
               " ref TEXT, old TEXT, new TEXT, commits TEXT)")  # id = tool_use id + ref, commits = JSON [[hash, 제목]]
