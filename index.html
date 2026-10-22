@@ -89,7 +89,7 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 <header><h1>Hudson <span>Fleet</span></h1>
 <nav><a href="#home" data-pg="home">현황</a><a href="#history" data-pg="history">세션 기록</a><a href="#mcp" data-pg="mcp">MCP 서버</a><a href="#settings" data-pg="settings">설정</a></nav><span id="msg" class="meta" style="margin-left:auto"></span><div class="hu" id="hu"><span>사용량<span class="dots"></span></span></div>
 </header>
-<div id="menu"><div data-act="stop" class="danger">세션 종료</div></div>
+<div id="menu"><div data-act="stop" class="danger">세션 종료하기</div></div>
 <main id="main" class="noside"><div id="dash"><div class="pg" id="pg-home">
   <section class="card"><div class="sh"><h2>상태별 노드</h2><div class="legend" id="legend"></div></div>
     <div id="cy"></div><div class="stats" id="stats"></div></section>
@@ -266,7 +266,7 @@ function renderSide(){
   const files={};changes.forEach(c=>(files[c.file]??=[]).push(c));
   sideBox().innerHTML=`<h3>${esc(agent?'🔷 '+agent:s.label)}</h3>
     <div class="meta">${pill(s.status)} ${esc(s.kind==='background'?'백그라운드':s.app||'?')} · ${when(s.startedAt)} 시작 · ${esc(tilde(s.cwd))}</div>
-    <div style="display:flex;gap:6px;margin-top:6px">${s.kind==='background'?'<button class="sm" id="logs">로그</button>':''}<button class="sm danger" data-act="stop" data-sid="${esc(s.sessionId)}">종료</button></div>
+    <div style="display:flex;gap:6px;margin-top:6px">${s.kind==='background'?'<button class="sm" id="logs">로그</button>':''}<button class="sm danger" data-act="stop" data-sid="${esc(s.sessionId)}">종료하기</button></div>
     ${proc.length?`<div class="meta" title="${esc(proc.map(p=>p.path).join('\n'))}">🖥 ${[...proc].reverse().map(p=>esc(p.name)+(p===proc[0]?`(${p.pid})`:'')).join(' › ')}</div>`:''}
     <pre id="lg" style="display:none;margin-top:8px"></pre>
     ${agent?'':`<details id="sumbox" ${sumOpen?'open':''}><summary><h4 style="display:inline-block">세션 요약</h4></summary>
