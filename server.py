@@ -172,19 +172,19 @@ def by_mtime(fn):
 @by_mtime
 def overview(path):
     """토큰 없이 만드는 세션 개요: 제목(ai-title/custom-title), 시킨 일, 시작·마지막 시각."""
-    title, prompts, first, last = "", [], "", ""
+    custom, ai, prompts, first, last = "", "", [], "", ""
     for line in path.open(encoding="utf-8", errors="replace"):
         try:
             rec = json.loads(line)
         except ValueError:
             continue
-        title = rec.get("customTitle") or rec.get("aiTitle") or title
+        custom, ai = rec.get("customTitle") or custom, rec.get("aiTitle") or ai
         ts = rec.get("timestamp", "")
         if ts:
             first, last = first or ts, ts
         if p := prompt_text(rec):
             prompts.append({"ts": ts, "text": p[:300]})
-    return {"title": title, "prompts": prompts, "first": first, "last": last}
+    return {"title": custom or ai, "prompts": prompts, "first": first, "last": last}
 
 
 def session(sid):
@@ -267,7 +267,7 @@ def feed():
         tasks, tmt = saved_tasks(sid)
         ps = ov["prompts"]
         posts.append({"sid": sid, "name": s.get("name") or s.get("id"), "cwd": s["cwd"], "kind": s["kind"],
-                      "status": s.get("status") or s.get("state", ""), "title": ov["title"],
+                      "status": s.get("status") or s.get("state", ""), "title": my_title(sid) or ov["title"],
                       "first": ov["first"], "last": ov["last"], "nprompts": len(ps),
                       "goal": ps[0]["text"] if ps else "", "recent": ps[-1]["text"] if len(ps) > 1 else "",
                       "files": len({e["file"] for e in ch}), "edits": len(ch),
@@ -428,6 +428,8 @@ def db():
     c.execute("CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, name TEXT, title TEXT, cwd TEXT, kind TEXT,"
               " app TEXT, status TEXT, status_since TEXT, started_at TEXT, last_seen TEXT, ended_at TEXT,"
               " end_reason TEXT, tokens INT, tasks_mtime REAL)")  # status: work · wait · idle · closed
+    if "my_title" not in {r[1] for r in c.execute("PRAGMA table_info(sessions)")}:  # 대시보드에서 붙인 제목 (Claude Code 파일은 안 건드림)
+        c.execute("ALTER TABLE sessions ADD COLUMN my_title TEXT")
     # status: todo 남은 일 · done 완료 · stopped 중단 · rejected 반려 / source: agent(MCP) · haiku · human
     c.execute("CREATE TABLE IF NOT EXISTS session_tasks (id INTEGER PRIMARY KEY, sid TEXT REFERENCES sessions(sid),"
               " sort REAL, status TEXT, text TEXT, source TEXT, created_at TEXT, updated_at TEXT)")
@@ -436,6 +438,26 @@ def db():
     c.execute("CREATE TABLE IF NOT EXISTS session_files (sid TEXT REFERENCES sessions(sid), path TEXT,"
               " status TEXT, edits INT, first_at TEXT, last_at TEXT, added INT, removed INT, PRIMARY KEY (sid, path))")
     return c
+
+
+def my_title(sid):
+    """대시보드에서 붙인 제목. 없으면 None."""
+    c = db()
+    row = c.execute("SELECT my_title FROM sessions WHERE sid = ?", (sid,)).fetchone()
+    c.close()
+    return row[0] if row else None
+
+
+def set_title(sid, title):
+    """대시보드에서만 쓰는 제목을 붙인다. 빈 값이면 지워서 원래 제목으로 돌아간다."""
+    if not re.fullmatch(r"[0-9a-f-]{36}", sid or ""):
+        return False
+    c = db()
+    c.execute("INSERT INTO sessions (sid, my_title) VALUES (?, ?) ON CONFLICT(sid) DO UPDATE SET my_title = excluded.my_title",
+              (sid, (title or "").strip()[:120] or None))
+    c.commit()
+    c.close()
+    return True
 
 
 def token_rows(paths):
@@ -760,6 +782,7 @@ class H(BaseHTTPRequestHandler):
                 "SELECT * FROM sessions WHERE status IS NOT NULL" + (" AND status = ?" if st else "")
                 + " ORDER BY coalesce(ended_at, last_seen) DESC LIMIT ?", (*([st] if st else []), int(q.get("limit", 50))))]
             for s in out:
+                s["title"] = s["my_title"] or s["title"]
                 s["tasks"] = [dict(r) for r in c.execute(
                     TASKS_SQL, (s["sid"],))]
                 s["files"] = [dict(r) for r in c.execute("SELECT * FROM session_files WHERE sid = ?", (s["sid"],))]
@@ -769,7 +792,7 @@ class H(BaseHTTPRequestHandler):
             c = db()
             c.row_factory = sqlite3.Row
             out = [dict(r) for r in c.execute(
-                "SELECT t.id, t.sid, t.status, t.text, t.source, s.title, s.name, s.cwd, s.status AS sst"
+                "SELECT t.id, t.sid, t.status, t.text, t.source, coalesce(s.my_title, s.title) AS title, s.name, s.cwd, s.status AS sst"
                 " FROM session_tasks t JOIN sessions s USING (sid) WHERE t.status = 'todo'"
                 " ORDER BY coalesce(s.ended_at, s.last_seen) DESC, t.sort, t.id")]
             c.close()
@@ -790,7 +813,10 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/feed":
             return self.send(feed())
         if u.path == "/api/session":
-            return self.send({**session(q.get("sid", "")), "tasks": saved_tasks(q.get("sid", ""))[0]})
+            se = session(q.get("sid", ""))
+            if t := my_title(q.get("sid", "")):
+                se["overview"] = {**se.get("overview", {}), "title": t}
+            return self.send({**se, "tasks": saved_tasks(q.get("sid", ""))[0]})
         if u.path == "/api/netdiff":
             sid, p = q.get("sid", ""), q.get("path", "")
             se = session(sid)
@@ -823,6 +849,8 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/api/task":  # {id, status?, sort?, delete?} — 사람이 웹에서 고친다
             ok = set_task(body.get("id"), "human", body.get("status"), sort=body.get("sort"), delete=bool(body.get("delete")))
             return self.send({"ok": ok} if ok else {"error": "작업 또는 분류 확인"})
+        if self.path == "/api/title":  # {sid, title} — 대시보드에서만 쓰는 제목. 빈 값이면 원래대로
+            return self.send({"ok": True} if set_title(body.get("sid"), body.get("title")) else {"error": "세션 확인"})
         if self.path == "/api/summary":  # 토큰을 쓰므로 GET 이 아닌 POST (출처 검사 대상)
             return self.send(summarize(body.get("sid", "")))
         if self.path != "/api/stop":

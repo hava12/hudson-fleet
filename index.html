@@ -39,6 +39,7 @@ h2{font-size:13px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02e
 .stat span{font-size:12px;color:var(--mute)}.stat{cursor:pointer}.stat:hover{background:var(--soft)}.stat.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
 .tw{overflow-x:auto}.todo{margin:0;padding-left:18px;line-height:1.7}
+.post[data-post]{cursor:pointer}.post[data-post]:hover{border-color:var(--acc)}
 .tflt{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}.tflt .on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{text-align:left;font-weight:500;color:var(--mute);font-size:12px;padding:6px 10px;border-bottom:1px solid var(--line)}
@@ -159,7 +160,7 @@ const cy=cytoscape({container:$('cy'),wheelSensitivity:0.3,maxZoom:1,minZoom:0.3
   {selector:'edge.flow',style:{'line-style':'dashed','line-dash-pattern':[6,4],'line-color':GINFO.work[1],'target-arrow-color':GINFO.work[1]}}]});
 // 그래프 영역 높이를 내용에 맞춘다. 확대는 1배까지 — 노드가 적을 때 글씨가 커지지 않게
 function fitBox(c,max){const el=c.container(),h=c.elements().boundingBox().h;
-  el.style.height=Math.min(Math.max(h+48,220),max)+'px';c.resize();c.fit(undefined,24)}
+  el.style.height=Math.min(Math.max(h+48,374),max)+'px';c.resize();c.fit(undefined,24)}
 let sig='';
 async function load(){
   const g=G=await (await fetch('/api/graph')).json();
@@ -177,7 +178,7 @@ async function load(){
   sig=s;cy.elements().remove();
   cy.add([...g.nodes.map(d=>({data:d})),...g.edges.map(e=>({data:{id:e.source+'>'+e.target,...e}}))]);
   cy.layout({name:'dagre',rankDir:'LR',nodeSep:14,rankSep:60}).run();
-  fitBox(cy,600);
+  fitBox(cy,1020);
   renderTable(g);
 }
 
@@ -256,19 +257,20 @@ function renderTable(g){  // 남은 일 한 줄씩: [세션] - 할 일. 숫자 �
 async function loadFeed(){
   const ps=await (await fetch('/api/feed')).json();
   $('feed').classList.remove('meta');
-  $('feed').innerHTML=ps.map(p=>`<article class="card post">
+  $('feed').innerHTML=ps.map(p=>`<article class="card post" data-post="${esc(p.sid)}">
     <div class="ph">${pill(p.status)}<span class="meta">${when(p.last)}</span></div>
     <div class="ttl">${esc(p.title||p.name||p.sid.slice(0,8))}</div>
     <div class="meta">${esc(tilde(p.cwd))}</div>
     ${p.tasks.length?taskList(p.tasks,3,p.sid):'<div class="body meta">정리된 작업 없음</div>'}
     <div class="pf">${p.tasks.length?`<span class="tag">${taskSum(p.tasks)}</span>`:''}<span class="tag">파일 ${p.files} · ${p.edits}회</span>
-      <span style="margin-left:auto"></span><button class="sm" data-act="open" data-sid="${esc(p.sid)}">자세히</button>
-      <button class="sm" data-act="sum" data-sid="${esc(p.sid)}">${p.tasks.length?(p.stale?'다시 정리':'정리됨'):'작업 정리'}</button></div>
+      <span style="margin-left:auto"></span>      <button class="sm" data-act="sum" data-sid="${esc(p.sid)}">${p.tasks.length?(p.stale?'다시 정리':'정리됨'):'작업 정리'}</button></div>
   </article>`).join('')||'<div class="meta">작업 현황이 없습니다</div>';
 }
 // 표·게시글의 버튼은 위임으로 한 번에 처리
 $('dash').addEventListener('click',async e=>{
-  const el=e.target.closest('[data-act]');if(!el||!el.dataset.sid)return;
+  const el=e.target.closest('[data-act]');
+  if(!el){const c=e.target.closest('[data-post]');if(c&&!e.target.closest('button,select,a'))openSession(c.dataset.post);return}  // 카드 아무 데나 누르면 상세
+  if(!el.dataset.sid)return;
   const act=el.dataset.act,sid=el.dataset.sid;
   if(act==='open')return openSession(sid);
   if(act==='more')return openSession(sid,null,true);
@@ -287,7 +289,7 @@ function renderSide(){
     ${proc.length?`<div class="meta" title="${esc(proc.map(p=>p.path).join('\n'))}">🖥 ${[...proc].reverse().map(p=>esc(p.name)+(p===proc[0]?`(${p.pid})`:'')).join(' › ')}</div>`:''}
     <pre id="lg" style="display:none;margin-top:8px"></pre>
     ${agent?'':`<details id="sumbox" ${sumOpen?'open':''}><summary><h4 style="display:inline-block">세션 요약</h4></summary>
-      <div><b>${esc(ov.title||'(제목 없음)')}</b></div>
+      <div><b>${esc(ov.title||'(제목 없음)')}</b> <button class="sm" data-title="${esc(s.sessionId)}" title="대시보드에서만 쓰는 제목으로 바꿉니다">제목 바꾸기</button></div>
       <div class="meta">${when(ov.first)} → ${when(ov.last)}</div>
       <details id="taskbox" ${taskOpen?'open':''}><summary><h4 style="display:inline-block;font-size:13px">기록할 작업 · ${cur.tasks.length}건</h4></summary><div id="tflt" class="tflt"></div><div id="aitext"></div>
       <div style="margin-top:6px"><button class="sm" id="aisum">${cur.tasks.length?'다시 정리':'작업 정리'}</button> <span class="meta">haiku · 토큰 사용 · 기록이 그대로면 저장본 재사용</span></div></details></details>`}
@@ -387,7 +389,7 @@ function stopSession(d){if(d&&confirm(`"${d.label}" 세션을 종료할까요?\n
 async function doAct(act,sid){const r=await post('/api/'+act,{sid});$('msg').textContent=r.text||r.error;load()}
 async function post(p,b){return (await fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})).json()}
 // ── 오른쪽 패널: 고른 것이 있을 때만 연다 ──
-const fitGraphs=()=>requestAnimationFrame(()=>{fitBox(cy,600);if(mcy)fitBox(mcy,640)});  // 그리드 폭이 바뀌면 캔버스 크기를 다시 잰다
+const fitGraphs=()=>requestAnimationFrame(()=>{fitBox(cy,1020);if(mcy)fitBox(mcy,640)});  // 그리드 폭이 바뀌면 캔버스 크기를 다시 잰다
 function sideBox(){if($('main').classList.contains('noside')){$('main').classList.remove('noside');fitGraphs()}return $('sidec')}
 let sideKey=null;  // 지금 패널에 열린 대상 — 같은 것을 다시 누르면 닫는다
 function sameAgain(k){if(sideKey===k&&!$('main').classList.contains('noside')){sideClose();return true}sideKey=k;return false}
@@ -456,7 +458,7 @@ async function loadHistory(){
 }
 $('htbl').addEventListener('click',e=>{const a=e.target.closest('[data-hi]');if(!a)return;const s=H[a.dataset.hi];
   if(sameAgain('h:'+s.sid))return;
-  sideBox().innerHTML=`<h3>${esc(s.title||s.name)}</h3>
+  sideBox().innerHTML=`<h3>${esc(s.title||s.name)} <button class="sm" data-title="${esc(s.sid)}" title="대시보드에서만 쓰는 제목으로 바꿉니다">제목 바꾸기</button></h3>
     <div class="meta">${esc(REASON[s.end_reason]||s.end_reason)} · ${s.kind==='background'?'백그라운드':esc(s.app||'대화형')} · ${esc(tilde(s.cwd))}</div>
     <div class="meta">${when(s.started_at)} → ${when(s.ended_at)} · 토큰 ${fmtTok(s.tokens)}</div>
     <div style="display:flex;gap:6px;margin-top:8px">
@@ -468,6 +470,12 @@ $('htbl').addEventListener('click',e=>{const a=e.target.closest('[data-hi]');if(
       <b class="st st-${f.status}">${f.status}</b><span class="t">${f.edits}회 · +${f.added} −${f.removed}</span></div>`).join('')||'<div class="meta" style="padding:4px 10px">없음</div>'}</div></details>`});
 $('href').onclick=loadHistory;
 // 끝난 세션 다시 열기: 터미널 새 창에서 claude --resume (HUDSON_FLEET_TERMINAL)
+$('sidec').addEventListener('click',async e=>{const b=e.target.closest('[data-title]');if(!b)return;  // 제목 바꾸기 (대시보드 DB에만)
+  const t=prompt('대시보드에서 쓸 제목 (비우면 원래 제목으로)',b.closest('div,h3').firstChild.textContent.trim());if(t===null)return;
+  const r=await post('/api/title',{sid:b.dataset.title,title:t});if(!r.ok){$('msg').textContent=r.error;return}
+  const sid=b.dataset.title;
+  if(sideKey?.startsWith('h:')){await loadHistory();sideKey=null;document.querySelector(`[data-hi="${H.findIndex(x=>x.sid===sid)}"]`)?.click()}
+  else openSession(sid,null,true);loadFeed();loadTodo()});
 $('sidec').addEventListener('click',e=>{const b=e.target.closest('[data-act="stop"]');if(b)stopSession(G.nodes.find(n=>n.sessionId===b.dataset.sid))});
 $('sidec').addEventListener('click',async e=>{const b=e.target.closest('[data-reopen]');if(!b||!sideKey?.startsWith('h:'))return;
   b.disabled=true;const r=await post('/api/reopen',{sid:sideKey.slice(2),fork:b.dataset.reopen==='1'});
@@ -491,7 +499,7 @@ function route(){
   if(pg==='mcp'&&!mcy)loadMcp();
   if(pg==='history')loadHistory();
   if(pg==='settings')loadConfig();
-  if(pg==='home')fitBox(cy,600);  // 숨겨진 채로 그려졌을 수 있다
+  if(pg==='home')fitBox(cy,1020);  // 숨겨진 채로 그려졌을 수 있다
 }
 addEventListener('hashchange',route);
 load().catch(()=>{}).finally(route);setInterval(load,5000);  // 홈 경로(~ 표시용)를 먼저 받고 페이지를 그린다
