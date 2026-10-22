@@ -691,6 +691,15 @@ class H(BaseHTTPRequestHandler):
                 s["files"] = [dict(r) for r in c.execute("SELECT * FROM session_files WHERE sid = ?", (s["sid"],))]
             c.close()
             return self.send(out)
+        if u.path == "/api/todo":  # 남은 일 — 끝난 세션 것도 포함
+            c = db()
+            c.row_factory = sqlite3.Row
+            out = [dict(r) for r in c.execute(
+                "SELECT t.id, t.sid, t.status, t.text, t.source, s.title, s.name, s.cwd, s.status AS sst"
+                " FROM session_tasks t JOIN sessions s USING (sid) WHERE t.status = 'todo'"
+                " ORDER BY coalesce(s.ended_at, s.last_seen) DESC, t.sort, t.id")]
+            c.close()
+            return self.send(out)
         if u.path == "/api/daily":
             c = db()
             rows = c.execute("SELECT day, tokens FROM daily WHERE day >= date('now', '-371 days')").fetchall()

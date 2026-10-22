@@ -25,7 +25,8 @@ h2{font-size:13px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02e
 .stat{border:1px solid var(--line);border-radius:8px;padding:6px 10px;display:flex;align-items:baseline;gap:8px}.stat b{font-size:18px;line-height:1.3}
 .stat span{font-size:12px;color:var(--mute)}.stat{cursor:pointer}.stat:hover{background:var(--soft)}.stat.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
-.tw{overflow-x:auto}.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tw{overflow-x:auto}.todo{margin:0;padding-left:18px;line-height:1.7}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{text-align:left;font-weight:500;color:var(--mute);font-size:12px;padding:6px 10px;border-bottom:1px solid var(--line)}
 .tbl td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:top}.tbl tr:last-child td{border-bottom:0}
 .tbl td{white-space:nowrap}td.loc{font-family:ui-monospace,monospace;font-size:12px;color:var(--mute);max-width:200px;overflow:hidden;text-overflow:ellipsis}
@@ -85,8 +86,8 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 <main id="main" class="noside"><div id="dash"><div class="pg" id="pg-home">
   <section class="card"><div class="sh"><h2>상태별 노드</h2><div class="legend" id="legend"></div></div>
     <div id="cy"></div><div class="stats" id="stats"></div></section>
-  <section class="card"><div class="sh"><h2 id="tblh">위치별 실행 중인 세션</h2></div><div class="tw"><table id="tbl" class="tbl"></table></div></section>
-  <section><div class="sh"><h2>작업 게시글</h2><span class="meta">정리해 둔 작업만 보여 줍니다 · 1분마다 갱신</span></div><div id="feed" class="meta">불러오는 중…</div></section>
+  <section class="card"><div class="sh"><h2 id="tblh">남은 작업</h2></div><div id="todo" class="meta">불러오는 중…</div></section>
+  <section><div class="sh"><h2>작업 게시글</h2><span class="meta">1분마다 갱신</span></div><div id="feed" class="meta">불러오는 중…</div></section>
 </div><div class="pg" id="pg-history" hidden>
   <section class="card"><div class="sh"><h2>끝난 세션</h2><span class="meta" id="hsum"></span><button class="sm" id="href" style="margin-left:auto">새로 고침</button></div>
     <div class="tw"><table id="htbl" class="tbl"></table></div>
@@ -187,16 +188,20 @@ function renderStats(g){
   $('stats').innerHTML=LIVE.map(k=>[k,GINFO[k]]).map(([k,[l,c]])=>`<div class="stat${statF===k?' on':''}" data-g="${k}"><b style="color:${cnt[k]?c:'var(--mute)'}">${cnt[k]||0}</b><span><i class="dot" style="background:${c}"></i>${l}</span></div>`).join('')
     +`<div class="stat${statF==='agent'?' on':''}" data-g="agent"><b>${g.nodes.filter(n=>n.type==='agent').length}</b><span><i class="dot" style="background:${FILL.agent}"></i>서브에이전트</span></div>`;
 }
-function renderTable(g){
-  const by={};g.nodes.filter(n=>n.type==='session'&&(!statF||pick(n))).forEach(n=>(by[n.cwd]??=[]).push(n));
-  const rows=Object.keys(by).sort().map(cwd=>by[cwd].sort((a,b)=>b.startedAt-a.startedAt).map((n,i)=>`<tr>
-    ${i?'':`<td class="loc" rowspan="${by[cwd].length}" title="${esc(cwd)}">${esc(tilde(cwd))}</td>`}
-    <td><a class="lk" data-act="open" data-sid="${esc(n.sessionId)}">${esc(n.label||n.sessionId.slice(0,8))}</a><div class="meta">${when(n.startedAt)} 시작</div></td>
-    <td>${pill(n.status)}</td><td>${esc(n.kind==='background'?'백그라운드':n.app||'?')}</td>
-    <td class="acts"><button class="sm danger" data-act="stop" data-sid="${esc(n.sessionId)}">종료</button></td></tr>`).join('')).join('');
-  $('tbl').innerHTML=`<tr><th>위치</th><th>세션</th><th>상태</th><th>실행 앱</th><th></th></tr>`
-    +(rows||`<tr><td colspan="5" class="meta">${statF?'해당하는 세션이 없습니다':'실행 중인 세션이 없습니다'}</td></tr>`);
-  $('tblh').innerHTML=statF?`위치별 실행 중인 세션 · ${statF==='agent'?'서브에이전트가 있는 세션':GINFO[statF][0]}만 보기 <button class="sm" id="clrF">필터 해제</button>`:'위치별 실행 중인 세션';
+let TODO=[];
+async function loadTodo(){TODO=await (await fetch('/api/todo')).json();renderTable(G)}
+$('todo').onchange=async e=>{const el=e.target.closest('.tsel');if(!el)return;  // 분류를 바꾸면 남은 일에서 빠진다
+  const r=await post('/api/task',{id:+el.dataset.id,status:el.value});
+  if(!r.ok){$('msg').textContent=r.error||'분류 저장 실패';return}
+  loadTodo();loadFeed()};
+function renderTable(g){  // 남은 일 한 줄씩: [세션] - 할 일. 숫자 타일로 고르면 그 상태의 살아 있는 세션만
+  const live=new Map(g.nodes.filter(n=>n.type==='session').map(n=>[n.sessionId,n]));
+  const ts=TODO.filter(t=>!statF||(live.has(t.sid)&&pick(live.get(t.sid))));
+  $('todo').classList.toggle('meta',!ts.length);
+  $('todo').innerHTML=ts.length?`<ul class="todo">${ts.map(t=>{const nm=esc(t.name||t.sid.slice(0,8));
+    return `<li><select class="pill tsel" data-id="${t.id}" style="color:${TASK.todo[1]}" title="분류 바꾸기">${Object.entries(TASK).map(([k,[l]])=>`<option value="${k}"${k==='todo'?' selected':''}>${l}</option>`).join('')}</select> ${live.has(t.sid)?`<a class="lk" data-act="open" data-sid="${esc(t.sid)}">[${nm}]</a>`:`<span class="meta" title="끝난 세션 · ${esc(t.title||'')}">[${nm}]</span>`} - ${esc(t.text)}</li>`}).join('')}</ul>`
+    :(statF?'해당하는 세션의 남은 일이 없습니다':'남은 일이 없습니다');
+  $('tblh').innerHTML=statF?`남은 작업 · ${statF==='agent'?'서브에이전트가 있는 세션':GINFO[statF][0]}만 보기 <button class="sm" id="clrF">필터 해제</button>`:'남은 작업';
   if($('clrF'))$('clrF').onclick=()=>setStat('');
   // 그래프: 고른 상태의 세션과 그 프로젝트·서브에이전트만 또렷하게
   cy.elements().removeClass('faded');
@@ -224,6 +229,7 @@ $('dash').addEventListener('click',async e=>{
   if(act==='more')return openSession(sid,null,true);
   if(act==='sum'){el.disabled=true;el.textContent='요약 중…';const r=await post('/api/summary',{sid});
     if(r.error)$('msg').textContent=r.error;return loadFeed()}
+  if(act==='reopen'){el.disabled=true;const r=await post('/api/reopen',{sid,fork:false});$('msg').textContent=r.text||r.error;el.disabled=false;return}
   if(act==='stop')stopSession(G.nodes.find(n=>n.sessionId===sid));
 });
 function renderSide(){
@@ -231,7 +237,8 @@ function renderSide(){
   const changes=cur.changes;
   const files={};changes.forEach(c=>(files[c.file]??=[]).push(c));
   sideBox().innerHTML=`<h3>${esc(agent?'🔷 '+agent:s.label)}</h3>
-    <div class="meta">${esc(s.status)} · ${esc(s.kind)} · ${esc(s.cwd)} ${s.kind==='background'?'<button class="sm" id="logs">로그</button>':''}</div>
+    <div class="meta">${pill(s.status)} ${esc(s.kind==='background'?'백그라운드':s.app||'?')} · ${when(s.startedAt)} 시작 · ${esc(tilde(s.cwd))}</div>
+    <div style="display:flex;gap:6px;margin-top:6px">${s.kind==='background'?'<button class="sm" id="logs">로그</button>':''}<button class="sm danger" data-act="stop" data-sid="${esc(s.sessionId)}">종료</button></div>
     ${proc.length?`<div class="meta" title="${esc(proc.map(p=>p.path).join('\n'))}">🖥 ${[...proc].reverse().map(p=>esc(p.name)+(p===proc[0]?`(${p.pid})`:'')).join(' › ')}</div>`:''}
     <pre id="lg" style="display:none;margin-top:8px"></pre>
     ${agent?'':`<details id="sumbox" ${sumOpen?'open':''}><summary><h4 style="display:inline-block">세션 요약</h4></summary>
@@ -408,6 +415,7 @@ $('htbl').addEventListener('click',e=>{const a=e.target.closest('[data-hi]');if(
       <b class="st st-${f.status}">${f.status}</b><span class="t">${f.edits}회 · +${f.added} −${f.removed}</span></div>`).join('')||'<div class="meta" style="padding:4px 10px">없음</div>'}</div></details>`});
 $('href').onclick=loadHistory;
 // 끝난 세션 다시 열기: 터미널 새 창에서 claude --resume (HUDSON_FLEET_TERMINAL)
+$('sidec').addEventListener('click',e=>{const b=e.target.closest('[data-act="stop"]');if(b)stopSession(G.nodes.find(n=>n.sessionId===b.dataset.sid))});
 $('sidec').addEventListener('click',async e=>{const b=e.target.closest('[data-reopen]');if(!b||!sideKey?.startsWith('h:'))return;
   b.disabled=true;const r=await post('/api/reopen',{sid:sideKey.slice(2),fork:b.dataset.reopen==='1'});
   $('msg').textContent=r.text||r.error;b.disabled=false});
@@ -435,5 +443,5 @@ function route(){
 addEventListener('hashchange',route);
 load().catch(()=>{}).finally(route);setInterval(load,5000);  // 홈 경로(~ 표시용)를 먼저 받고 페이지를 그린다
 const keep=(fn,ms)=>{const run=()=>fn().then(()=>setTimeout(run,ms),()=>setTimeout(run,3000));run()};  // 실패하면 3초 뒤 다시
-keep(loadFeed,60000);keep(loadUsage,60000);
+keep(loadFeed,60000);keep(loadTodo,10000);keep(loadUsage,60000);
 </script></body></html>
