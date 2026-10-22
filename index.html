@@ -184,7 +184,8 @@ async function openSession(sid,agent,keepOpen){  // keepOpen: 이미 열려 있�
   const r=await (await fetch('/api/session?sid='+encodeURIComponent(sid))).json();
   cur={s,changes:agent?r.changes.filter(c=>c.by===agent):r.changes,overview:r.overview,proc:r.proc,home:r.home,status:r.status||{},tasks:r.tasks||[],agent};
   const u=r.usage5h||{};
-  grow('s:'+sid,[s.label,'🖥 '+(s.kind==='background'?'백그라운드':s.app||'?'),'📁 '+tilde(s.cwd),`⏱ 5시간 ${fmtTok(u.tokens)} 토큰 · 전체의 ${u.share||0}%`]);
+  grow('s:'+sid,[s.label,'실행 앱: '+(s.kind==='background'?'백그라운드':s.app||'?'),'실행 위치: '+tilde(s.cwd),
+    `5시간 사용량: ${u.pct==null?'?':u.pct+'%'} (${fmtTok(u.tokens)} 토큰)`]);
   renderSide();if(innerWidth<=900)$('side').scrollIntoView({behavior:'smooth'});
 }
 let statF='';  // 숫자 타일로 고른 상태 ('' = 전체)

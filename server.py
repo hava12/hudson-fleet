@@ -425,8 +425,15 @@ def token_rows(paths):
 
 
 def usage5h(sid):
-    """최근 5시간 토큰: 이 세션(서브에이전트 포함)과 전체 대비 비율. 그 사이 바뀐 대화 기록만 읽는다."""
+    """이 세션(서브에이전트 포함)이 5시간 한도에서 쓴 몫 (%) = /usage 의 % × 같은 창에서 이 세션 토큰 비율.
+    창은 /usage 의 리셋 시각 − 5시간. 읽지 못하면 지금부터 5시간 전."""
+    lim = next((x for x in usage()["limits"] if x["label"] == "Current session"), None)
+    m = lim and re.match(r"(\w+ \d+) at (\d+)(?::(\d+))?(am|pm)", lim["resets"])
     since = time.time() - 5 * 3600
+    if m:
+        hh = int(m[2]) % 12 + (12 if m[4] == "pm" else 0)
+        reset = datetime.strptime(f"{m[1]} {datetime.now().year} {hh}:{m[3] or 0}", "%b %d %Y %H:%M")
+        since = reset.timestamp() - 5 * 3600
     cut = datetime.fromtimestamp(since, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")  # 기록의 timestamp 와 문자열 비교
     mine = total = 0
     for p in [*PROJECTS.glob("*/*.jsonl"), *PROJECTS.glob("*/*/subagents/agent-*.jsonl")]:
@@ -435,7 +442,7 @@ def usage5h(sid):
         n = sum(t for ts, t in token_rows([p]) if ts >= cut)
         total += n
         mine += n if sid in (p.stem, p.parent.parent.name) else 0
-    return {"tokens": mine, "share": round(mine * 100 / total) if total else 0}
+    return {"tokens": mine, "pct": round(lim["pct"] * mine / total, 1) if lim and total else None}
 
 
 def daily_tokens():
