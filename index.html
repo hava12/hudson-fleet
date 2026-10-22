@@ -399,11 +399,18 @@ $('htbl').addEventListener('click',e=>{const a=e.target.closest('[data-hi]');if(
   sideBox().innerHTML=`<h3>${esc(s.title||s.name)}</h3>
     <div class="meta">${esc(REASON[s.end_reason]||s.end_reason)} · ${s.kind==='background'?'백그라운드':esc(s.app||'대화형')} · ${esc(tilde(s.cwd))}</div>
     <div class="meta">${when(s.started_at)} → ${when(s.ended_at)} · 토큰 ${fmtTok(s.tokens)}</div>
+    <div style="display:flex;gap:6px;margin-top:8px">
+      <button class="sm" data-reopen="0" title="같은 세션 ID 로 이어서 엽니다. 다시 살아나면 현황으로 돌아갑니다">이어서 열기</button>
+      <button class="sm" data-reopen="1" title="대화를 복사한 새 세션으로 엽니다 (--fork-session). 이 기록은 그대로 남습니다">복사해 열기</button></div>
     <details open><summary><h4 style="display:inline-block">기록한 작업 · ${s.tasks.length}건</h4></summary>${s.tasks.length?taskList(s.tasks):'<div class="meta">기록할 작업 없음</div>'}</details>
     <details open><summary><h4 style="display:inline-block">바뀐 파일 · ${s.files.length}개</h4></summary>
     <div id="tree" style="padding:6px 0">${s.files.map(f=>`<div class="f" style="cursor:default" title="${esc(f.path)}"><span class="nm st-${f.status}">📄 ${esc(tilde(f.path))}</span>
       <b class="st st-${f.status}">${f.status}</b><span class="t">${f.edits}회 · +${f.added} −${f.removed}</span></div>`).join('')||'<div class="meta" style="padding:4px 10px">없음</div>'}</div></details>`});
 $('href').onclick=loadHistory;
+// 끝난 세션 다시 열기: 터미널 새 창에서 claude --resume (HUDSON_FLEET_TERMINAL)
+$('sidec').addEventListener('click',async e=>{const b=e.target.closest('[data-reopen]');if(!b||!sideKey?.startsWith('h:'))return;
+  b.disabled=true;const r=await post('/api/reopen',{sid:sideKey.slice(2),fork:b.dataset.reopen==='1'});
+  $('msg').textContent=r.text||r.error;b.disabled=false});
 // ── 설정: 환경 변수 (읽기 전용) ──
 async function loadConfig(){
   const cs=await (await fetch('/api/config')).json();

@@ -5,6 +5,7 @@ import itertools
 import json
 import os
 import re
+import shlex
 import signal
 import sqlite3
 import subprocess
@@ -22,6 +23,7 @@ CONFIG = [  # (이름, 기본값, 설명)
     ("HUDSON_FLEET_AUTO_SUMMARY", "1", "에이전트 기록이 없는 세션이 끝날 때 AI 로 작업 정리 (0 이면 끔 — 토큰 절약)"),
     ("HUDSON_FLEET_SUMMARY_MODEL", "haiku", "작업 정리에 쓰는 모델"),
     ("HUDSON_FLEET_RETENTION_DAYS", "0", "1분 지표(samples) 보관 일수. 0 이면 지우지 않음"),
+    ("HUDSON_FLEET_TERMINAL", "Ghostty", "끝난 세션을 다시 열 터미널 앱: Ghostty 또는 Terminal"),
 ]
 CFG = {k: os.environ.get(k) or d for k, d, _ in CONFIG}
 PORT = int(CFG["HUDSON_FLEET_PORT"])
@@ -494,6 +496,25 @@ def track(alive):
     c.close()
 
 
+def reopen(sid, fork):
+    """끝난 세션을 그 작업 폴더에서 claude --resume 으로 다시 연다. fork 면 --fork-session (기록은 그대로 두고 새 ID).
+    DB 에 closed 로 남은 세션만 연다 — 아무 ID 나 받아 명령을 만들지 않게."""
+    c = db()
+    row = c.execute("SELECT cwd FROM sessions WHERE sid = ? AND status = 'closed'", (sid,)).fetchone()
+    c.close()
+    if not re.fullmatch(r"[0-9a-f-]{36}", sid) or not row or not os.path.isdir(row[0] or ""):
+        return {"error": "끝난 세션이 아니거나 작업 폴더가 없습니다"}, 404
+    cmd = ["claude", "--resume", sid, *(["--fork-session"] if fork else [])]
+    app = CFG["HUDSON_FLEET_TERMINAL"]
+    if app == "Terminal":  # Terminal.app 은 명령을 AppleScript 문자열로만 받는다
+        line = f"cd {shlex.quote(row[0])} && {' '.join(cmd)}"
+        subprocess.Popen(["osascript", "-e", f'tell application "Terminal" to do script "{line.replace(chr(92), chr(92) * 2).replace(chr(34), chr(92) + chr(34))}"',
+                          "-e", 'tell application "Terminal" to activate'])
+    else:
+        subprocess.Popen(["open", "-na", app, "--args", f"--working-directory={row[0]}", "-e", *cmd])
+    return {"text": f"{app} 새 창에서 {'복사해' if fork else '이어서'} 엽니다"}, 200
+
+
 def archive_safe(n, status):
     try:
         archive(n, status)
@@ -711,6 +732,9 @@ class H(BaseHTTPRequestHandler):
             if not os.path.isdir(cwd) or not body.get("prompt"):
                 return self.send({"error": "cwd/prompt 확인"}, code=400)
             return self.send({"text": claude("--bg", body["prompt"], cwd=cwd)})
+        if self.path == "/api/reopen":  # {sid, fork?} — 끝난 세션을 새 터미널 창에서 claude --resume 으로 연다
+            out, code = reopen(body.get("sid", ""), bool(body.get("fork")))
+            return self.send(out, code=code)
         if self.path == "/api/task":  # {id, status?, sort?, delete?} — 사람이 웹에서 고친다
             ok = set_task(body.get("id"), "human", body.get("status"), sort=body.get("sort"), delete=bool(body.get("delete")))
             return self.send({"ok": ok} if ok else {"error": "작업 또는 분류 확인"})
