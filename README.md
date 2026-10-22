@@ -38,13 +38,15 @@ python3 server.py   # → http://127.0.0.1:8765
 
 | 도구 | 하는 일 |
 |---|---|
-| `task_start(text)` | 작업을 시작하며 한 행을 만든다. id 를 돌려준다 |
+| `task_start(text, tag)` | 작업을 시작하며 한 행을 만든다. id 를 돌려준다 |
 | `task_update(id, status, note?)` | done 완료 · stopped 중단 · rejected 반려 · todo 남은 일 |
 | `task_list()` | 이 세션의 작업 목록 (압축 뒤 이어받기) |
 
 어느 세션의 호출인지는 MCP 서버의 부모 프로세스(claude)로 찾습니다. `~/.claude/sessions/<pid>.json`의 `sessionId`를 읽으므로 에이전트가 세션 ID를 몰라도 됩니다.
 
-에이전트가 기록하지 않은 세션만 haiku 가 대화에서 작업을 정리합니다. 웹에서 분류를 바꾸거나 지울 수 있고, 사람이 고친 행은 다시 정리할 때도 남습니다.
+에이전트가 기록하지 않은 세션만 haiku 가 대화에서 작업을 정리합니다. 웹에서 분류·태그를 바꾸거나 지울 수 있고, 사람이 고친 행은 다시 정리할 때도 남습니다.
+
+태그는 일의 종류입니다: 개발 · 디자인 · 기획 · 테스트 · 문서 · 디버그 · 데이터 · 운영 · 기타. 정의는 `server.py` 의 `TAGS` 한 곳에 있고, MCP 도구 설명과 haiku 프롬프트가 같은 표를 씁니다. 목록에 없는 값은 기타로 저장합니다.
 
 ## 기능
 
@@ -89,7 +91,7 @@ SQLite 파일 하나에 저장합니다 (`HUDSON_FLEET_DB`).
 | 표 | 내용 |
 |---|---|
 | `sessions` | 세션 1행. 상태(work·wait·idle·closed)와 그 상태가 된 시각, 종료 이유, 토큰 |
-| `session_tasks` | 세션의 기록할 작업 N행. 표시 순서(`sort`), 분류(todo·done·stopped·rejected), 기록 주체(agent·haiku·human) |
+| `session_tasks` | 세션의 기록할 작업 N행. 표시 순서(`sort`), 분류(todo·done·stopped·rejected), 태그(`tag`, 일의 종류), 기록 주체(agent·haiku·human) |
 | `task_events` | 작업마다 시작·완료·중단·반려·삭제 이력 (추가만) |
 | `session_files` | 세션이 바꾼 파일 N행. A/M/D, 편집 횟수, 추가·삭제 줄 수 |
 | `samples` | 1분마다 상태별 세션 수, 서브에이전트 수, 5시간·1주일 사용률 |

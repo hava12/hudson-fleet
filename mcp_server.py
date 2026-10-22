@@ -9,12 +9,12 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from server import SESSIONS, add_task, saved_tasks, set_task  # noqa: E402
+from server import SESSIONS, TAGS, add_task, saved_tasks, set_task  # noqa: E402
 
 INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작업 단위로 기록한다. 대시보드와 세션 기록에 그대로 쓰인다.
 규칙 (일의 크기와 관계없이 지킨다):
-1. 사용자가 무언가를 만들거나, 고치거나, 실행·조사하라고 하면 첫 작업 전에 task_start(text) 를 부른다.
-   text 는 120자 이내, 동사로 끝나는 한 문장.
+1. 사용자가 무언가를 만들거나, 고치거나, 실행·조사하라고 하면 첫 작업 전에 task_start(text, tag) 를 부른다.
+   text 는 120자 이내, 동사로 끝나는 한 문장. tag 는 일의 종류 하나 (도구 설명의 정의를 보고 고른다).
 2. 그 일이 끝나면 task_update(id, "done"). 끝내지 못하고 멈추면 "stopped", 사용자가 하지 않기로 하면 "rejected".
 3. 이 도구들이 지연 로드(deferred) 상태면 먼저 ToolSearch 로
    "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list" 를 불러온다.
@@ -27,8 +27,11 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
 
 TOOLS = [
     {"name": "task_start", "description": "작업을 시작하며 기록한다. 새 작업 id 를 돌려준다.",
-     "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "description": "120자 이내 한 문장"}},
-                     "required": ["text"]}},
+     "inputSchema": {"type": "object", "properties": {
+         "text": {"type": "string", "description": "120자 이내 한 문장"},
+         "tag": {"type": "string", "enum": list(TAGS),
+                 "description": "일의 종류 — " + " · ".join(f"{k}: {v}" for k, v in TAGS.items())}},
+                     "required": ["text", "tag"]}},
     {"name": "task_update", "description": "작업의 결과를 기록한다: done 완료 · stopped 중단 · rejected 반려 · todo 남은 일.",
      "inputSchema": {"type": "object", "properties": {
          "id": {"type": "integer"}, "status": {"type": "string", "enum": ["done", "stopped", "rejected", "todo"]},
@@ -55,7 +58,7 @@ def call(name, args):
     if not sid:
         return "Claude Code 세션을 찾지 못했습니다", True
     if name == "task_start":
-        return json.dumps({"id": add_task(sid, args["text"][:160], "agent")}), False
+        return json.dumps({"id": add_task(sid, args["text"][:160], "agent", tag=args.get("tag"))}), False
     if name == "task_update":
         ok = set_task(args["id"], "agent", args["status"], note=args.get("note"), sid=sid)
         return ("기록했습니다" if ok else "이 세션의 작업 id 가 아니거나 분류가 잘못됐습니다"), not ok

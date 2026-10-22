@@ -300,47 +300,48 @@ def summarize(sid):
     c.execute("DELETE FROM session_tasks WHERE sid = ? AND source = 'haiku'", (sid,))
     c.commit()
     c.close()
-    for st, t in items:
-        add_task(sid, t, "haiku", st)
+    for st, tag, t in items:
+        add_task(sid, t, "haiku", st, tag)
     return {"tasks": saved_tasks(sid)[0], "cached": False}
 
 
-def add_task(sid, text, source, status="todo"):
+def add_task(sid, text, source, status="todo", tag=None):
     """작업 한 행을 맨 뒤(sort 최댓값 + 1)에 넣고 이력에 'start' 를 남긴다. 새 id 를 돌려준다."""
     t = now_iso()
     c = db()
     c.execute("INSERT INTO sessions (sid) VALUES (?) ON CONFLICT(sid) DO NOTHING", (sid,))
     sort = (c.execute("SELECT max(sort) FROM session_tasks WHERE sid = ?", (sid,)).fetchone()[0] or 0) + 1
-    tid = c.execute("INSERT INTO session_tasks (sid, sort, status, text, source, created_at, updated_at)"
-                    " VALUES (?,?,?,?,?,?,?)", (sid, sort, status, text, source, t, t)).lastrowid
+    tid = c.execute("INSERT INTO session_tasks (sid, sort, status, text, source, created_at, updated_at, tag)"
+                    " VALUES (?,?,?,?,?,?,?,?)", (sid, sort, status, text, source, t, t, norm_tag(tag))).lastrowid
     c.execute("INSERT INTO task_events (task_id, ts, status, note) VALUES (?,?,?,?)", (tid, t, "start", source))
     c.commit()
     c.close()
     return tid
 
 
-def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None):
-    """작업 한 행의 분류·순서를 바꾸거나 지운다. sid 를 주면 그 세션의 작업만 건드린다 (MCP 용).
+def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None, tag=None):
+    """작업 한 행의 분류·태그·순서를 바꾸거나 지운다. sid 를 주면 그 세션의 작업만 건드린다 (MCP 용).
     사람이 haiku 행을 고치면 source 를 human 으로 바꿔 다음 haiku 정리 때 지워지지 않게 한다."""
-    if status is not None and status not in TASK_STATUS.values():
+    if (status is not None and status not in TASK_STATUS.values()) or (tag is not None and tag not in TAGS):
         return False
     c = db()
     where, key = "id = ?" + (" AND sid = ?" if sid else ""), (tid, *([sid] if sid else []))
     if delete:
         n = c.execute(f"DELETE FROM session_tasks WHERE {where}", key).rowcount
     else:
-        n = c.execute(f"UPDATE session_tasks SET status = coalesce(?, status), sort = coalesce(?, sort), updated_at = ?,"
+        n = c.execute(f"UPDATE session_tasks SET status = coalesce(?, status), sort = coalesce(?, sort),"
+                      f" tag = coalesce(?, tag), updated_at = ?,"
                       f" source = CASE WHEN ? = 'human' AND source = 'haiku' THEN 'human' ELSE source END WHERE {where}",
-                      (status, sort, now_iso(), by, *key)).rowcount
+                      (status, sort, tag, now_iso(), by, *key)).rowcount
     if n:
         c.execute("INSERT INTO task_events (task_id, ts, status, note) VALUES (?,?,?,?)",
-                  (tid, now_iso(), "deleted" if delete else status or "moved", note or by))
+                  (tid, now_iso(), "deleted" if delete else status or ("tag:" + tag if tag else "moved"), note or by))
     c.commit()
     c.close()
     return n == 1
 
 
-TASKS_SQL = "SELECT id, sort, status, text, source FROM session_tasks WHERE sid = ? ORDER BY sort, id"
+TASKS_SQL = "SELECT id, sort, status, text, source, tag FROM session_tasks WHERE sid = ? ORDER BY sort, id"
 
 
 def saved_tasks(sid):
@@ -354,26 +355,46 @@ def saved_tasks(sid):
 
 
 TASK_STATUS = {"완료": "done", "중단": "stopped", "남은일": "todo", "반려": "rejected"}
+# 작업 태그(일의 종류) — MCP 도구 설명·haiku 프롬프트·웹 선택지가 모두 이 표를 쓴다. 모르는 값은 기타
+TAGS = {
+    "개발": "기능을 만들거나 고치는 코드 작업, 리팩터링 (원인을 알고 고치는 일 포함)",
+    "디자인": "화면·UI·Figma 작업",
+    "기획": "요구사항 정리, 계획 수립, 화면 흐름 설계",
+    "테스트": "동작이 맞는지 확인하는 작업 (테스트 코드 작성·실행, 배포 전 검증)",
+    "문서": "문서·안내문·노트 작성과 교정",
+    "디버그": "원인을 모르는 문제의 원인 찾기",
+    "데이터": "조회·집계·지표 뽑기, 결과 공유",
+    "운영": "실제 운영 환경을 바꾸는 작업: 배포, DB 마이그레이션, 설정·인프라 변경, 체크리스트 실행",
+    "기타": "위 어디에도 맞지 않는 일",
+}
+TAG_GUIDE = "\n".join(f"  {k} = {v}" for k, v in TAGS.items())
+
+
+def norm_tag(tag):
+    tag = re.sub(r"[^가-힣]", "", tag or "")
+    return tag if tag in TAGS else "기타"
 
 
 def work_items(sid):
-    """기록할 가치가 있는 작업만 [(분류, 작업)] — 항목당 최대 2줄. 히스토리에 모든 걸 남기지 않는다."""
+    """기록할 가치가 있는 작업만 [(분류, 태그, 작업)] — 항목당 최대 2줄. 히스토리에 모든 걸 남기지 않는다."""
     path = transcript(sid)
     text = ask_haiku("다음은 Claude Code 세션 기록이다. 나중에 다시 찾아볼 가치가 있는 작업만 골라 한국어로 적어라.\n"
-                     "형식: 한 줄에 '분류|작업' 하나. 분류는 완료·중단·남은일·반려 중 하나다.\n"
+                     "형식: 한 줄에 '분류|태그|작업' 하나. 분류는 완료·중단·남은일·반려 중 하나다.\n"
                      "  완료 = 끝까지 마친 작업, 중단 = 시작했지만 끝내지 못하고 멈춘 작업, 남은일 = 하기로 했지만 시작하지 않은 작업,\n"
                      "  반려 = 제안됐지만 사용자가 하지 않기로 한 작업\n"
+                     "태그는 일의 종류로, 아래 중 가장 맞는 하나다.\n" + TAG_GUIDE + "\n"
                      "작업은 120자 이내 1~2문장, 동사로 끝낸다. 번호·기호·제목은 붙이지 않는다.\n"
                      "질문·확인·잡담·되돌린 시도는 뺀다. 기록할 작업이 없으면 아무것도 출력하지 않는다.",
                      digest(sid, path)) if path else ""
     out = []
     for line in text.splitlines():
-        kind, _, task = line.partition("|")
-        if not task:  # 형식을 어긴 줄은 버린다
+        kind, *rest = line.split("|", 2)
+        if not rest:  # 형식을 어긴 줄은 버린다
             continue
+        tag, task = rest if len(rest) == 2 else ("", rest[0])  # 태그를 빼먹은 줄은 기타
         task = re.sub(r"^\s*(\d+[.)]|[-*•])\s*", "", task).strip()[:160]
         if task:
-            out.append((TASK_STATUS.get(re.sub(r"[^가-힣]", "", kind), "done"), task))
+            out.append((TASK_STATUS.get(re.sub(r"[^가-힣]", "", kind), "done"), norm_tag(tag), task))
     return out[:20]
 
 
@@ -439,6 +460,8 @@ def db():
     # status: todo 남은 일 · done 완료 · stopped 중단 · rejected 반려 / source: agent(MCP) · haiku · human
     c.execute("CREATE TABLE IF NOT EXISTS session_tasks (id INTEGER PRIMARY KEY, sid TEXT REFERENCES sessions(sid),"
               " sort REAL, status TEXT, text TEXT, source TEXT, created_at TEXT, updated_at TEXT)")
+    if "tag" not in {r[1] for r in c.execute("PRAGMA table_info(session_tasks)")}:  # 일의 종류 (TAGS). 옛 행은 비어 있다
+        c.execute("ALTER TABLE session_tasks ADD COLUMN tag TEXT")
     c.execute("CREATE TABLE IF NOT EXISTS task_events (id INTEGER PRIMARY KEY, task_id INT, ts TEXT, status TEXT,"
               " note TEXT)")  # 시작·완료·중단·반려·순서 변경 이력 (추가만)
     c.execute("CREATE TABLE IF NOT EXISTS session_files (sid TEXT REFERENCES sessions(sid), path TEXT,"
@@ -798,7 +821,7 @@ class H(BaseHTTPRequestHandler):
             c = db()
             c.row_factory = sqlite3.Row
             out = [dict(r) for r in c.execute(
-                "SELECT t.id, t.sid, t.status, t.text, t.source, coalesce(s.my_title, s.title) AS title, s.name, s.cwd, s.status AS sst"
+                "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, coalesce(s.my_title, s.title) AS title, s.name, s.cwd, s.status AS sst"
                 " FROM session_tasks t JOIN sessions s USING (sid) WHERE t.status = 'todo'"
                 " ORDER BY coalesce(s.ended_at, s.last_seen) DESC, t.sort, t.id")]
             c.close()
@@ -852,8 +875,9 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/api/reopen":  # {sid, fork?} — 끝난 세션을 새 터미널 창에서 claude --resume 으로 연다
             out, code = reopen(body.get("sid", ""), bool(body.get("fork")))
             return self.send(out, code=code)
-        if self.path == "/api/task":  # {id, status?, sort?, delete?} — 사람이 웹에서 고친다
-            ok = set_task(body.get("id"), "human", body.get("status"), sort=body.get("sort"), delete=bool(body.get("delete")))
+        if self.path == "/api/task":  # {id, status?, tag?, sort?, delete?} — 사람이 웹에서 고친다
+            ok = set_task(body.get("id"), "human", body.get("status"), sort=body.get("sort"), delete=bool(body.get("delete")),
+                          tag=body.get("tag"))
             return self.send({"ok": ok} if ok else {"error": "작업 또는 분류 확인"})
         if self.path == "/api/title":  # {sid, title} — 대시보드에서만 쓰는 제목. 빈 값이면 원래대로
             return self.send({"ok": True} if set_title(body.get("sid"), body.get("title")) else {"error": "세션 확인"})
