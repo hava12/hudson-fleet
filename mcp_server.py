@@ -12,10 +12,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from server import SESSIONS, add_task, saved_tasks, set_task  # noqa: E402
 
 INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작업 단위로 기록한다. 대시보드와 세션 기록에 그대로 쓰인다.
-- 의미 있는 작업을 시작할 때 task_start(text). text 는 120자 이내, 동사로 끝나는 한 문장.
-- 끝나면 task_update(id, "done"), 끝내지 못하고 멈추면 "stopped", 사용자가 하지 않기로 하면 "rejected".
-- 질문·확인·잡담·단순 조회는 기록하지 않는다. 같은 작업을 두 번 시작하지 않는다.
-- 대화가 압축(compact)된 뒤에는 task_list 로 기록을 확인하고 이어서 쓴다."""
+규칙 (일의 크기와 관계없이 지킨다):
+1. 사용자가 무언가를 만들거나, 고치거나, 실행·조사하라고 하면 첫 작업 전에 task_start(text) 를 부른다.
+   text 는 120자 이내, 동사로 끝나는 한 문장.
+2. 그 일이 끝나면 task_update(id, "done"). 끝내지 못하고 멈추면 "stopped", 사용자가 하지 않기로 하면 "rejected".
+3. 이 도구들이 지연 로드(deferred) 상태면 먼저 ToolSearch 로
+   "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list" 를 불러온다.
+4. 기록하지 않는 것: 질문에 답만 하는 경우, 확인·잡담. 같은 일을 두 번 시작하지 않는다.
+5. 대화가 압축(compact)된 뒤에는 task_list 로 기록을 확인하고 이어서 쓴다."""
 
 TOOLS = [
     {"name": "task_start", "description": "작업을 시작하며 기록한다. 새 작업 id 를 돌려준다.",
