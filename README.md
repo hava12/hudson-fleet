@@ -4,7 +4,27 @@
 
 살아 있는 세션의 상태, 서브에이전트, 작업 내용, 연결된 MCP 서버를 봅니다.
 
-## 실행
+## 설치 (Claude Code 플러그인)
+
+```
+/plugin install hudson-fleet --marketplace hava12/hudson-fleet
+```
+
+Claude Code 2.1.275 이전이면 두 단계로 설치합니다.
+
+```
+/plugin marketplace add hava12/hudson-fleet
+/plugin install hudson-fleet@hudson-fleet
+```
+
+설치하면 두 가지가 함께 들어옵니다.
+
+- **SessionStart 훅**: 세션이 시작될 때 대시보드 서버(8765)가 없으면 백그라운드로 띄웁니다. 세션이 다 끝나도 서버는 남습니다. 플러그인을 업데이트했다면 떠 있는 서버를 한 번 꺼야 새 코드로 뜹니다.
+- **MCP 서버 `fleet`**: 에이전트가 작업을 시작·완료·중단·반려할 때 직접 기록합니다 (아래 "작업 기록").
+
+브라우저에서 http://127.0.0.1:8765 를 엽니다.
+
+## 직접 실행
 
 ```sh
 python3 server.py   # → http://127.0.0.1:8765
@@ -13,6 +33,18 @@ python3 server.py   # → http://127.0.0.1:8765
 - Python 3.9 이상, 표준 라이브러리만 씁니다.
 - `claude` CLI가 PATH에 있어야 합니다.
 - 그래프 라이브러리(cytoscape, dagre)는 CDN에서 받으므로 인터넷 연결이 필요합니다.
+
+## 작업 기록 (MCP)
+
+| 도구 | 하는 일 |
+|---|---|
+| `task_start(text)` | 작업을 시작하며 한 행을 만든다. id 를 돌려준다 |
+| `task_update(id, status, note?)` | done 완료 · stopped 중단 · rejected 반려 · todo 남은 일 |
+| `task_list()` | 이 세션의 작업 목록 (압축 뒤 이어받기) |
+
+어느 세션의 호출인지는 MCP 서버의 부모 프로세스(claude)로 찾습니다. `~/.claude/sessions/<pid>.json`의 `sessionId`를 읽으므로 에이전트가 세션 ID를 몰라도 됩니다.
+
+에이전트가 기록하지 않은 세션만 haiku 가 대화에서 작업을 정리합니다. 웹에서 분류를 바꾸거나 지울 수 있고, 사람이 고친 행은 다시 정리할 때도 남습니다.
 
 ## 기능
 
@@ -43,7 +75,8 @@ SQLite 파일 하나에 저장합니다: `~/.local/share/hudson-fleet/metrics.db
 | 표 | 내용 |
 |---|---|
 | `sessions` | 세션 1행. 상태(work·wait·idle·closed)와 그 상태가 된 시각, 종료 이유, 토큰 |
-| `session_tasks` | 세션의 기록할 작업 N행. 순번, 분류(done·stopped·todo), 내용 |
+| `session_tasks` | 세션의 기록할 작업 N행. 표시 순서(`sort`), 분류(todo·done·stopped·rejected), 기록 주체(agent·haiku·human) |
+| `task_events` | 작업마다 시작·완료·중단·반려·삭제 이력 (추가만) |
 | `session_files` | 세션이 바꾼 파일 N행. A/M/D, 편집 횟수, 추가·삭제 줄 수 |
 | `samples` | 1분마다 상태별 세션 수, 서브에이전트 수, 5시간·1주일 사용률 |
 | `daily` | 날짜별 토큰 합계 (캐시 읽기 제외) |

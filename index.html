@@ -73,7 +73,9 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 .dots::after{content:'...';font-family:ui-monospace,monospace;display:inline-block;overflow:hidden;vertical-align:bottom;width:0;animation:dots 1.2s steps(4,end) infinite}
 @keyframes dots{to{width:4ch}}
 /* 기록한 작업: 1. 2. 3. 순서 + 분류(완료·중단·남은 일) */
-.tasks{margin:0;padding-left:22px;font-size:13px;line-height:1.6}.tasks li{margin-bottom:6px}.tasks li::marker{color:var(--mute)}.tasks .pill{font-size:11px;margin-right:4px}.more{margin-top:2px;align-self:flex-start}
+.tasks{margin:0;padding-left:22px;font-size:13px;line-height:1.6}.tasks li{margin-bottom:6px}.tasks li::marker{color:var(--mute)}.tasks .pill{font-size:11px;margin-right:4px}.tsel{border:1px solid var(--line);background:var(--soft);cursor:pointer;padding:1px 4px}
+.tdel{border:0;background:none;color:var(--mute);cursor:pointer;font-size:11px;padding:0 4px;opacity:0}.tasks li:hover .tdel{opacity:1}.tdel:hover{color:var(--del)}
+.tasks li.t-rejected .tx{color:var(--mute);text-decoration:line-through}.more{margin-top:2px;align-self:flex-start}
 .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--mute);font-size:12px;margin-left:auto}
 </style></head><body>
 <header><h1>Hudson <span>Fleet</span></h1>
@@ -107,8 +109,10 @@ const GROUP={busy:'work',running:'work',blocked:'wait',waiting:'wait',needs_inpu
 const GINFO={work:['작업 중','#16a34a'],wait:['입력 대기','#d97706'],idle:['쉬는 중','#64748b'],done:['끝남','#a8a29e'],fail:['실패','#dc2626']};
 const grp=st=>GROUP[st]||'idle',isDead=st=>['done','fail'].includes(grp(st));  // 끝난 세션: 흐리게, 종료 메뉴 숨김
 const FILL={project:dark?'#334155':'#475569',agent:'#7c3aed'};
-const TASK={done:['완료','var(--add)'],stopped:['중단','var(--warn)'],todo:['남은 일','var(--mute)']};
-const taskList=(ts,max,sid)=>`<ol class="tasks">${ts.slice(0,max||ts.length).map(t=>`<li><span class="pill" style="color:${TASK[t.status]?.[1]}">${TASK[t.status]?.[0]||esc(t.status)}</span> ${esc(t.text)}</li>`).join('')}</ol>`
+const TASK={done:['완료','var(--add)'],stopped:['중단','var(--warn)'],todo:['남은 일','var(--mute)'],rejected:['반려','var(--del)']};
+const taskList=(ts,max,sid,edit)=>`<ol class="tasks">${ts.slice(0,max||ts.length).map(t=>`<li class="t-${t.status}" title="${({agent:'에이전트가 직접 기록',haiku:'haiku 가 대화에서 정리',human:'사람이 고침'})[t.source]||''}">${edit
+    ?`<select class="pill tsel" data-id="${t.id}" style="color:${TASK[t.status]?.[1]}" title="분류 바꾸기">${Object.entries(TASK).map(([k,[l]])=>`<option value="${k}"${k===t.status?' selected':''}>${l}</option>`).join('')}</select>`
+    :`<span class="pill" style="color:${TASK[t.status]?.[1]}">${TASK[t.status]?.[0]||esc(t.status)}</span>`} <span class="tx">${esc(t.text)}</span>${edit?`<button class="tdel" data-id="${t.id}" title="이 기록 삭제">✕</button>`:''}</li>`).join('')}</ol>`
   +(max&&ts.length>max?(sid?`<button class="sm more" data-act="more" data-sid="${esc(sid)}">더보기 (+${ts.length-max})</button>`:`<div class="meta">외 ${ts.length-max}건</div>`):'');
 const taskSum=ts=>ts.length?Object.entries(TASK).filter(([k])=>ts.some(t=>t.status===k)).map(([k,[l,c]])=>`<span style="color:${c}">${l} ${ts.filter(t=>t.status===k).length}</span>`).join(' · '):'<span class="meta">없음</span>';
 const pill=st=>`<span class="pill"><i class="dot" style="background:${GINFO[grp(st)][1]}"></i>${GINFO[grp(st)][0]}</span>`;
@@ -197,7 +201,7 @@ async function loadFeed(){
     <div class="ph">${pill(p.status)}<span class="meta">${when(p.last)}</span></div>
     <div class="ttl">${esc(p.title||p.name||p.sid.slice(0,8))}</div>
     <div class="meta">${esc(tilde(p.cwd))}</div>
-    ${p.tasks.length?taskList(p.tasks,3,p.sid)+(p.stale?'<div class="meta">※ 정리 이후 기록이 늘었습니다</div>':''):'<div class="body meta">정리된 작업 없음</div>'}
+    ${p.tasks.length?taskList(p.tasks,3,p.sid):'<div class="body meta">정리된 작업 없음</div>'}
     <div class="pf">${p.tasks.length?`<span class="tag">${taskSum(p.tasks)}</span>`:''}<span class="tag">파일 ${p.files} · ${p.edits}회</span>
       <span style="margin-left:auto"></span><button class="sm" data-act="open" data-sid="${esc(p.sid)}">자세히</button>
       <button class="sm" data-act="sum" data-sid="${esc(p.sid)}">${p.tasks.length?(p.stale?'다시 정리':'정리됨'):'작업 정리'}</button></div>
@@ -224,7 +228,7 @@ function renderSide(){
     ${agent?'':`<details id="sumbox" ${sumOpen?'open':''}><summary><h4 style="display:inline-block">세션 요약</h4></summary>
       <div><b>${esc(ov.title||'(제목 없음)')}</b></div>
       <div class="meta">${when(ov.first)} → ${when(ov.last)}</div>
-      <details id="taskbox" ${taskOpen?'open':''}><summary><h4 style="display:inline-block;font-size:13px">기록할 작업 · ${cur.tasks.length}건</h4></summary><div id="aitext">${cur.tasks.length?taskList(cur.tasks):'<div class="meta">아직 정리하지 않았습니다</div>'}</div>
+      <details id="taskbox" ${taskOpen?'open':''}><summary><h4 style="display:inline-block;font-size:13px">기록할 작업 · ${cur.tasks.length}건</h4></summary><div id="aitext">${cur.tasks.length?taskList(cur.tasks,0,0,true):'<div class="meta">아직 정리하지 않았습니다</div>'}</div>
       <div style="margin-top:6px"><button class="sm" id="aisum">${cur.tasks.length?'다시 정리':'작업 정리'}</button> <span class="meta">haiku · 토큰 사용 · 기록이 그대로면 저장본 재사용</span></div></details></details>`}
     <details id="chgbox" ${chgOpen?'open':''}><summary><h4 style="display:inline-block">변경 내역 · 파일 ${Object.keys(files).length}개 · ${changes.length}회</h4></summary>
       <div class="meta" style="margin-bottom:8px"><b class="st st-A">A</b> 생성 <b class="st st-M">M</b> 수정 <b class="st st-D">D</b> 삭제</div>
@@ -234,9 +238,20 @@ function renderSide(){
   $('chgbox').ontoggle=e=>chgOpen=e.target.open;  // 세션·날짜를 바꿔도 열림/닫힘 상태 유지
   if($('sumbox'))$('sumbox').ontoggle=e=>{if(e.target===$('sumbox'))sumOpen=e.target.open};  // 안쪽 접기의 이벤트는 따로
   if($('taskbox'))$('taskbox').ontoggle=e=>{e.stopPropagation();taskOpen=e.target.open};
+  if($('aitext'))$('aitext').onclick=async e=>{const el=e.target.closest('.tdel');if(!el||!confirm('이 작업 기록을 지울까요?'))return;
+    const r=await post('/api/task',{id:+el.dataset.id,delete:true});
+    if(!r.ok){$('msg').textContent='삭제 실패';return}
+    cur.tasks=cur.tasks.filter(x=>x.id!==+el.dataset.id);el.closest('li').remove();
+    $('taskbox').querySelector('h4').textContent=`기록할 작업 · ${cur.tasks.length}건`;loadFeed()};
+  if($('aitext'))$('aitext').onchange=async e=>{const el=e.target.closest('.tsel');if(!el)return;  // 분류 직접 바꾸기
+    const r=await post('/api/task',{id:+el.dataset.id,status:el.value});
+    if(!r.ok){$('msg').textContent=r.error||'분류 저장 실패';return}
+    if(cur.tasks.find(x=>x.id===+el.dataset.id)?.source==='haiku')cur.tasks.find(x=>x.id===+el.dataset.id).source='human';
+    const t=cur.tasks.find(x=>x.id===+el.dataset.id);t.status=el.value;
+    el.style.color=TASK[el.value][1];el.closest('li').className='t-'+el.value;loadFeed()};
   if($('aisum'))$('aisum').onclick=async()=>{const b=$('aisum'),t=$('aitext');b.disabled=true;b.textContent='요약 중…';
     const r=await post('/api/summary',{sid:s.sessionId});cur.tasks=r.tasks||cur.tasks;
-    t.innerHTML=r.error?esc(r.error):r.tasks.length?taskList(r.tasks):'<div class="meta">기록할 작업 없음</div>';
+    t.innerHTML=r.error?esc(r.error):r.tasks.length?taskList(r.tasks,0,0,true):'<div class="meta">기록할 작업 없음</div>';
     b.disabled=false;b.textContent=r.cached?'정리됨 (저장본)':'다시 정리'};
   if($('logs'))$('logs').onclick=async()=>{$('lg').style.display='block';$('lg').textContent='불러오는 중…';
     $('lg').textContent=(await (await fetch('/api/logs?id='+encodeURIComponent(s.bgId))).json()).text};

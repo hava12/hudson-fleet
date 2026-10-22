@@ -1,0 +1,14 @@
+{
+  "name": "hudson-fleet",
+  "owner": {
+    "name": "hava12"
+  },
+  "description": "Claude Code 에이전트 관측 대시보드 hudson-fleet 배포용",
+  "plugins": [
+    {
+      "name": "hudson-fleet",
+      "source": "./",
+      "description": "Claude Code 에이전트 관측 대시보드"
+    }
+  ]
+}
