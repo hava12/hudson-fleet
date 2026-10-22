@@ -96,7 +96,7 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--mute);font-size:12px;margin-left:auto}
 </style></head><body>
 <header><h1>Hudson <span>Fleet</span></h1>
-<nav><a href="#home" data-pg="home">현황</a><a href="#history" data-pg="history">세션 기록</a><a href="#mcp" data-pg="mcp">MCP 서버</a><a href="#settings" data-pg="settings">설정</a></nav><span id="msg" class="meta" style="margin-left:auto"></span><div class="hu" id="hu"><span>사용량<span class="dots"></span></span></div>
+<nav><a href="#home" data-pg="home">현황</a><a href="#history" data-pg="history">세션 기록</a><a href="#mcp" data-pg="mcp">MCP 서버</a><a href="#settings" data-pg="settings">설정</a></nav><span id="msg" class="meta" style="margin-left:auto"></span><button class="sm" id="noti" title="세션이 입력 대기로 바뀌거나 끝나면 알립니다">알림 켜기</button><div class="hu" id="hu"><span>사용량<span class="dots"></span></span></div>
 </header>
 <div id="menu"><div data-act="stop" class="danger">세션 종료하기</div></div>
 <main id="main" class="noside"><div id="dash"><div class="pg" id="pg-home">
@@ -175,6 +175,7 @@ async function load(){
     if(n.type==='session')Object.assign(n,{w:NW,h:NH,big:1})});  // 세션은 늘 카드로
   renderStats(g);renderTable(g);
   const s=g.nodes.map(n=>n.id).sort().join()+'|'+g.edges.length;
+  notify();
   if(s===sig){g.nodes.forEach(n=>cy.getElementById(n.id).data(n));renderCards();return} // 구조 그대로면 상태만 갱신 (카드는 바뀐 데이터로 다시)
   sig=s;cy.elements().remove();
   cy.add([...g.nodes.map(d=>({data:d})),...g.edges.map(e=>({data:{id:e.source+'>'+e.target,...e}}))]);
@@ -185,7 +186,7 @@ async function load(){
 
 // ── 오른쪽 탐색기 ──
 // 세션 노드는 자리만 카드 크기로 잡고, 그 위에 HTML 카드를 겹친다 (노드 이름표로는 줄마다 모양을 줄 수 없다)
-const NW=260,NH=112;  // 카드 크기 (그래프 좌표)
+const NW=300,NH=132;  // 카드 크기 (그래프 좌표)
 let U5={};  // 세션별 5시간 사용량 (/api/usage5h, 1분마다)
 async function loadU5(){U5=await (await fetch('/api/usage5h')).json();renderCards()}
 const modelName=m=>m.replace(/^claude-/,'').replace(/-(\d+)-(\d+).*$/,' $1.$2').replace(/^./,c=>c.toUpperCase());  // claude-opus-5-5 → Opus 5.5
@@ -196,6 +197,7 @@ function renderCards(){
     <b><i class="dot" style="background:${col}"></i>${esc(n.label)}${n.model?`<span class="mdl">${esc(modelName(n.model))}${n.effort?' · '+esc(n.effort):''}</span>`:''}</b><dl>
     <dt>실행 앱</dt><dd>${esc(n.kind==='background'?'백그라운드':n.app||'?')}</dd>
     <dt>실행 위치</dt><dd title="${esc(n.cwd)}">${esc(tilde(n.cwd))}</dd>
+    ${n.ctx?`<dt>컨텍스트</dt><dd><span class="bar"><i style="width:${Math.min(n.ctx/n.ctxMax*100,100)}%;background:${n.ctx/n.ctxMax>.8?'var(--warn)':'var(--c)'}"></i></span>${Math.round(n.ctx/n.ctxMax*100)}% <span class="meta">· ${fmtTok(n.ctx)} / ${fmtTok(n.ctxMax)}</span></dd>`:''}
     <dt>5시간 사용량</dt><dd><span class="bar"><i style="width:${Math.min(u.pct||0,100)}%"></i></span>${u.pct==null?'?':u.pct+'%'} <span class="meta">· ${fmtTok(u.tokens)} 토큰</span></dd></dl></div>`}).join('');
   cy.edges().forEach(e=>e.toggleClass('flow',e.target().data('type')==='session'&&grp(e.target().data('status'))==='work'));
   if(lay._h!==h){lay.innerHTML=h;lay._h=h}  // 그대로면 두어서 애니메이션이 끊기지 않게
@@ -505,5 +507,18 @@ function route(){
 addEventListener('hashchange',route);
 load().catch(()=>{}).finally(route);setInterval(load,5000);  // 홈 경로(~ 표시용)를 먼저 받고 페이지를 그린다
 const keep=(fn,ms)=>{const run=()=>fn().then(()=>setTimeout(run,ms),()=>setTimeout(run,3000));run()};  // 실패하면 3초 뒤 다시
+// 알림: 세션이 입력 대기로 바뀌거나 사라지면(끝남) 브라우저 알림
+let prevSt=null;
+const notiOn=()=>window.Notification&&Notification.permission==='granted';
+function notiBtn(){$('noti').textContent=notiOn()?'알림 켜짐':'알림 켜기';$('noti').disabled=notiOn()||!window.Notification}
+$('noti').onclick=()=>Notification.requestPermission().then(notiBtn);notiBtn();
+function notify(){
+  const now=new Map(G.nodes.filter(n=>n.type==='session').map(n=>[n.sessionId,n]));
+  if(prevSt&&notiOn())for(const [sid,p] of prevSt){const n=now.get(sid);
+    const msg=!n?'끝났습니다':grp(n.status)==='wait'&&grp(p.status)!=='wait'?'입력을 기다립니다':'';
+    if(!msg)continue;
+    const nt=new Notification(`${p.label} ${msg}`,{body:tilde(p.cwd)||'',tag:sid});
+    nt.onclick=()=>{window.focus();if(n)openSession(sid,null,true);nt.close()}}
+  prevSt=now}
 keep(loadFeed,60000);keep(loadTodo,10000);keep(loadU5,60000);keep(loadUsage,60000);
 </script></body></html>

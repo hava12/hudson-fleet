@@ -65,7 +65,13 @@ def model_of(sid):
                 rec = json.loads(line)
             except ValueError:  # 잘려 시작한 첫 줄
                 continue
-            return {"model": (rec.get("message") or {}).get("model"), "effort": rec.get("effort")}
+            m = rec.get("message") or {}
+            u = m.get("usage") or {}
+            ctx = u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0) + u.get("cache_creation_input_tokens", 0)
+            model = m.get("model") or ""
+            # 지금 모델은 모두 1M. 200K 는 Claude 3·4.5 이전 세대 (Haiku 4.5 등)
+            window = 200_000 if re.search(r"claude-3|-4-[0-5](?!\d)", model) and ctx <= 200_000 else 1_000_000
+            return {"model": model, "effort": rec.get("effort"), "ctx": ctx, "ctxMax": window}
     return {}
 
 
