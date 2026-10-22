@@ -99,7 +99,7 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
   <section class="card"><div class="sh"><h2>상태별 노드</h2><div class="legend" id="legend"></div></div>
     <div id="cy"></div><div class="stats" id="stats"></div></section>
   <section class="card"><div class="sh"><h2 id="tblh">남은 작업</h2></div><div id="todo" class="meta">불러오는 중…</div></section>
-  <section><div class="sh"><h2>작업 게시글</h2><span class="meta">1분마다 갱신</span></div><div id="feed" class="meta">불러오는 중…</div></section>
+  <section><div class="sh"><h2>작업 현황 리스트</h2><span class="meta">1분마다 갱신</span></div><div id="feed" class="meta">불러오는 중…</div></section>
 </div><div class="pg" id="pg-history" hidden>
   <section class="card"><div class="sh"><h2>끝난 세션</h2><span class="meta" id="hsum"></span><button class="sm" id="href" style="margin-left:auto">새로 고침</button></div>
     <div class="tw"><table id="htbl" class="tbl"></table></div>
@@ -259,7 +259,7 @@ async function loadFeed(){
     <div class="pf">${p.tasks.length?`<span class="tag">${taskSum(p.tasks)}</span>`:''}<span class="tag">파일 ${p.files} · ${p.edits}회</span>
       <span style="margin-left:auto"></span><button class="sm" data-act="open" data-sid="${esc(p.sid)}">자세히</button>
       <button class="sm" data-act="sum" data-sid="${esc(p.sid)}">${p.tasks.length?(p.stale?'다시 정리':'정리됨'):'작업 정리'}</button></div>
-  </article>`).join('')||'<div class="meta">게시글이 없습니다</div>';
+  </article>`).join('')||'<div class="meta">작업 현황이 없습니다</div>';
 }
 // 표·게시글의 버튼은 위임으로 한 번에 처리
 $('dash').addEventListener('click',async e=>{
