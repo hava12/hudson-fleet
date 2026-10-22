@@ -9,7 +9,8 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from server import SESSIONS, TAGS, add_task, saved_tasks, set_task  # noqa: E402
+from fleet.config import SESSIONS  # noqa: E402
+from fleet.tasks import TAGS, add_task, saved_tasks, set_task  # noqa: E402
 
 INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작업 단위로 기록한다. 대시보드와 세션 기록에 그대로 쓰인다.
 규칙 (일의 크기와 관계없이 지킨다):

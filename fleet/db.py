@@ -1,0 +1,68 @@
+"""SQLite 저장소: 표 만들기와 단순 조회."""
+import re
+import sqlite3
+import time
+from pathlib import Path
+
+from .config import CFG
+
+
+# 지표 저장소. 대화 기록은 cleanupPeriodDays(기본 30일) 뒤 지워지지만 이 표는 남는다.
+# ponytail: SQLite 고정, 공유 서버(Postgres 등)가 필요해지면 db()/record() 두 곳만 바꾸면 된다
+DB = Path(CFG["HUDSON_FLEET_DB"]).expanduser()
+
+
+def db():
+    DB.parent.mkdir(parents=True, exist_ok=True)
+    c = sqlite3.connect(DB)
+    c.execute("CREATE TABLE IF NOT EXISTS samples (ts INTEGER PRIMARY KEY, work INT, wait INT, idle INT,"
+              " agents INT, pct5h INT, pct1w INT)")
+    c.execute("CREATE TABLE IF NOT EXISTS daily (day TEXT PRIMARY KEY, tokens INT)")
+    # 세션 1 : 작업 N · 파일 N. 살아 있는 세션도 1분마다 상태를 남기고, 끝나면 status=closed 로 바뀐다
+    c.execute("CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, name TEXT, title TEXT, cwd TEXT, kind TEXT,"
+              " app TEXT, status TEXT, status_since TEXT, started_at TEXT, last_seen TEXT, ended_at TEXT,"
+              " end_reason TEXT, tokens INT, tasks_mtime REAL)")  # status: work · wait · idle · closed
+    if "my_title" not in {r[1] for r in c.execute("PRAGMA table_info(sessions)")}:  # 대시보드에서 붙인 제목 (Claude Code 파일은 안 건드림)
+        c.execute("ALTER TABLE sessions ADD COLUMN my_title TEXT")
+    # status: todo 남은 일 · done 완료 · stopped 중단 · rejected 반려 / source: agent(MCP) · haiku · human
+    c.execute("CREATE TABLE IF NOT EXISTS session_tasks (id INTEGER PRIMARY KEY, sid TEXT REFERENCES sessions(sid),"
+              " sort REAL, status TEXT, text TEXT, source TEXT, created_at TEXT, updated_at TEXT)")
+    if "tag" not in {r[1] for r in c.execute("PRAGMA table_info(session_tasks)")}:  # 일의 종류 (TAGS). 옛 행은 비어 있다
+        c.execute("ALTER TABLE session_tasks ADD COLUMN tag TEXT")
+    c.execute("CREATE TABLE IF NOT EXISTS task_events (id INTEGER PRIMARY KEY, task_id INT, ts TEXT, status TEXT,"
+              " note TEXT)")  # 시작·완료·중단·반려·순서 변경 이력 (추가만)
+    c.execute("CREATE TABLE IF NOT EXISTS session_files (sid TEXT REFERENCES sessions(sid), path TEXT,"
+              " status TEXT, edits INT, first_at TEXT, last_at TEXT, added INT, removed INT, PRIMARY KEY (sid, path))")
+    # Claude 가 한 git push. 대화 기록이 지워져도 남도록 커밋 메시지까지 저장한다
+    c.execute("CREATE TABLE IF NOT EXISTS pushes (id TEXT PRIMARY KEY, ts TEXT, sid TEXT, cwd TEXT, remote TEXT,"
+              " ref TEXT, old TEXT, new TEXT, commits TEXT)")  # id = tool_use id + ref, commits = JSON [[hash, 제목]]
+    return c
+
+
+def my_title(sid):
+    """대시보드에서 붙인 제목. 없으면 None."""
+    c = db()
+    row = c.execute("SELECT my_title FROM sessions WHERE sid = ?", (sid,)).fetchone()
+    c.close()
+    return row[0] if row else None
+
+
+def set_title(sid, title):
+    """대시보드에서만 쓰는 제목을 붙인다. 빈 값이면 지워서 원래 제목으로 돌아간다."""
+    if not re.fullmatch(r"[0-9a-f-]{36}", sid or ""):
+        return False
+    c = db()
+    c.execute("INSERT INTO sessions (sid, my_title) VALUES (?, ?) ON CONFLICT(sid) DO UPDATE SET my_title = excluded.my_title",
+              (sid, (title or "").strip()[:120] or None))
+    c.commit()
+    c.close()
+    return True
+
+
+def metrics(hours):
+    c = db()
+    cols = ("ts", "work", "wait", "idle", "agents", "pct5h", "pct1w")
+    rows = c.execute(f"SELECT {','.join(cols)} FROM samples WHERE ts >= ? ORDER BY ts",
+                     (int(time.time() - hours * 3600),)).fetchall()
+    c.close()
+    return [dict(zip(cols, r)) for r in rows]

@@ -46,7 +46,7 @@ python3 server.py   # → http://127.0.0.1:8765
 
 에이전트가 기록하지 않은 세션만 haiku 가 대화에서 작업을 정리합니다. 웹에서 분류·태그를 바꾸거나 지울 수 있고, 사람이 고친 행은 다시 정리할 때도 남습니다.
 
-태그는 일의 종류입니다: 개발 · 디자인 · 기획 · 테스트 · 문서 · 디버그 · 데이터 · 운영 · 기타. 정의는 `server.py` 의 `TAGS` 한 곳에 있고, MCP 도구 설명과 haiku 프롬프트가 같은 표를 씁니다. 목록에 없는 값은 기타로 저장합니다.
+태그는 일의 종류입니다: 개발 · 디자인 · 기획 · 테스트 · 문서 · 디버그 · 데이터 · 운영 · 기타. 정의는 `fleet/tasks.py` 의 `TAGS` 한 곳에 있고, MCP 도구 설명과 haiku 프롬프트가 같은 표를 씁니다. 목록에 없는 값은 기타로 저장합니다.
 
 ## 기능
 
@@ -96,6 +96,33 @@ SQLite 파일 하나에 저장합니다 (`HUDSON_FLEET_DB`).
 | `session_files` | 세션이 바꾼 파일 N행. A/M/D, 편집 횟수, 추가·삭제 줄 수 |
 | `samples` | 1분마다 상태별 세션 수, 서브에이전트 수, 5시간·1주일 사용률 |
 | `daily` | 날짜별 토큰 합계 (캐시 읽기 제외) |
+
+## 코드 구조
+
+`server.py` 는 실행 진입점이고, 기능은 `fleet/` 에 나뉘어 있습니다. 위층은 아래층만 가져다 씁니다 (거꾸로 가져오면 순환 import).
+
+| 파일 | 하는 일 |
+|---|---|
+| `fleet/config.py` | 환경 변수 설정, 경로, `claude` CLI 호출 |
+| `fleet/db.py` | SQLite 표 만들기, 제목·지표 조회 |
+| `fleet/transcripts.py` | 대화 기록(`.jsonl`) 읽기: 개요, 편집 이벤트, 토큰 |
+| `fleet/agents.py` | 살아 있는 세션: `claude agents`, 프로세스, 그래프, MCP 상태, 다시 열기 |
+| `fleet/files.py` | 세션이 바꾼 파일의 A/M/D 와 "처음 → 지금" diff |
+| `fleet/tasks.py` | 작업 기록(추가·수정·조회)과 haiku 정리, `TAGS` |
+| `fleet/usage.py` | `/usage` 사용률, 세션별 5시간 몫, 날짜별 토큰 |
+| `fleet/pushes.py` | Claude 가 실행한 git push 기록 |
+| `fleet/recorder.py` | 1분 주기 기록 스레드: 지표, 세션 상태, 끝난 세션 마감 |
+| `fleet/web.py` | HTTP API 와 화면 |
+| `mcp_server.py` | 작업 기록 MCP 서버 (stdio). `fleet/tasks.py` 로 DB 에 바로 씁니다 |
+
+```
+5  recorder · web
+4  tasks
+3  files
+2  agents · usage · pushes
+1  db · transcripts
+0  config
+```
 
 ## API
 

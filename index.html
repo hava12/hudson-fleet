@@ -139,7 +139,7 @@ const GINFO={work:['작업 중','#16a34a'],wait:['입력 대기','#d97706'],idle
 const grp=st=>GROUP[st]||'idle',isDead=st=>['done','fail'].includes(grp(st));  // 끝난 세션: 흐리게, 종료 메뉴 숨김
 const FILL={project:dark?'#334155':'#475569',agent:'#7c3aed'};
 const TASK={done:['완료','var(--add)'],stopped:['중단','var(--warn)'],todo:['남은 일','var(--mute)'],rejected:['반려','var(--del)']};
-const TAGS=['개발','디자인','기획','테스트','문서','디버그','데이터','운영','기타'];  // server.py TAGS 와 같은 순서
+const TAGS=['개발','디자인','기획','테스트','문서','디버그','데이터','운영','기타'];  // fleet/tasks.py TAGS 와 같은 순서
 const tagPill=(t,edit)=>edit?`<select class="pill tgsel" data-id="${t.id}" title="태그 바꾸기">${t.tag?'':'<option value="" selected>태그</option>'}${TAGS.map(k=>`<option${k===t.tag?' selected':''}>${k}</option>`).join('')}</select>`
   :t.tag?`<span class="pill">${esc(t.tag)}</span>`:'';
 const taskList=(ts,max,sid,edit)=>`<ol class="tasks">${ts.slice(0,max||ts.length).map(t=>`<li class="t-${t.status}" title="${({agent:'에이전트가 직접 기록',haiku:'haiku 가 대화에서 정리',human:'사람이 고침'})[t.source]||''}">${edit
