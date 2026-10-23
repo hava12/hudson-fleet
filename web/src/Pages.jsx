@@ -43,7 +43,7 @@ export function Pushes() {
   const ps = usePoll('/api/pushes', 0, [n])
   return <div className="pg"><section className="card">
     <div className="sh"><h2>Push 기록</h2>
-      <span className="meta">{ps ? `Claude 가 실행한 git push ${ps.length}건 · 커밋 ${ps.reduce((a, p) => a + p.commits.length, 0)}개` : 'Claude 가 실행한 git push 만 모읍니다'}</span>
+      <span className="meta">{ps ? `세션에서 실행한 git push ${ps.length}건 · 커밋 ${ps.reduce((a, p) => a + p.commits.length, 0)}개` : '세션에서 실행한 git push 만 모읍니다 (Claude 와 ! 명령)'}</span>
       <button className="sm" style={{ marginLeft: 'auto' }} onClick={() => setN(n + 1)}>새로 고침</button></div>
     <div className="tw"><table className="tbl"><tbody>
       {!ps ? <tr><td className="meta">불러오는 중…</td></tr> : <>

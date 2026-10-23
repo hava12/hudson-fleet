@@ -1,4 +1,5 @@
-"""Claude 가 실행한 git push 기록."""
+"""Claude 가 실행한 git push 기록 (사용자가 세션 안에서 ! 로 실행한 것 포함)."""
+import html
 import json
 import os
 import re
@@ -10,31 +11,44 @@ from .db import db
 from .transcripts import by_mtime
 
 
+def _parse(t, key, cmd, ts, cwd, sid):
+    """push 출력(To <주소>, old..new ref -> ref)을 ref 마다 한 행으로."""
+    if m := re.match(r"\s*cd\s+([^\s;&|]+)", cmd):  # cd <폴더> && ... git push (cd <폴더>; 처럼 붙은 ; 는 빼고)
+        cwd = os.path.expanduser(m[1].strip("'\""))
+    to = re.search(r"^To (\S+)", t, re.M)
+    return [{"id": f"{key}:{r[4]}", "ts": ts, "sid": sid, "cwd": cwd, "remote": to[1] if to else "", "ref": r[4], "old": r[1], "new": r[2]}
+            for r in re.finditer(r"^\s*[+*]?\s*([0-9a-f]{7,})\.\.\.?([0-9a-f]{7,})\s+(\S+)\s+->\s+(\S+)", t, re.M)]
+
+
 @by_mtime
 def pushes_in(path):
-    """대화 기록 하나에서 Claude 가 실행한 git push 와 그 결과(To <주소>, old..new ref -> ref)를 찾는다."""
-    pend, out = {}, []
+    """대화 기록 하나에서 git push 와 그 결과를 찾는다.
+    Claude 의 Bash 도구: tool_use ↔ tool_result 를 id 로 짝짓는다.
+    사용자의 ! 명령: <bash-input> 메시지 바로 다음의 <bash-stdout>·<bash-stderr> 메시지가 결과다 (> 가 &gt; 로 저장된다)."""
+    pend, bang, out = {}, None, []
     for line in path.open(encoding="utf-8", errors="replace"):
-        if "git push" not in line and "tool_use_id" not in line:  # 대부분의 줄은 해석 없이 건너뛴다
+        if "git push" not in line and "tool_use_id" not in line and not (bang and "<bash-std" in line):  # 대부분의 줄은 해석 없이 건너뛴다
             continue
         try:
             rec = json.loads(line)
         except ValueError:
             continue
+        meta = (rec.get("timestamp", ""), rec.get("cwd", ""), rec.get("sessionId", ""))
         blocks = (rec.get("message") or {}).get("content")
+        if rec.get("type") == "user" and isinstance(blocks, str):  # ! 명령과 그 출력은 문자열 content 로 남는다
+            if m := re.search(r"<bash-input>(.*?)</bash-input>", blocks, re.S):
+                bang = (rec.get("uuid", ""), m[1], *meta) if "git push" in m[1] else None
+            elif bang and "<bash-std" in blocks:
+                out += _parse(html.unescape(re.sub(r"</?bash-std(?:out|err)>", "\n", blocks)), *bang)
+                bang = None
+            continue
         for b in blocks if isinstance(blocks, list) else []:
             if b.get("type") == "tool_use" and "git push" in (b.get("input") or {}).get("command", ""):
-                pend[b["id"]] = (b["input"]["command"], rec.get("timestamp", ""), rec.get("cwd", ""), rec.get("sessionId", ""))
+                pend[b["id"]] = (b["input"]["command"], *meta)
             elif b.get("type") == "tool_result" and b.get("tool_use_id") in pend:
-                cmd, ts, cwd, sid = pend.pop(b["tool_use_id"])
                 t = b.get("content")
                 t = t if isinstance(t, str) else "\n".join(x.get("text", "") for x in t or [] if isinstance(x, dict))
-                if m := re.match(r"\s*cd\s+([^\s;&|]+)", cmd):  # cd <폴더> && ... git push (cd <폴더>; 처럼 붙은 ; 는 빼고)
-                    cwd = os.path.expanduser(m[1].strip("'\""))
-                to = re.search(r"^To (\S+)", t, re.M)
-                for r in re.finditer(r"^\s*[+*]?\s*([0-9a-f]{7,})\.\.\.?([0-9a-f]{7,})\s+(\S+)\s+->\s+(\S+)", t, re.M):
-                    out.append({"id": f"{b['tool_use_id']}:{r[4]}", "ts": ts, "sid": sid, "cwd": cwd,
-                                "remote": to[1] if to else "", "ref": r[4], "old": r[1], "new": r[2]})
+                out += _parse(t, b["tool_use_id"], *pend.pop(b["tool_use_id"]))
     return out
 
 

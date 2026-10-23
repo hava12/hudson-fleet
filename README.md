@@ -206,7 +206,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
 | `fleet/agents.py` | 살아 있는 세션: `claude agents`, 프로세스, 그래프, 패널 개요, MCP 상태, 다시 열기 |
 | `fleet/tasks.py` | 작업 기록(추가·수정·조회)과 haiku 정리, `TAGS` |
 | `fleet/usage.py` | `/usage` 사용률, 세션별 5시간 몫, 날짜별 토큰 |
-| `fleet/pushes.py` | Claude 가 실행한 git push 기록 |
+| `fleet/pushes.py` | 세션에서 실행한 git push 기록 (Claude 의 Bash 와 사용자의 `!` 명령) |
 | `fleet/card.py` | 프로필 카드 SVG 그리기와 Gist 덮어쓰기 |
 | `fleet/recorder.py` | 1분 주기 기록 스레드: 지표, 세션 상태, 끝난 세션 마감, 30분마다 프로필 카드 |
 | `fleet/web.py` | HTTP API 와 화면 (`dist/`) |
@@ -225,7 +225,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
 | 경로 | 내용 |
 |---|---|
 | `GET /api/sessions?status=closed\|work\|wait\|idle&limit=50` | 세션과 작업 목록 |
-| `GET /api/pushes?limit=200&sid=` | Claude 가 실행한 git push (시각·레포·브랜치·커밋 메시지·세션). `sid` 를 주면 그 세션 것만. 대화 기록이 지워져도 DB 에 남습니다 |
+| `GET /api/pushes?limit=200&sid=` | 세션에서 실행한 git push — Claude 의 Bash 와 사용자의 `!` 명령, 세션 밖 터미널은 빠짐 (시각·레포·브랜치·커밋 메시지·세션). `sid` 를 주면 그 세션 것만. 대화 기록이 지워져도 DB 에 남습니다 |
 | `GET /api/metrics?hours=24` | 1분 단위 지표 |
 | `GET /api/daily` | 날짜별 토큰 (최근 1년) |
 | `GET /api/usage` | 5시간·1주일 사용률 (`/usage` 결과) |

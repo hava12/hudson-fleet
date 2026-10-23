@@ -38,7 +38,7 @@ export function TaskRow({ t, edit, lead }) {
       {edit === 'all' && <button className="tdel" title="이 기록 삭제" onClick={del}>✕</button>}
       {has && open && <div className="dbox">
         {d.length > 0 && <ul className="dets">{d.map((x, i) => <li key={i}>{x}</li>)}</ul>}
-        {note && <div className="tnote">비고 · {t.note}</div>}
+        {note && <div className="tnote">결과 : {t.note}</div>}
       </div>}
     </li>
   )
