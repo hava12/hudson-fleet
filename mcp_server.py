@@ -80,8 +80,10 @@ def post(body):
         with urllib.request.urlopen(req, timeout=5) as r:
             return json.loads(r.read())
     except urllib.error.HTTPError as e:  # 서버는 있는데 거절 — 400 은 이유가 본문에 있다
-        if e.code in (403, 404):  # 이 API 가 없던 서버: 경로가 없거나(404) Origin 검사가 먼저 막는다(403)
-            return {"error": "대시보드 서버가 옛 버전입니다. 서버를 껐다 켜라고 사용자에게 알리세요 (lsof -ti :8765 | xargs kill)"}
+        if e.code in (403, 404):  # 이 API 가 없는 프로그램이 포트를 잡고 있다: 경로가 없거나(404) Origin 검사가 먼저 막는다(403)
+            # 대시보드는 리더 MCP 서버 안에서 돈다 — kill 하면 그 세션의 MCP 까지 꺼지므로 세션을 다시 시작하게 한다
+            return {"error": "포트를 이 기록 API 가 없는 프로그램이 쓰고 있습니다. 사용자에게 lsof -i :8765 로 확인하고,"
+                             " 옛 버전 Claude Code 세션이면 그 세션을 다시 시작(/exit 뒤 claude --resume)하라고 알리세요"}
         return json.loads(e.read() or "{}")
 
 

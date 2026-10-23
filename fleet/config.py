@@ -1,4 +1,5 @@
-"""설정(환경 변수)·경로·claude CLI 호출."""
+"""설정(환경 변수)·경로·버전·claude CLI 호출."""
+import json
 import os
 import subprocess
 from datetime import datetime, timezone
@@ -30,6 +31,24 @@ ORIGIN = f"http://127.0.0.1:{PORT}"
 PROJECTS = Path.home() / ".claude" / "projects"
 SESSIONS = Path.home() / ".claude" / "sessions"
 DEAD = {"stopped", "completed", "done", "failed"}
+
+# 버전: 이 코드의 버전과 지금 설치된 플러그인 버전. 리더가 옛 버전이면 새 버전 대기자에게 자리를 넘긴다 (server.lead)
+ROOT = Path(__file__).resolve().parent.parent
+VERSION = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())["version"]
+
+
+def ver(v):
+    """'0.5.17' → (0, 5, 17). 비교용."""
+    return tuple(int(x) for x in str(v).split(".") if x.isdigit())
+
+
+def installed_version():
+    """~/.claude/plugins/installed_plugins.json 의 hudson-fleet 버전. 못 읽으면 None (직접 실행 등)."""
+    try:
+        rows = json.loads((Path.home() / ".claude" / "plugins" / "installed_plugins.json").read_text())["plugins"]
+        return rows["hudson-fleet@hudson-fleet"][0]["version"]
+    except (OSError, ValueError, KeyError, IndexError):
+        return None
 
 
 # 대시보드가 내부용으로 돌리는 claude -p 는 MCP 서버·훅을 띄우지 않는다.

@@ -15,7 +15,12 @@ export const LIVE = ['work', 'wait', 'idle']  // 메인 화면은 살아 있는 
 export const fmtTok = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : String(n || 0)
 export const modelName = m => m.replace(/^claude-/, '').replace(/-(\d+)-(\d+).*$/, ' $1.$2').replace(/^./, c => c.toUpperCase())  // claude-opus-5-5 → Opus 5.5
 
-export const get = async p => (await fetch(p)).json()
+// 서버에 닿는지: 실패하면 'fleet-down', 다시 닿으면 'fleet-up' 이벤트 — 리더가 없거나 바뀌는 중이면 main.jsx 가 안내를 띄운다
+let down = false
+const reach = ok => { if (down === ok) { down = !ok; dispatchEvent(new Event(ok ? 'fleet-up' : 'fleet-down')) } }
+export const get = async p => {
+  try { const r = await fetch(p); reach(true); return r.json() } catch (e) { reach(false); throw e }
+}
 export const post = async (p, b) => (await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })).json()
 
 // ms 마다 다시 받는다. 실패하면 1초 뒤 다시 (리더가 바뀌는 1~2초 동안은 마지막 값을 그대로 보여 준다). deps 가 바뀌면 바로 다시 (ms 가 없으면 deps 가 바뀔 때만)

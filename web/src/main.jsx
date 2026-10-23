@@ -53,6 +53,34 @@ function useNotify(G, openSide) {
   }, [G])
 }
 
+// 버전: 화면을 띄운 리더의 버전. 더 새 버전이 설치돼 있으면 알리고, 리더가 바뀌어 버전이 달라지면 새 화면으로 새로 고친다
+const newer = (a, b) => { const x = (a || '').split('.').map(Number), y = (b || '').split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false }
+function Version() {
+  const V = usePoll('/api/version', 10000)
+  const first = useRef(null)
+  useEffect(() => {
+    if (!V?.version) return
+    if (!first.current) first.current = V.version
+    else if (first.current !== V.version) location.reload()
+  }, [V])
+  if (!V?.version) return null
+  return newer(V.installed, V.version)
+    ? <span className="pill" style={{ color: 'var(--t-todo)' }} title="지금 화면은 옛 버전 세션이 띄우고 있습니다. Claude Code 세션을 새로 열면 10초 안에 새 버전이 넘겨받습니다">v{V.version} → v{V.installed} 설치됨</span>
+    : <span className="meta" title="이 화면을 띄운 플러그인 버전">v{V.version}</span>
+}
+
+// 서버가 없을 때: 리더 세션이 모두 꺼졌거나 옛 버전(0.5.15 이하)만 남았다. 리더가 바뀌는 1~2초는 띄우지 않는다
+function useDown() {
+  const [down, setDown] = useState(false)
+  useEffect(() => {
+    let t
+    const off = () => { t = setTimeout(() => setDown(true), 3000) }, on = () => { clearTimeout(t); setDown(false) }
+    addEventListener('fleet-down', off); addEventListener('fleet-up', on)
+    return () => { clearTimeout(t); removeEventListener('fleet-down', off); removeEventListener('fleet-up', on) }
+  }, [])
+  return down
+}
+
 // 패널 폭: 손잡이를 끌어 300px ~ 화면 80% 사이로. 이 브라우저에만 기억한다
 const sideW = w => w ? document.documentElement.style.setProperty('--sidew', w + 'px') : document.documentElement.style.removeProperty('--sidew')
 try { sideW(+localStorage.getItem('sidew') || 0) } catch { /* 저장소 막힘 */ }
@@ -91,6 +119,7 @@ function App() {
     return () => removeEventListener('hashchange', f)
   }, [])
   useNotify(G, openSide)
+  const down = useDown()
   const Page = PAGES[pg][1]
   return <Ctx.Provider value={{ G, side, openSide, setMsg, stopSession, ver, bump }}>
     <header><h1>Hudson <span>Fleet</span></h1>
@@ -99,7 +128,9 @@ function App() {
       <button className="sm" disabled={notiOn() || !window.Notification} title="세션이 입력 대기로 바뀌거나 끝나면 알립니다"
         onClick={() => Notification.requestPermission().then(() => setNoti(n => n + 1))}>{notiOn() ? '알림 켜짐' : '알림 켜기'}</button>
       <Usage />
+      <Version />
       <a href="#settings" className={'gear' + (pg === 'settings' ? ' on' : '')} title="설정" aria-label="설정">⚙</a></header>
+    {down && <div className="down">대시보드 서버에 닿지 않습니다. 대시보드는 Claude Code 세션(MCP 서버)이 띄우므로, 세션이 모두 꺼졌거나 옛 버전 세션만 남았을 수 있습니다. 세션을 하나 열면 1~2초 안에 다시 이어집니다.</div>}
     <main className={side ? '' : 'noside'}>
       <div id="dash"><Page /></div>
       <div id="side"><Handle /><button className="sm" id="sideX" title="패널 닫기" onClick={() => setSide(null)}>✕</button>

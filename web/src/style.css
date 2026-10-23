@@ -89,3 +89,4 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 header .gear{font-size:20px;line-height:1;color:var(--mute);text-decoration:none;padding:4px}header .gear:hover,header .gear.on{color:var(--fg)}
 .uadd{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
 .tid{color:var(--mute);font-size:11px;margin-left:6px;font-variant-numeric:tabular-nums}
+.down{padding:8px 20px;background:var(--t-todo);color:#111;font-size:13px}

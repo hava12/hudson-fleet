@@ -5,13 +5,14 @@ import os
 import re
 import signal
 import sqlite3
+import threading
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from .agents import agents, find_session, graph, mcp_servers, reopen, session
 from .card import card_svg, tokens_svg
-from .config import CFG, CONFIG, DEAD, ORIGIN, claude
+from .config import CFG, CONFIG, DEAD, ORIGIN, VERSION, claude, installed_version, ver
 from .db import EDIT, db, metrics, my_title, saved_settings, set_setting, set_title
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
@@ -71,6 +72,8 @@ class H(BaseHTTPRequestHandler):
             f = (DIST / (u.path.lstrip("/") or "index.html")).resolve()
             if f.is_relative_to(DIST) and f.is_file():  # ../ 로 dist 밖을 읽지 못하게
                 return self.send(f.read_bytes(), mimetypes.guess_type(f.name)[0] or "application/octet-stream")
+        if u.path == "/api/version":  # 화면을 띄운 리더의 버전과 설치된 버전 — 다르면 화면이 알리고, 바뀌면 새로 고친다
+            return self.send({"version": VERSION, "installed": installed_version()})
         if u.path == "/api/graph":
             return self.send(graph())
         if u.path == "/api/config":
@@ -133,6 +136,12 @@ class H(BaseHTTPRequestHandler):
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
         # MCP 서버의 작업 기록. 브라우저는 POST 에 Origin 을 꼭 붙이므로, Origin 이 없으면 브라우저(다른 웹사이트)가 아니다
+        # 새 버전 대기자(다른 세션의 MCP 서버)가 자리를 넘겨 달라고 한다 {version}. 더 새 버전일 때만 물러난다
+        if self.path == "/api/handover" and "Origin" not in self.headers:
+            if ver(body.get("version")) <= ver(VERSION):
+                return self.send({"error": "더 새 버전이 아닙니다"}, code=409)
+            self.send({"ok": True})
+            return threading.Thread(target=self.server.shutdown, daemon=True).start()  # serve_forever 가 끝나면 serve() 가 포트를 닫는다
         if self.path == "/api/agent/task" and "Origin" not in self.headers:
             out, code = agent_task(body)
             return self.send(out, code=code)
