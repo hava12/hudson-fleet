@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { TaskList } from './TaskList'
-import { Pill, TASK, fmtTok, get, post, tilde, useApp, usePoll, when } from './lib'
+import { Pill, fmtTok, get, post, tilde, useApp, usePoll, when } from './lib'
 import { MST } from './Mcp'
 import { REASON, Commits, RepoLink } from './Pages'
 
@@ -45,7 +45,6 @@ let sumOpen = true, taskOpen = true  // 세션을 바꿔 열어도 접힘 상태
 function SessionPanel({ sid, agent }) {
   const { G, ver, stopSession, setMsg, bump } = useApp()
   const r = usePoll('/api/session?sid=' + encodeURIComponent(sid), 0, [ver])
-  const [taskF, setTaskF] = useState(new Set())  // 상태 필터 (여러 개, 비면 전체)
   const [log, setLog] = useState(null)
   const [ai, setAi] = useState({ busy: false, err: '', label: '' })
   const s = G.nodes.find(n => n.sessionId === sid)
@@ -53,10 +52,6 @@ function SessionPanel({ sid, agent }) {
   const head = <h3>{agent ? '🔷 ' + agent : s.label}</h3>
   if (!r) return <>{head}<div className="meta">불러오는 중…</div></>
   const ov = r.overview || {}, proc = r.proc || [], ts = r.tasks || []
-  const n = k => ts.filter(t => t.status === k).length
-  const f = [...taskF].filter(n)  // 건수가 0 이 된 필터는 뺀다
-  const shown = ts.filter(t => !f.length || f.includes(t.status))
-  const toggle = k => { const x = new Set(f); k ? x.has(k) ? x.delete(k) : x.add(k) : x.clear(); setTaskF(x) }
   const summarize = async () => {
     setAi({ busy: true })
     const x = await post('/api/summary', { sid })
@@ -78,9 +73,7 @@ function SessionPanel({ sid, agent }) {
       <div className="meta">{when(ov.first)} → {when(ov.last)}</div>
       <details open={taskOpen} onToggle={e => { e.stopPropagation(); taskOpen = e.target.open }}>
         <summary><h4 style={{ display: 'inline-block', fontSize: 13 }}>기록할 작업 · {ts.length}건</h4></summary>
-        {ts.length > 0 && <div className="tflt">{[['', '전체', ts.length], ...Object.entries(TASK).map(([k, [l]]) => [k, l, n(k)])].filter(([k, , c]) => !k || c)
-          .map(([k, l, c]) => <button key={k} className={'sm' + ((k ? f.includes(k) : !f.length) ? ' on' : '')} onClick={() => toggle(k)}>{l} {c}</button>)}</div>}
-        {ai.err ? <div>{ai.err}</div> : shown.length ? <TaskList ts={shown} edit="all" /> : <div className="meta">아직 정리하지 않았습니다</div>}
+        {ai.err ? <div>{ai.err}</div> : ts.length ? <TaskList ts={ts} edit="all" /> : <div className="meta">아직 정리하지 않았습니다</div>}
         <div style={{ marginTop: 6 }}><button className="sm" disabled={ai.busy} onClick={summarize}>{ai.busy ? '요약 중…' : ai.label || (ts.length ? '다시 정리' : '작업 정리')}</button>
           {' '}<span className="meta">haiku · 토큰 사용 · 기록이 그대로면 저장본 재사용</span></div>
       </details></details>}

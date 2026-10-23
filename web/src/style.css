@@ -35,7 +35,6 @@ h2{font-size:13px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02e
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
 .tw{overflow-x:auto}.todo{margin:0;padding-left:18px;line-height:1.7}
 .post[data-post]{cursor:pointer}.post[data-post]:hover{border-color:var(--acc)}
-.tflt{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0}.tflt .on{background:var(--acc);color:#fff;border-color:var(--acc)}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{text-align:left;font-weight:500;color:var(--mute);font-size:12px;padding:6px 10px;border-bottom:1px solid var(--line)}
 .tbl td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:top}.tbl tr:last-child td{border-bottom:0}
@@ -75,3 +74,8 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 .tdel{border:0;background:none;color:var(--mute);cursor:pointer;font-size:11px;padding:0 4px;opacity:0}.tasks li:hover .tdel{opacity:1}.tdel:hover{color:var(--del)}
 .tasks li.t-rejected .tx{color:var(--mute);text-decoration:line-through}.more{margin-top:2px;align-self:flex-start}
 .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--mute);font-size:12px;margin-left:auto}
+/* 작업 목록: 줄 앞 기호(○ ✓ ✕ ‖)로 상태를 보이고, 끝난 일은 흐리게. 상태가 섞이면 묶음(.tgrp)으로 나눈다 */
+.tasks,.todo{list-style:none;padding-left:0}.tmark{display:inline-block;width:1.3em;font-weight:600}
+.tasks li.t-done .tx,.tasks li.t-rejected .tx{color:var(--mute)}
+.tgrp>summary{font-size:12px;font-weight:600;color:var(--mute);margin:8px 0 2px}.tgrp:first-child>summary{margin-top:0}
+.tasks .dbox,.todo .dbox{margin-left:1.3em}

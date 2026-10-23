@@ -131,7 +131,7 @@ export default function Home() {
       ? <>남은 작업 · {statF === 'agent' ? '서브에이전트가 있는 세션' : GINFO[statF][0]}만 보기 <button className="sm" onClick={() => setStatF('')}>필터 해제</button></>
       : '남은 작업'}</h2></div>
       {!TODO ? <div className="meta">불러오는 중…</div>
-        : todo.length ? <TaskList ts={todo} as="ul" className="todo" edit="status" lead={t => {
+        : todo.length ? <TaskList ts={todo} className="todo" edit="status" lead={t => {
           const nm = t.name || t.sid.slice(0, 8)
           return <>{live.has(t.sid) ? <a className="lk" onClick={() => openSide({ type: 'session', sid: t.sid })}>[{nm}]</a>
             : <span className="meta" title={'끝난 세션 · ' + (t.title || '')}>[{nm}]</span>} - </>
