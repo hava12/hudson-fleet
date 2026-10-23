@@ -129,12 +129,16 @@ const tagPill=(t,edit)=>edit?`<select class="pill tgsel" data-id="${t.id}" title
   :t.tag?`<span class="pill">${esc(t.tag)}</span>`:'';
 // 3-Step-Desc: 작업 아래 설명 줄(최대 3) + 완료·중단·반려의 비고
 // 작업 문장 + 설명 줄·비고. 설명은 접어 두고 문장을 누르면 펼친다 (아래 document 클릭 처리)
+// 현황은 5초마다 다시 그리므로 펼친 작업 id 를 기억해 둔다
+const openT=new Set();
 const tx=(t,after='')=>{let d=[];try{d=JSON.parse(t.details||'[]')}catch{}
   const box=(d.length?`<ul class="dets">${d.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'')
     +(t.note&&t.status!=='todo'?`<div class="tnote">비고 · ${esc(t.note)}</div>`:'');
-  return box?`<span class="tx has" title="눌러서 설명 보기">${esc(t.text)}</span>${after}<div class="dbox" hidden>${box}</div>`:`<span class="tx">${esc(t.text)}</span>${after}`};
+  const o=openT.has(t.id);
+  return box?`<span class="tx has${o?' open':''}" data-tid="${t.id}" title="눌러서 설명 보기">${esc(t.text)}</span>${after}<div class="dbox"${o?'':' hidden'}>${box}</div>`:`<span class="tx">${esc(t.text)}</span>${after}`};
 document.addEventListener('click',e=>{const x=e.target.closest('.tx.has');if(!x)return;e.stopPropagation();
-  const b=x.parentElement.querySelector('.dbox');b.hidden=!b.hidden;x.classList.toggle('open',!b.hidden)},true);
+  const b=x.parentElement.querySelector('.dbox');b.hidden=!b.hidden;x.classList.toggle('open',!b.hidden);
+  const id=+x.dataset.tid;b.hidden?openT.delete(id):openT.add(id)},true);
 const taskList=(ts,max,sid,edit)=>`<ol class="tasks">${ts.slice(0,max||ts.length).map(t=>`<li class="t-${t.status}" title="${({agent:'에이전트가 직접 기록',haiku:'haiku 가 대화에서 정리',human:'사람이 고침'})[t.source]||''}">${edit
     ?`<select class="pill tsel" data-id="${t.id}" style="color:${TASK[t.status]?.[1]}" title="분류 바꾸기">${Object.entries(TASK).map(([k,[l]])=>`<option value="${k}"${k===t.status?' selected':''}>${l}</option>`).join('')}</select>`
     :`<span class="pill" style="color:${TASK[t.status]?.[1]}">${TASK[t.status]?.[0]||esc(t.status)}</span>`}${tagPill(t,edit)} ${tx(t,edit?`<button class="tdel" data-id="${t.id}" title="이 기록 삭제">✕</button>`:'')}</li>`).join('')}</ol>`
