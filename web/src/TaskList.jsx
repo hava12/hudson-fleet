@@ -35,13 +35,15 @@ export function TaskRow({ t, edit, lead }) {
           </select>
         : edit !== 'status' && t.tag && <span className="pill">{t.tag}</span>}
       {' '}{lead}
-      <span className={'tx' + (has ? ' has' : '') + (open ? ' open' : '')} title={has ? '눌러서 설명 보기' : undefined}
-        onClick={has ? e => { e.stopPropagation(); setOpen(!open) } : undefined}>{t.text}</span>
-      {edit === 'all' && <button className="tdel" title="이 기록 삭제" onClick={del}>✕</button>}
-      {has && open && <div className="dbox">
-        {d.length > 0 && <ul className="dets">{d.map((x, i) => <li key={i}>{x}</li>)}</ul>}
-        {note && <div className="tnote">결과 : {t.note}</div>}
-      </div>}
+      <div className="tbody">{/* 문장과 설명을 한 칸에 — 넘치는 줄·설명 줄이 문장 시작점에 맞춰 들어간다 */}
+        <span className={'tx' + (has ? ' has' : '') + (open ? ' open' : '')} title={has ? '눌러서 설명 보기' : undefined}
+          onClick={has ? e => { e.stopPropagation(); setOpen(!open) } : undefined}>{t.text}</span>
+        {edit === 'all' && <button className="tdel" title="이 기록 삭제" onClick={del}>✕</button>}
+        {has && open && <div className="dbox">
+          {d.length > 0 && <ul className="dets">{d.map((x, i) => <li key={i}>{x}</li>)}</ul>}
+          {note && <div className="tnote">결과 : {t.note}</div>}
+        </div>}
+      </div>
     </li>
   )
 }

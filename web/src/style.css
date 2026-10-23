@@ -78,3 +78,7 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 .tasks,.todo{list-style:none;padding-left:0}
 .tasks li.t-done .tx,.tasks li.t-rejected .tx{color:var(--mute)}
 .tgrp>summary{font-size:13px;font-weight:600;color:var(--mute);margin:8px 0 2px}.tgrp:first-child>summary{margin-top:0}
+/* 들여쓰기: 묶음 제목 ▸ 아래로 줄을 한 칸. 줄은 상태·태그 칸 | 문장·설명 칸(.tbody) — 넘치는 줄과 설명(└)이 문장 시작점에 맞는다 */
+.tgrp>.tasks{padding-left:16px}
+.tasks>li,.todo>li{display:flex;align-items:baseline;column-gap:4px}.tbody{flex:1;min-width:0}.tasks .pill{margin-right:0}
+.dbox{margin-top:2px}.dbox .dets{padding-left:16px}.dbox .tnote{padding-left:16px}
