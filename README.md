@@ -166,6 +166,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 | `HUDSON_FLEET_ADMIN_USER` | `admin` | 대시보드 로그인 관리자 아이디 |
 | `HUDSON_FLEET_ADMIN_PASSWORD` | `admin` | 관리자 처음 비밀번호. **로그인 뒤 설정(⚙)에서 바꾸세요** — 바꾼 값(DB)이 먼저입니다. 설정 화면에는 `****` 로 보입니다 |
 | `HUDSON_FLEET_VENV` | `~/.local/share/hudson-fleet/venv` | 웹 서버 의존성을 설치할 venv 위치 (`hooks/serve.sh` 만 읽음) |
+| `HUDSON_FLEET_KEY` | (비움) | 대시보드 설정(⚙)에서 발급한 API 키. MCP 서버가 작업 기록에 `Authorization: Bearer` 로 붙여 보냅니다 (`mcp_server.py` 만 읽음) |
 | `HUDSON_FLEET_URL` | `http://127.0.0.1:<포트>` | MCP 서버가 작업 기록을 보낼 대시보드 서버 주소. 다른 PC 의 서버를 쓸 때만 바꿉니다 (`mcp_server.py` 만 읽음) |
 
 ## 데이터
@@ -239,8 +240,9 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
 | `GET /api/usage` | 5시간·1주일 사용률 (`/usage` 결과) |
 | `GET /api/mcp` | MCP 서버 연결 상태 |
 | `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지) · 바꾸기 `{name, value}` |
+| `GET /api/keys` · `POST /api/keys` | 내 API 키 목록(앞뒤 몇 글자·만든 때·마지막 사용) · 발급 `{}` → `{key}` (원문은 이때만) · 삭제 `{id, delete: true}`. DB 에는 sha256 만 저장합니다 |
 | `POST /api/password` | 자기 비밀번호 바꾸기 `{old, new}` |
-| `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list, sid, text, tag, id, status, note}`. Origin 이 없는 요청만 |
+| `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list, sid, text, tag, id, status, note}`. Origin 이 없는 요청만. `Authorization: Bearer <키>` 를 보내면 검사하고 틀리면 401 |
 
 ## 보안
 

@@ -13,8 +13,8 @@ from urllib.parse import parse_qs, urlparse
 from .agents import agents, find_session, graph, mcp_servers, reopen, session
 from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, DEAD, ORIGIN, claude
-from .db import (EDIT, add_user, check_login, db, del_user, metrics, my_title, saved_settings, set_password,
-                 set_setting, set_title, users)
+from .db import (EDIT, add_user, check_login, db, del_key, del_user, key_user, keys, metrics, my_title, new_key,
+                 saved_settings, set_password, set_setting, set_title, users)
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
 from .transcripts import overview, transcript
@@ -90,6 +90,8 @@ class H(BaseHTTPRequestHandler):
             return self.send({"user": self.user()})
         if u.path == "/api/users":
             return self.send(users())
+        if u.path == "/api/keys":  # 내 API 키 (원문 없이 앞뒤 몇 글자만)
+            return self.send(keys(self.user()))
         if u.path == "/api/graph":
             return self.send(graph())
         if u.path == "/api/config":
@@ -154,6 +156,11 @@ class H(BaseHTTPRequestHandler):
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
         # MCP 서버의 작업 기록. 브라우저는 POST 에 Origin 을 꼭 붙이므로, Origin 이 없으면 브라우저(다른 웹사이트)가 아니다
         if self.path == "/api/agent/task" and "Origin" not in self.headers:
+            # 키(Authorization: Bearer hf_…)를 보내면 검사한다. 키 없이도 받는 건 서버가 127.0.0.1 에서만 열려 있어서다
+            # ponytail: 다른 PC 에서 접속하게 열 때 키 없는 요청을 막고, 기록에 키 주인을 남긴다 (작업 128)
+            auth = self.headers.get("Authorization", "")
+            if auth and not key_user(auth.removeprefix("Bearer ").strip()):
+                return self.send({"error": "API 키가 틀렸습니다. 대시보드 설정(⚙)에서 다시 발급하세요"}, code=401)
             out, code = agent_task(body)
             return self.send(out, code=code)
         # 다른 웹사이트가 localhost 로 실행 요청을 보내는 것(CSRF) 차단
@@ -179,6 +186,10 @@ class H(BaseHTTPRequestHandler):
                 return self.send({"ok": True})
             err = add_user(body.get("name"), body.get("password"))
             return self.send({"error": err} if err else {"ok": True})
+        if self.path == "/api/keys":  # {} 새 키 발급 (원문은 이 응답에서만) · {id, delete: true} 내 키 삭제
+            if body.get("delete"):
+                return self.send({"ok": True} if del_key(self.user(), body.get("id")) else {"error": "내 키가 아닙니다"})
+            return self.send({"key": new_key(self.user())})
         if self.path == "/api/password":  # {old, new} — 로그인한 사람 자기 비밀번호
             err = set_password(self.user(), body.get("old"), body.get("new"))
             return self.send({"error": err} if err else {"ok": True})

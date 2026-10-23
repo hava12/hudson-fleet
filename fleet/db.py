@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import os
 import re
+import secrets
 import sqlite3
 import time
 from pathlib import Path
@@ -44,7 +45,10 @@ def db():
               " ref TEXT, old TEXT, new TEXT, commits TEXT)")  # id = tool_use id + ref, commits = JSON [[hash, 제목]]
     # 설정 화면에서 추가한 로그인 계정. .env 의 관리자는 여기 없다. hash = pbkdf2_hmac(sha256, salt)
     c.execute("CREATE TABLE IF NOT EXISTS users (name TEXT PRIMARY KEY, salt TEXT, hash TEXT, created_at TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT)")  # 화면에서 바꾼 설정 (EDIT 에 있는 것만)
+    c.execute("CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT)")
+    # PC(MCP·수집기)가 서버에 "누구인지" 알리는 키. 원문은 발급 때 한 번만 보여 주고 sha256 만 저장한다
+    c.execute("CREATE TABLE IF NOT EXISTS api_keys (id INTEGER PRIMARY KEY, user TEXT, hash TEXT UNIQUE, hint TEXT,"
+              " created_at TEXT, last_used TEXT)")  # 화면에서 바꾼 설정 (EDIT 에 있는 것만)
     return c
 
 
@@ -196,6 +200,50 @@ def set_setting(name, value):
     CFG[name] = v or BASE[name]
 
 
+# ── API 키: 사용자마다 여러 개. 키는 무작위 32바이트라 느린 해시(pbkdf2) 없이 sha256 으로 충분하다 ──
+def _key_hash(key):
+    return hashlib.sha256(str(key).encode()).hexdigest()
+
+
+def new_key(user):
+    """키를 만들어 원문을 돌려준다. 원문은 저장하지 않으므로 이때만 볼 수 있다."""
+    key = "hf_" + secrets.token_urlsafe(32)
+    c = db()
+    c.execute("INSERT INTO api_keys (user, hash, hint, created_at) VALUES (?, ?, ?, ?)",
+              (user, _key_hash(key), key[:7] + "…" + key[-4:], now_iso()))
+    c.commit()
+    c.close()
+    return key
+
+
+def keys(user):
+    c = db()
+    rows = c.execute("SELECT id, hint, created_at, last_used FROM api_keys WHERE user = ? ORDER BY id", (user,)).fetchall()
+    c.close()
+    return [dict(zip(("id", "hint", "created_at", "last_used"), r)) for r in rows]
+
+
+def del_key(user, kid):
+    c = db()
+    n = c.execute("DELETE FROM api_keys WHERE id = ? AND user = ?", (kid, user)).rowcount  # 남의 키는 못 지운다
+    c.commit()
+    c.close()
+    return n > 0
+
+
+def key_user(key):
+    """키의 주인. 없거나 틀리면 None. 쓸 때마다 last_used 를 남긴다."""
+    if not str(key or "").startswith("hf_"):
+        return None
+    c = db()
+    row = c.execute("SELECT id, user FROM api_keys WHERE hash = ?", (_key_hash(key),)).fetchone()
+    if row:
+        c.execute("UPDATE api_keys SET last_used = ? WHERE id = ?", (now_iso(), row[0]))
+        c.commit()
+    c.close()
+    return row and row[1]
+
+
 if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m fleet.db
     assert add_user("kim", "short") and add_user(ENV_USER, "12345678")
     assert add_user("kim", "pass1234") is None and add_user("kim", "pass1234") == "이미 있는 아이디입니다"
@@ -210,4 +258,8 @@ if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m
     assert set_setting("HUDSON_FLEET_RETENTION_DAYS", "30") is None and CFG["HUDSON_FLEET_RETENTION_DAYS"] == "30"
     assert saved_settings() == {"HUDSON_FLEET_RETENTION_DAYS": "30"}
     assert set_setting("HUDSON_FLEET_RETENTION_DAYS", "") is None and CFG["HUDSON_FLEET_RETENTION_DAYS"] == BASE["HUDSON_FLEET_RETENTION_DAYS"]
+    k = new_key("kim")
+    assert key_user(k) == "kim" and key_user(k + "x") is None and key_user("nope") is None
+    kid = keys("kim")[0]["id"]
+    assert keys("kim")[0]["last_used"] and not del_key("lee", kid) and del_key("kim", kid) and key_user(k) is None
     print("ok")

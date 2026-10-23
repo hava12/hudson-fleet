@@ -106,7 +106,42 @@ function PasswordForm() {
       <button>바꾸기</button></form></>
 }
 
-const SRC = { screen: ['화면에서 바꿈', 'var(--acc)'], env: ['환경 변수', ''], default: ['기본값', ''] }
+// 내 API 키: PC 의 MCP 서버·수집기가 서버에 "누구인지" 알릴 때 쓴다. 원문은 발급 직후 한 번만 보인다
+function ApiKeys() {
+  const { setMsg } = useApp()
+  const [n, setN] = useState(0)
+  const [fresh, setFresh] = useState('')
+  const ks = usePoll('/api/keys', 0, [n]) || []
+  const issue = async () => {
+    const r = await post('/api/keys', {})
+    r.key ? setFresh(r.key) : setMsg(r.error)
+    setN(n + 1)
+  }
+  const del = async k => {
+    if (!confirm(`${k.hint} 키를 지울까요? 이 키를 쓰는 PC 는 기록을 보내지 못합니다.`)) return
+    const r = await post('/api/keys', { id: k.id, delete: true })
+    if (r.error) setMsg(r.error)
+    setN(n + 1)
+  }
+  return <section className="card">
+    <div className="sh"><h2>API 키</h2><span className="meta">내 PC 의 MCP 서버가 이 서버에 기록을 보낼 때 "누구인지" 알리는 키입니다</span>
+      <button className="sm pri" style={{ marginLeft: 'auto' }} onClick={issue}>새 키 발급</button></div>
+    {fresh && <div className="kfresh">
+      <b>지금만 볼 수 있습니다. 복사해 두세요.</b>
+      <pre>{'// ~/.claude/settings.json\n' + JSON.stringify({ env: { HUDSON_FLEET_URL: location.origin, HUDSON_FLEET_KEY: fresh } }, null, 2)}</pre>
+      <button className="sm" onClick={() => navigator.clipboard.writeText(fresh).then(() => setMsg('키를 복사했습니다'))}>키 복사</button>{' '}
+      <button className="sm" onClick={() => setFresh('')}>닫기</button></div>}
+    <div className="tw"><table className="tbl"><tbody>
+      <tr><th>키</th><th>만든 때</th><th>마지막 사용</th><th /></tr>
+      {ks.map(k => <tr key={k.id}><td><code>{k.hint}</code></td><td className="meta">{when(k.created_at)}</td>
+        <td className="meta">{k.last_used ? when(k.last_used) : '아직 안 씀'}</td>
+        <td><button className="sm danger" onClick={() => del(k)}>삭제</button></td></tr>)}
+      {!ks.length && <tr><td colSpan="4" className="meta">발급한 키가 없습니다</td></tr>}
+    </tbody></table></div>
+  </section>
+}
+
+const SRC = { screen:['화면에서 바꿈', 'var(--acc)'], env: ['환경 변수', ''], default: ['기본값', ''] }
 // 고칠 수 있는 값: 입력 칸 + 저장. 비우고 저장하면 환경 변수·기본값으로 돌아간다
 function SettingValue({ c, done }) {
   const { G, setMsg } = useApp()
@@ -127,7 +162,7 @@ export function Settings() {
   const [n, setN] = useState(0)
   const cs = usePoll('/api/config', 0, [n]) || []
   const port = cs.find(c => c.name === 'HUDSON_FLEET_PORT')?.value
-  return <div className="pg"><Accounts /><section className="card">
+  return <div className="pg"><Accounts /><ApiKeys /><section className="card">
     <div className="sh"><h2>설정</h2><span className="meta">입력 칸이 있는 값은 여기서 바꾸면 바로 적용됩니다 (비우고 저장하면 원래대로) · 나머지는 환경 변수로만</span></div>
     <div className="tw"><table className="tbl"><tbody>
       <tr><th>이름</th><th>지금 값</th><th>설명</th></tr>
