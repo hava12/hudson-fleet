@@ -149,7 +149,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 
 모두 환경 변수로 정합니다. `~/.claude/settings.json` 의 `"env"` 에 적으면 Claude Code 가 훅·MCP 서버에 넘겨 주고, 훅이 띄우는 대시보드 서버도 같은 값을 받습니다. 바꾼 뒤에는 떠 있는 서버를 끄면 다음 세션 시작 때 새 값으로 뜹니다. 지금 적용된 값은 웹의 **설정** 메뉴에서 봅니다.
 
-**화면에서 바꾸기**: 웹의 설정(⚙)에서 요약 여부·요약 모델·보관 일수·터미널·Gist 두 값은 입력 칸으로 바꿉니다. DB 의 `settings` 표에 저장되고, 환경 변수보다 먼저이며 바로 적용됩니다(비우고 저장하면 원래대로). 포트·DB 경로·관리자 아이디는 서버가 켜질 때 정해지고 훅·MCP 도 읽으므로 환경 변수로만 바꿉니다. 비밀번호는 로그인 계정 칸에서 자기 것을 바꿉니다.
+**화면에서 바꾸기**: 웹의 설정(⚙)에서 요약 여부·요약 모델·보관 일수·터미널·Gist 두 값은 입력 칸으로 바꿉니다. DB 의 `settings` 표에 저장되고, 환경 변수보다 먼저이며 바로 적용됩니다(비우고 저장하면 원래대로). 포트·DB 경로는 서버가 켜질 때 정해지고 훅·MCP 도 읽으므로 환경 변수로만 바꿉니다.
 
 `~/.local/share/hudson-fleet/.env` 에 `KEY=VALUE` 줄로 적어도 됩니다. 플러그인을 업데이트해도 남는 곳입니다. 같은 이름이 환경 변수에 이미 있으면 환경 변수가 먼저입니다.
 
@@ -163,10 +163,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 | `HUDSON_FLEET_TERMINAL` | `Ghostty` | 끝난 세션을 다시 열 터미널 앱: `Ghostty` 또는 `Terminal` |
 | `HUDSON_FLEET_GIST` | (비움) | 프로필 카드를 30분마다 덮어쓸 Gist id. 비우면 끔 |
 | `HUDSON_FLEET_GIST_USER` | (비움) | Gist 를 올릴 `gh` 계정. 비우면 `gh` 의 현재 계정 |
-| `HUDSON_FLEET_ADMIN_USER` | `admin` | 대시보드 로그인 관리자 아이디 |
-| `HUDSON_FLEET_ADMIN_PASSWORD` | `admin` | 관리자 처음 비밀번호. **로그인 뒤 설정(⚙)에서 바꾸세요** — 바꾼 값(DB)이 먼저입니다. 설정 화면에는 `****` 로 보입니다 |
 | `HUDSON_FLEET_VENV` | `~/.local/share/hudson-fleet/venv` | 웹 서버 의존성을 설치할 venv 위치 (`hooks/serve.sh` 만 읽음) |
-| `HUDSON_FLEET_KEY` | (비움) | 대시보드 설정(⚙)에서 발급한 API 키. MCP 서버가 작업 기록에 `Authorization: Bearer` 로 붙여 보냅니다 (`mcp_server.py` 만 읽음) |
 | `HUDSON_FLEET_URL` | `http://127.0.0.1:<포트>` | MCP 서버가 작업 기록을 보낼 대시보드 서버 주소. 다른 PC 의 서버를 쓸 때만 바꿉니다 (`mcp_server.py` 만 읽음) |
 
 ## 데이터
@@ -231,8 +228,6 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
 
 | 경로 | 내용 |
 |---|---|
-| `POST /api/login` · `POST /api/logout` · `GET /api/me` | 로그인 `{user, password}` → `hf` 쿠키 · 로그아웃 · 지금 사용자. `.env` 관리자와 설정 화면(오른쪽 위 ⚙)에서 추가한 계정 모두 로그인할 수 있습니다. 화면 파일과 로그인, `/api/agent/task` 말고는 모두 로그인이 필요합니다 (없으면 401) |
-| `GET /api/users` · `POST /api/users` | 로그인 계정 목록 · 추가 `{name, password}`(8자 이상) · 삭제 `{name, delete: true}`. `.env` 관리자는 지울 수 없습니다. 비밀번호는 `pbkdf2` 로 바꿔 `users` 표에 저장합니다 |
 | `GET /api/sessions?status=closed\|work\|wait\|idle&limit=50` | 세션과 작업 목록 |
 | `GET /api/pushes?limit=200&sid=` | 세션에서 실행한 git push — Claude 의 Bash 와 사용자의 `!` 명령, 세션 밖 터미널은 빠짐 (시각·레포·브랜치·커밋 메시지·세션). `sid` 를 주면 그 세션 것만. 대화 기록이 지워져도 DB 에 남습니다 |
 | `GET /api/metrics?hours=24` | 1분 단위 지표 |
@@ -240,17 +235,12 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
 | `GET /api/usage` | 5시간·1주일 사용률 (`/usage` 결과) |
 | `GET /api/mcp` | MCP 서버 연결 상태 |
 | `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지) · 바꾸기 `{name, value}` |
-| `GET /api/keys` · `POST /api/keys` | 내 API 키 목록(앞뒤 몇 글자·만든 때·마지막 사용) · 발급 `{}` → `{key}` (원문은 이때만) · 삭제 `{id, delete: true}`. DB 에는 sha256 만 저장합니다 |
-| `POST /api/password` | 자기 비밀번호 바꾸기 `{old, new}` |
-| `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list, sid, text, tag, id, status, note}`. Origin 이 없는 요청만. `Authorization: Bearer <키>` 를 보내면 검사하고 틀리면 401 |
+| `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list, sid, text, tag, id, status, note}`. Origin 이 없는 요청만 |
 
 ## 보안
 
 - 서버는 `127.0.0.1`에서만 열립니다.
 - 다른 출처(Origin)에서 오는 POST 요청은 거부합니다.
-- **기록의 주인**: `sessions.user` 가 주인이고, 작업·push 는 세션을 따라갑니다(세션 1 : 작업 N). 비어 있으면 이 PC 에서 읽은 기록 = 서버 PC 주인(`.env` 관리자) 것입니다. API 키로 보낸 기록은 키 주인 것입니다. 목록은 로그인한 사람 것만 보여 주고, 남의 작업·제목은 고칠 수 없습니다.
-- **서버 PC 주인만**: 실행 세션 그래프·사용량·토큰·MCP 상태(이 PC 에서 바로 읽는 것), 계정·설정 바꾸기, 세션 실행·다시 열기·요약·종료. 다른 사람에게는 빈 값이나 403 을 돌려줍니다. 다른 PC 의 것은 수집기가 생기면 보냅니다.
-- API 는 로그인해야 쓸 수 있습니다. 쿠키는 `HttpOnly`·`SameSite=Strict` 이고, 로그인 상태는 서버 메모리에만 있어 서버를 다시 켜면 다시 로그인합니다.
 - `POST /api/agent/task` 만 Origin 이 **없는** 요청을 받습니다. 브라우저는 POST 에 Origin 을 꼭 붙이므로 다른 웹사이트는 이 길로 들어올 수 없습니다. 세션 ID 형식도 검사합니다.
 - 종료는 `claude agents` 목록에 있는 세션만 할 수 있습니다.
 

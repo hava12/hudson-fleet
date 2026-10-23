@@ -23,8 +23,6 @@ CONFIG = [  # (이름, 기본값, 설명)
     ("HUDSON_FLEET_TERMINAL", "Ghostty", "끝난 세션을 다시 열 터미널 앱: Ghostty 또는 Terminal"),
     ("HUDSON_FLEET_GIST", "", "프로필 카드(완료 작업 태그별 건수 SVG)를 30분마다 덮어쓸 Gist id. 비우면 끔"),
     ("HUDSON_FLEET_GIST_USER", "", "Gist 를 올릴 gh 계정 (gh auth token --user). 비우면 gh 의 현재 계정"),
-    ("HUDSON_FLEET_ADMIN_USER", "admin", "대시보드 로그인 관리자 아이디"),
-    ("HUDSON_FLEET_ADMIN_PASSWORD", "admin", "관리자 처음 비밀번호. 로그인 계정 칸에서 바꾸면 그 값이 먼저"),
 ]
 CFG = {k: os.environ.get(k) or d for k, d, _ in CONFIG}
 PORT = int(CFG["HUDSON_FLEET_PORT"])

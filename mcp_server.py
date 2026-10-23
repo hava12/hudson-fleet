@@ -74,10 +74,7 @@ def my_session():
 
 
 def post(body):
-    head = {"Content-Type": "application/json"}
-    if key := os.environ.get("HUDSON_FLEET_KEY"):  # 대시보드 설정(⚙)에서 발급한 API 키 — 서버가 "누구인지" 안다
-        head["Authorization"] = "Bearer " + key
-    req = urllib.request.Request(URL + "/api/agent/task", json.dumps(body).encode(), head)
+    req = urllib.request.Request(URL + "/api/agent/task", json.dumps(body).encode(), {"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=5) as r:
             return json.loads(r.read())

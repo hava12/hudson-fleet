@@ -15,10 +15,8 @@ export const LIVE = ['work', 'wait', 'idle']  // 메인 화면은 살아 있는 
 export const fmtTok = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : String(n || 0)
 export const modelName = m => m.replace(/^claude-/, '').replace(/-(\d+)-(\d+).*$/, ' $1.$2').replace(/^./, c => c.toUpperCase())  // claude-opus-5-5 → Opus 5.5
 
-// 401 이면 'logout' 이벤트 — main.jsx 의 Gate 가 받아 로그인 창으로 돌아간다 (서버를 다시 켜면 로그인이 풀린다)
-const json = r => { if (r.status === 401) dispatchEvent(new Event('logout')); return r.json() }
-export const get = async p => json(await fetch(p))
-export const post = async (p, b) => json(await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }))
+export const get = async p => (await fetch(p)).json()
+export const post = async (p, b) => (await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })).json()
 
 // ms 마다 다시 받는다. 실패하면 3초 뒤 다시. deps 가 바뀌면 바로 다시 (ms 가 없으면 deps 가 바뀔 때만)
 export function usePoll(url, ms, deps = []) {

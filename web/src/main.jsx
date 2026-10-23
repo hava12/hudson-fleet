@@ -5,7 +5,7 @@ import Home from './Home'
 import Mcp from './Mcp'
 import { History, Pushes, Settings } from './Pages'
 import SidePanel from './SidePanel'
-import { App as Ctx, get, grp, isDead, post, tilde, usePoll } from './lib'
+import { App as Ctx, grp, isDead, post, tilde, usePoll } from './lib'
 
 const PAGES = { home: ['현황', Home], history: ['세션 기록', History], pushes: ['Push 기록', Pushes], mcp: ['MCP 서버', Mcp], settings: ['설정', Settings] }
 const page = () => PAGES[location.hash.slice(1)] ? location.hash.slice(1) : 'home'
@@ -66,37 +66,7 @@ function Handle() {
     onDoubleClick={() => { w.current = 0; sideW(0); save(0) }} />
 }
 
-// 로그인 창 — 관리자 하나 (서버의 HUDSON_FLEET_ADMIN_USER · _PASSWORD)
-function Login({ done }) {
-  const [err, setErr] = useState('')
-  const submit = async e => {
-    e.preventDefault()
-    const f = new FormData(e.target)
-    const r = await post('/api/login', { user: f.get('user'), password: f.get('password') })
-    r.user ? done(r.user) : setErr(r.error)
-  }
-  return <form className="card login" onSubmit={submit}>
-    <header><h1>Hudson <span>Fleet</span></h1></header>
-    <input name="user" placeholder="아이디" autoComplete="username" autoFocus required />
-    <input name="password" type="password" placeholder="비밀번호" autoComplete="current-password" required />
-    <button className="pri">로그인</button>
-    {err && <div className="meta">{err}</div>}
-  </form>
-}
-
-function Gate() {
-  const [me, setMe] = useState(undefined)  // undefined 확인 중 · null 로그인 필요
-  useEffect(() => {
-    get('/api/me').then(r => setMe(r.user || null), () => setMe(null))
-    const f = () => setMe(null)
-    addEventListener('logout', f)
-    return () => removeEventListener('logout', f)
-  }, [])
-  if (me === undefined) return null
-  return me ? <App me={me} /> : <Login done={setMe} />
-}
-
-function App({ me }) {
+function App() {
   const [pg, setPg] = useState(page)
   const [side, setSide] = useState(null)  // 오른쪽 패널에 열린 것 — 같은 것을 다시 누르면 닫는다
   const [msg, setMsg] = useState('')
@@ -122,14 +92,13 @@ function App({ me }) {
   }, [])
   useNotify(G, openSide)
   const Page = PAGES[pg][1]
-  return <Ctx.Provider value={{ G, side, openSide, setMsg, stopSession, ver, bump, me }}>
+  return <Ctx.Provider value={{ G, side, openSide, setMsg, stopSession, ver, bump }}>
     <header><h1>Hudson <span>Fleet</span></h1>
       <nav>{Object.entries(PAGES).filter(([k]) => k !== 'settings').map(([k, [l]]) => <a key={k} href={'#' + k} className={pg === k ? 'on' : ''}>{l}</a>)}</nav>
       <span className="meta" style={{ marginLeft: 'auto' }}>{msg}</span>
       <button className="sm" disabled={notiOn() || !window.Notification} title="세션이 입력 대기로 바뀌거나 끝나면 알립니다"
         onClick={() => Notification.requestPermission().then(() => setNoti(n => n + 1))}>{notiOn() ? '알림 켜짐' : '알림 켜기'}</button>
       <Usage />
-      <button className="sm" title={me + ' 로그아웃'} onClick={() => post('/api/logout').then(() => dispatchEvent(new Event('logout')))}>로그아웃</button>
       <a href="#settings" className={'gear' + (pg === 'settings' ? ' on' : '')} title="설정" aria-label="설정">⚙</a></header>
     <main className={side ? '' : 'noside'}>
       <div id="dash"><Page /></div>
@@ -139,4 +108,4 @@ function App({ me }) {
   </Ctx.Provider>
 }
 
-createRoot(document.getElementById('root')).render(<Gate />)
+createRoot(document.getElementById('root')).render(<App />)

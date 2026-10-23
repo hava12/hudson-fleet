@@ -41,12 +41,11 @@ def norm_details(d):
     return json.dumps(lines[:MAX_DETAILS], ensure_ascii=False)
 
 
-def add_task(sid, text, source, status="todo", tag=None, details=None, user=None):
-    """작업 한 행을 맨 뒤(sort 최댓값 + 1)에 넣고 이력에 'start' 를 남긴다. 새 id 를 돌려준다.
-    user: 세션 행이 아직 없을 때 붙일 주인 (API 키로 보낸 다른 PC 의 기록). None 이면 이 PC 것."""
+def add_task(sid, text, source, status="todo", tag=None, details=None):
+    """작업 한 행을 맨 뒤(sort 최댓값 + 1)에 넣고 이력에 'start' 를 남긴다. 새 id 를 돌려준다."""
     t = now_iso()
     c = db()
-    c.execute("INSERT INTO sessions (sid, user) VALUES (?, ?) ON CONFLICT(sid) DO NOTHING", (sid, user))
+    c.execute("INSERT INTO sessions (sid) VALUES (?) ON CONFLICT(sid) DO NOTHING", (sid,))
     sort = (c.execute("SELECT max(sort) FROM session_tasks WHERE sid = ?", (sid,)).fetchone()[0] or 0) + 1
     tid = c.execute("INSERT INTO session_tasks (sid, sort, status, text, source, created_at, updated_at, tag, details)"
                     " VALUES (?,?,?,?,?,?,?,?,?)",
