@@ -7,7 +7,7 @@ import sqlite3
 import subprocess
 
 from .config import PROJECTS
-from .db import db
+from .db import db, mine
 from .transcripts import by_mtime
 
 
@@ -52,8 +52,9 @@ def pushes_in(path):
     return out
 
 
-def pushes(limit=200, sid=None):
-    """새 push 를 DB 에 넣고(커밋 메시지는 그때 git log 로 읽어 둔다) 최근 것부터 돌려준다. sid 를 주면 그 세션 것만."""
+def pushes(me, limit=200, sid=None):
+    """새 push 를 DB 에 넣고(커밋 메시지는 그때 git log 로 읽어 둔다) 최근 것부터 돌려준다. sid 를 주면 그 세션 것만.
+    me 의 세션 것만 — 주인은 세션을 따라간다 (세션 행이 없는 push 는 이 PC 것)."""
     c = db()
     c.row_factory = sqlite3.Row
     # 커밋 목록이 빈 행은 다시 읽는다 (폴더를 못 찾았던 옛 기록 — 폴더가 지금도 없으면 또 빈다)
@@ -74,9 +75,10 @@ def pushes(limit=200, sid=None):
                        json.dumps([ln.split("\t", 1) for ln in log.splitlines()], ensure_ascii=False)))
             have.add(e["id"])
     c.commit()
+    w, a = mine("s", me)
     out = [dict(r) for r in c.execute(
         "SELECT p.*, coalesce(s.my_title, s.title, s.name) AS session FROM pushes p LEFT JOIN sessions s USING (sid)"
-        + (" WHERE p.sid = ?" if sid else "") + " ORDER BY p.ts DESC LIMIT ?", (*([sid] if sid else []), limit))]
+        f" WHERE {w}" + (" AND p.sid = ?" if sid else "") + " ORDER BY p.ts DESC LIMIT ?", (*a, *([sid] if sid else []), limit))]
     c.close()
     for r in out:
         r["commits"] = json.loads(r["commits"] or "[]")

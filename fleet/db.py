@@ -26,6 +26,8 @@ def db():
     c.execute("CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, name TEXT, title TEXT, cwd TEXT, kind TEXT,"
               " app TEXT, status TEXT, status_since TEXT, started_at TEXT, last_seen TEXT, ended_at TEXT,"
               " end_reason TEXT, tokens INT, tasks_mtime REAL)")  # status: work · wait · idle · closed
+    if "user" not in {r[1] for r in c.execute("PRAGMA table_info(sessions)")}:  # 기록의 주인 — 작업·push 는 세션을 따라간다
+        c.execute("ALTER TABLE sessions ADD COLUMN user TEXT")  # NULL = 이 PC 에서 읽은 기록 (서버 PC 주인 OWNER 것)
     if "my_title" not in {r[1] for r in c.execute("PRAGMA table_info(sessions)")}:  # 대시보드에서 붙인 제목 (Claude Code 파일은 안 건드림)
         c.execute("ALTER TABLE sessions ADD COLUMN my_title TEXT")
     # status: todo 남은 일 · done 완료 · stopped 중단 · rejected 반려 / source: agent(MCP) · haiku · human
@@ -84,6 +86,29 @@ def metrics(hours):
 # ── 로그인 계정: .env 의 관리자 하나 + 설정 화면에서 추가한 계정(users 표). 모두 같은 권한 ──
 # .env 관리자도 화면에서 비밀번호를 바꾸면 users 표에 행이 생기고, 그때부터는 그 행이 .env 보다 먼저다
 ENV_USER = CFG["HUDSON_FLEET_ADMIN_USER"]
+OWNER = ENV_USER  # 서버 PC 주인: 이 PC 의 세션·사용량·토큰 기록(sessions.user 가 NULL 인 행)과 서버 설정·계정 관리가 이 사람 것
+
+
+def mine(alias, me):
+    """SQL 조건과 값: 이 세션 행(alias)의 주인이 me 인가. 주인이 비어 있으면 OWNER 것."""
+    a = alias + "." if alias else ""
+    return f"(coalesce({a}user, ?) = ?)", (OWNER, me)
+
+
+def owner(sid):
+    """세션의 주인. 아직 행이 없으면 None (막 시작한 이 PC 세션)."""
+    c = db()
+    row = c.execute("SELECT coalesce(user, ?) FROM sessions WHERE sid = ?", (OWNER, sid)).fetchone()
+    c.close()
+    return row and row[0]
+
+
+def task_owner(tid):
+    c = db()
+    row = c.execute("SELECT coalesce(s.user, ?) FROM session_tasks t JOIN sessions s USING (sid) WHERE t.id = ?",
+                    (OWNER, tid)).fetchone()
+    c.close()
+    return row and row[0]
 
 
 def _hash(pw, salt):
@@ -262,4 +287,14 @@ if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m
     assert key_user(k) == "kim" and key_user(k + "x") is None and key_user("nope") is None
     kid = keys("kim")[0]["id"]
     assert keys("kim")[0]["last_used"] and not del_key("lee", kid) and del_key("kim", kid) and key_user(k) is None
+    c = db()
+    c.execute("INSERT INTO sessions (sid) VALUES ('s-local')")
+    c.execute("INSERT INTO sessions (sid, user) VALUES ('s-kim', 'kim')")
+    c.commit()
+    w, a = mine("", "kim")
+    assert [r[0] for r in c.execute(f"SELECT sid FROM sessions WHERE {w}", a)] == ["s-kim"]
+    w, a = mine("", OWNER)
+    assert [r[0] for r in c.execute(f"SELECT sid FROM sessions WHERE {w}", a)] == ["s-local"]
+    c.close()
+    assert owner("s-local") == OWNER and owner("s-kim") == "kim" and owner("none") is None
     print("ok")

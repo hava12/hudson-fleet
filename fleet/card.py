@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 from html import escape
 
 from .config import CFG
-from .db import db
+from .db import OWNER, db, mine
 from .tasks import TAGS
 
 FILE = "hudson-fleet.svg"
@@ -19,8 +19,9 @@ def counts(days):
     # ponytail: 완료 뒤에 태그만 고쳐도 updated_at 이 바뀐다 — 정확한 완료 시각이 필요하면 task_events 의 done 시각으로
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
     c = db()
-    rows = c.execute("SELECT tag, count(*) FROM session_tasks WHERE status = 'done' AND tag IS NOT NULL AND updated_at >= ?"
-                     " GROUP BY 1", (since,)).fetchall()
+    w, a = mine("s", OWNER)  # 서버 PC 주인의 카드 — 다른 사람(API 키) 기록은 세지 않는다
+    rows = c.execute("SELECT t.tag, count(*) FROM session_tasks t JOIN sessions s USING (sid) WHERE t.status = 'done'"
+                     f" AND t.tag IS NOT NULL AND t.updated_at >= ? AND {w} GROUP BY 1", (since, *a)).fetchall()
     c.close()
     return dict(rows)
 
