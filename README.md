@@ -116,6 +116,11 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 
 - `claude mcp list` 결과를 출처별(claude.ai 커넥터·플러그인·직접 설정) 그래프로 그립니다. 색은 연결 상태입니다.
 
+**프로필 카드** (`HUDSON_FLEET_GIST` 를 정했을 때)
+
+- 최근 7일·30일 완료한 작업을 태그별로 센 SVG 를 30분마다 Gist 에 덮어씁니다. GitHub 프로필 README 에 그 Gist 의 raw 주소를 이미지로 넣으면 됩니다.
+- 공개되는 그림이라 작업 문장·경로는 넣지 않고 태그와 건수만 넣습니다. 미리보기: `/api/card.svg`
+
 작업 정리(haiku)는 버튼을 누를 때와 세션이 끝날 때만 실행되며 Claude 구독 사용량을 씁니다.
 
 ## 설정 (환경 변수)
@@ -130,6 +135,8 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 | `HUDSON_FLEET_SUMMARY_MODEL` | `haiku` | 작업 정리에 쓰는 모델 |
 | `HUDSON_FLEET_RETENTION_DAYS` | `0` | 1분 지표(samples) 보관 일수. `0` 이면 지우지 않음 |
 | `HUDSON_FLEET_TERMINAL` | `Ghostty` | 끝난 세션을 다시 열 터미널 앱: `Ghostty` 또는 `Terminal` |
+| `HUDSON_FLEET_GIST` | (비움) | 프로필 카드를 30분마다 덮어쓸 Gist id. 비우면 끔 |
+| `HUDSON_FLEET_GIST_USER` | (비움) | Gist 를 올릴 `gh` 계정. 비우면 `gh` 의 현재 계정 |
 | `HUDSON_FLEET_VENV` | `~/.local/share/hudson-fleet/venv` | 웹 서버 의존성을 설치할 venv 위치 (`hooks/serve.sh` 만 읽음) |
 | `HUDSON_FLEET_URL` | `http://127.0.0.1:<포트>` | MCP 서버가 작업 기록을 보낼 대시보드 서버 주소. 다른 PC 의 서버를 쓸 때만 바꿉니다 (`mcp_server.py` 만 읽음) |
 
@@ -178,12 +185,14 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
 | `fleet/tasks.py` | 작업 기록(추가·수정·조회)과 haiku 정리, `TAGS` |
 | `fleet/usage.py` | `/usage` 사용률, 세션별 5시간 몫, 날짜별 토큰 |
 | `fleet/pushes.py` | Claude 가 실행한 git push 기록 |
-| `fleet/recorder.py` | 1분 주기 기록 스레드: 지표, 세션 상태, 끝난 세션 마감 |
+| `fleet/card.py` | 프로필 카드 SVG 그리기와 Gist 덮어쓰기 |
+| `fleet/recorder.py` | 1분 주기 기록 스레드: 지표, 세션 상태, 끝난 세션 마감, 30분마다 프로필 카드 |
 | `fleet/web.py` | HTTP API 와 화면 |
-| `mcp_server.py` | 작업 기록 MCP 서버 (stdio). `fleet/tasks.py` 로 DB 에 바로 씁니다 |
+| `mcp_server.py` | 작업 기록 MCP 서버 (stdio). 대시보드 서버의 `/api/agent/task` 로 보냅니다 (DB 는 서버만 씀) |
 
 ```
-3  recorder · web
+4  recorder · web
+3  card
 2  agents · tasks · usage · pushes
 1  db · transcripts
 0  config

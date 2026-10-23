@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from .agents import agents, find_session, graph, mcp_servers, reopen, session
+from .card import card_svg
 from .config import CFG, CONFIG, DEAD, ORIGIN, claude
 from .db import db, metrics, my_title, set_title
 from .pushes import pushes
@@ -104,6 +105,8 @@ class H(BaseHTTPRequestHandler):
             return self.send(mcp_servers(q.get("refresh") == "1"))
         if u.path == "/api/pushes":  # Claude 가 한 git push 목록 (?limit= &sid= 그 세션 것만)
             return self.send(pushes(int(q.get("limit", 200)), q.get("sid")))
+        if u.path == "/api/card.svg":  # Gist 에 올리는 프로필 카드 미리보기
+            return self.send(card_svg().encode(), "image/svg+xml")
         if u.path == "/api/usage5h":
             return self.send(usage5h_all())
         if u.path == "/api/feed":
