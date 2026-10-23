@@ -122,7 +122,7 @@ function App({ me }) {
   }, [])
   useNotify(G, openSide)
   const Page = PAGES[pg][1]
-  return <Ctx.Provider value={{ G, side, openSide, setMsg, stopSession, ver, bump }}>
+  return <Ctx.Provider value={{ G, side, openSide, setMsg, stopSession, ver, bump, me }}>
     <header><h1>Hudson <span>Fleet</span></h1>
       <nav>{Object.entries(PAGES).filter(([k]) => k !== 'settings').map(([k, [l]]) => <a key={k} href={'#' + k} className={pg === k ? 'on' : ''}>{l}</a>)}</nav>
       <span className="meta" style={{ marginLeft: 'auto' }}>{msg}</span>

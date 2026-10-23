@@ -149,6 +149,8 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 
 모두 환경 변수로 정합니다. `~/.claude/settings.json` 의 `"env"` 에 적으면 Claude Code 가 훅·MCP 서버에 넘겨 주고, 훅이 띄우는 대시보드 서버도 같은 값을 받습니다. 바꾼 뒤에는 떠 있는 서버를 끄면 다음 세션 시작 때 새 값으로 뜹니다. 지금 적용된 값은 웹의 **설정** 메뉴에서 봅니다.
 
+**화면에서 바꾸기**: 웹의 설정(⚙)에서 요약 여부·요약 모델·보관 일수·터미널·Gist 두 값은 입력 칸으로 바꿉니다. DB 의 `settings` 표에 저장되고, 환경 변수보다 먼저이며 바로 적용됩니다(비우고 저장하면 원래대로). 포트·DB 경로·관리자 아이디는 서버가 켜질 때 정해지고 훅·MCP 도 읽으므로 환경 변수로만 바꿉니다. 비밀번호는 로그인 계정 칸에서 자기 것을 바꿉니다.
+
 `~/.local/share/hudson-fleet/.env` 에 `KEY=VALUE` 줄로 적어도 됩니다. 플러그인을 업데이트해도 남는 곳입니다. 같은 이름이 환경 변수에 이미 있으면 환경 변수가 먼저입니다.
 
 | 환경 변수 | 기본값 | 설명 |
@@ -162,7 +164,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 | `HUDSON_FLEET_GIST` | (비움) | 프로필 카드를 30분마다 덮어쓸 Gist id. 비우면 끔 |
 | `HUDSON_FLEET_GIST_USER` | (비움) | Gist 를 올릴 `gh` 계정. 비우면 `gh` 의 현재 계정 |
 | `HUDSON_FLEET_ADMIN_USER` | `admin` | 대시보드 로그인 관리자 아이디 |
-| `HUDSON_FLEET_ADMIN_PASSWORD` | `admin` | 관리자 비밀번호. **기본값 그대로 두지 마세요.** 설정 화면에는 `****` 로 보입니다 |
+| `HUDSON_FLEET_ADMIN_PASSWORD` | `admin` | 관리자 처음 비밀번호. **로그인 뒤 설정(⚙)에서 바꾸세요** — 바꾼 값(DB)이 먼저입니다. 설정 화면에는 `****` 로 보입니다 |
 | `HUDSON_FLEET_VENV` | `~/.local/share/hudson-fleet/venv` | 웹 서버 의존성을 설치할 venv 위치 (`hooks/serve.sh` 만 읽음) |
 | `HUDSON_FLEET_URL` | `http://127.0.0.1:<포트>` | MCP 서버가 작업 기록을 보낼 대시보드 서버 주소. 다른 PC 의 서버를 쓸 때만 바꿉니다 (`mcp_server.py` 만 읽음) |
 
@@ -236,7 +238,8 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
 | `GET /api/daily` | 날짜별 토큰 (최근 1년) |
 | `GET /api/usage` | 5시간·1주일 사용률 (`/usage` 결과) |
 | `GET /api/mcp` | MCP 서버 연결 상태 |
-| `GET /api/config` | 지금 적용된 설정 값 |
+| `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지) · 바꾸기 `{name, value}` |
+| `POST /api/password` | 자기 비밀번호 바꾸기 `{old, new}` |
 | `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list, sid, text, tag, id, status, note}`. Origin 이 없는 요청만 |
 
 ## 보안

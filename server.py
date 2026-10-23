@@ -4,11 +4,12 @@ import threading
 from http.server import ThreadingHTTPServer
 
 from fleet.config import ORIGIN, PORT
-from fleet.db import DB
+from fleet.db import DB, load_settings
 from fleet.recorder import record
 from fleet.web import H
 
 if __name__ == "__main__":
     print(f"→ {ORIGIN} · 지표 DB: {DB}")
+    load_settings()  # 설정 화면에서 바꾼 값이 환경 변수보다 먼저
     threading.Thread(target=record, daemon=True).start()
     ThreadingHTTPServer(("127.0.0.1", PORT), H).serve_forever()

@@ -13,7 +13,8 @@ from urllib.parse import parse_qs, urlparse
 from .agents import agents, find_session, graph, mcp_servers, reopen, session
 from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, DEAD, ORIGIN, claude
-from .db import add_user, check_login, db, del_user, metrics, my_title, set_title, users
+from .db import (EDIT, add_user, check_login, db, del_user, metrics, my_title, saved_settings, set_password,
+                 set_setting, set_title, users)
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
 from .transcripts import overview, transcript
@@ -93,7 +94,9 @@ class H(BaseHTTPRequestHandler):
             return self.send(graph())
         if u.path == "/api/config":
             hide = lambda k, v: "****" if k.endswith("PASSWORD") else v
-            return self.send([{"name": k, "value": hide(k, CFG[k]), "default": hide(k, d), "desc": desc, "set": k in os.environ}
+            saved = saved_settings()  # src: screen 화면에서 바꿈 · env 환경 변수 · default 기본값
+            return self.send([{"name": k, "value": hide(k, CFG[k]), "default": hide(k, d), "desc": desc, "edit": k in EDIT,
+                               "src": "screen" if k in saved else "env" if k in os.environ else "default"}
                               for k, d, desc in CONFIG])
         if u.path == "/api/sessions":  # ?status=closed|work|wait|idle (없으면 전체) &limit=
             c = db()
@@ -175,6 +178,12 @@ class H(BaseHTTPRequestHandler):
                     TOKENS.pop(t)
                 return self.send({"ok": True})
             err = add_user(body.get("name"), body.get("password"))
+            return self.send({"error": err} if err else {"ok": True})
+        if self.path == "/api/password":  # {old, new} — 로그인한 사람 자기 비밀번호
+            err = set_password(self.user(), body.get("old"), body.get("new"))
+            return self.send({"error": err} if err else {"ok": True})
+        if self.path == "/api/config":  # {name, value} — EDIT 에 있는 설정만. 빈 값이면 환경 변수·기본값으로
+            err = set_setting(body.get("name"), body.get("value"))
             return self.send({"error": err} if err else {"ok": True})
         if self.path == "/api/run":
             cwd = os.path.expanduser(body.get("cwd", ""))

@@ -86,27 +86,61 @@ function Accounts() {
       <input name="name" placeholder="아이디" autoComplete="off" required />
       <input name="password" type="password" placeholder="비밀번호 (8자 이상)" autoComplete="new-password" minLength={8} required />
       <button className="pri">계정 추가</button></form>
+    <PasswordForm />
   </section>
 }
 
+function PasswordForm() {
+  const { me, setMsg } = useApp()
+  const submit = async e => {
+    e.preventDefault()
+    const f = new FormData(e.target), t = e.target
+    const r = await post('/api/password', { old: f.get('old'), new: f.get('new') })
+    setMsg(r.error || '비밀번호를 바꿨습니다')
+    if (r.ok) t.reset()
+  }
+  return <><h4>내 비밀번호 바꾸기 · {me}</h4>
+    <form className="uadd" onSubmit={submit}>
+      <input name="old" type="password" placeholder="지금 비밀번호" autoComplete="current-password" required />
+      <input name="new" type="password" placeholder="새 비밀번호 (8자 이상)" autoComplete="new-password" minLength={8} required />
+      <button>바꾸기</button></form></>
+}
+
+const SRC = { screen: ['화면에서 바꿈', 'var(--acc)'], env: ['환경 변수', ''], default: ['기본값', ''] }
+// 고칠 수 있는 값: 입력 칸 + 저장. 비우고 저장하면 환경 변수·기본값으로 돌아간다
+function SettingValue({ c, done }) {
+  const { G, setMsg } = useApp()
+  const [v, setV] = useState(c.src === 'screen' ? c.value : '')
+  if (!c.edit) return <code>{tilde(c.value, G.home)}</code>
+  const save = async e => {
+    e.preventDefault()
+    const r = await post('/api/config', { name: c.name, value: v })
+    setMsg(r.error || '저장했습니다')
+    if (r.ok) done()
+  }
+  return <form className="uadd" style={{ marginTop: 0 }} onSubmit={save}>
+    <input value={v} placeholder={c.value} onChange={e => setV(e.target.value)} style={{ width: 160 }} />
+    <button className="sm">저장</button></form>
+}
+
 export function Settings() {
-  const { G } = useApp()
-  const cs = usePoll('/api/config') || []
+  const [n, setN] = useState(0)
+  const cs = usePoll('/api/config', 0, [n]) || []
   const port = cs.find(c => c.name === 'HUDSON_FLEET_PORT')?.value
   return <div className="pg"><Accounts /><section className="card">
-    <div className="sh"><h2>설정</h2><span className="meta">모두 환경 변수로 정합니다 · 이 화면은 지금 서버에 적용된 값입니다</span></div>
+    <div className="sh"><h2>설정</h2><span className="meta">입력 칸이 있는 값은 여기서 바꾸면 바로 적용됩니다 (비우고 저장하면 원래대로) · 나머지는 환경 변수로만</span></div>
     <div className="tw"><table className="tbl"><tbody>
-      <tr><th>환경 변수</th><th>지금 값</th><th>설명</th></tr>
+      <tr><th>이름</th><th>지금 값</th><th>설명</th></tr>
       {cs.map(c => <tr key={c.name}>
-        <td><code>{c.name}</code></td>
-        <td><code>{tilde(c.value, G.home)}</code> <span className="pill" style={{ fontSize: 11 }}>{c.set ? '설정됨' : '기본값'}</span></td>
+        <td><code>{c.name}</code> <span className="pill" style={{ fontSize: 11, color: SRC[c.src]?.[1] }}>{SRC[c.src]?.[0]}</span></td>
+        <td><SettingValue key={n} c={c} done={() => setN(n + 1)} /></td>
         <td className="meta" style={{ whiteSpace: 'normal' }}>{c.desc}</td></tr>)}
     </tbody></table></div>
-    <h4>바꾸는 방법</h4>
+    <h4>환경 변수로 바꾸는 방법 (포트·DB 경로·관리자 아이디)</h4>
     <ol className="meta" style={{ margin: 0, paddingLeft: 20, lineHeight: 1.8 }}>
-      <li><code>~/.claude/settings.json</code> 의 <code>"env"</code> 에 적습니다. Claude Code 가 훅·MCP 서버에 넘겨 줍니다.</li>
+      <li><code>~/.claude/settings.json</code> 의 <code>"env"</code> 에 적습니다. Claude Code 가 훅·MCP 서버에 넘겨 줍니다. (서버만 쓰는 값은 <code>~/.local/share/hudson-fleet/.env</code> 에 적어도 됩니다)</li>
       <li>떠 있는 대시보드 서버를 끕니다 (<code>lsof -ti :{port} | xargs kill</code>).</li>
       <li>새 Claude Code 세션을 시작하면 SessionStart 훅이 새 값으로 서버를 띄웁니다.</li></ol>
-    <pre style={{ marginTop: 10 }}>{'// ~/.claude/settings.json (예시)\n' + JSON.stringify({ env: { HUDSON_FLEET_AUTO_SUMMARY: '0', HUDSON_FLEET_RETENTION_DAYS: '90' } }, null, 2)}</pre>
+    <pre style={{ marginTop: 10 }}>{'// ~/.claude/settings.json (예시)\n' + JSON.stringify({ env: { HUDSON_FLEET_PORT: '8766' } }, null, 2)}</pre>
   </section></div>
 }
