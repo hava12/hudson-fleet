@@ -1,6 +1,7 @@
 """HTTP API 와 대시보드 화면."""
 import json
 import os
+import re
 import signal
 import sqlite3
 from http.server import BaseHTTPRequestHandler
@@ -11,7 +12,7 @@ from .agents import agents, find_session, graph, mcp_servers, reopen, session
 from .config import CFG, CONFIG, DEAD, ORIGIN, claude
 from .db import db, metrics, my_title, set_title
 from .pushes import pushes
-from .tasks import TASKS_SQL, saved_tasks, set_task, summarize
+from .tasks import TASKS_SQL, add_task, saved_tasks, set_task, summarize
 from .transcripts import overview, transcript
 from .usage import usage, usage5h_all
 
@@ -33,6 +34,21 @@ def feed():
                       "goal": ps[0]["text"] if ps else "", "recent": ps[-1]["text"] if len(ps) > 1 else "",
                       "tasks": tasks, "stale": tmt is not None and tmt != path.stat().st_mtime})
     return sorted(posts, key=lambda p: p["last"], reverse=True)
+
+
+def agent_task(body):
+    """MCP 서버가 보낸 작업 기록 {op: start|update|list, sid, ...}. DB 는 이 서버만 쓴다."""
+    sid, op = body.get("sid") or "", body.get("op")
+    if not re.fullmatch(r"[0-9a-f-]{36}", sid):
+        return {"error": "세션 ID 확인"}, 400
+    if op == "start" and isinstance(body.get("text"), str) and body["text"].strip():
+        return {"id": add_task(sid, body["text"][:160], "agent", tag=body.get("tag"))}, 200
+    if op == "update":
+        ok = set_task(body.get("id"), "agent", body.get("status"), note=body.get("note"), sid=sid)
+        return ({"ok": True}, 200) if ok else ({"error": "이 세션의 작업 id 가 아니거나 분류가 잘못됐습니다"}, 400)
+    if op == "list":
+        return {"tasks": saved_tasks(sid)[0]}, 200
+    return {"error": "op 확인 (start·update·list)"}, 400
 
 
 class H(BaseHTTPRequestHandler):
@@ -102,10 +118,14 @@ class H(BaseHTTPRequestHandler):
         self.send({"error": "not found"}, code=404)
 
     def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
+        # MCP 서버의 작업 기록. 브라우저는 POST 에 Origin 을 꼭 붙이므로, Origin 이 없으면 브라우저(다른 웹사이트)가 아니다
+        if self.path == "/api/agent/task" and "Origin" not in self.headers:
+            out, code = agent_task(body)
+            return self.send(out, code=code)
         # 다른 웹사이트가 localhost 로 실행 요청을 보내는 것(CSRF) 차단
         if self.headers.get("Origin") != ORIGIN:
             return self.send({"error": "bad origin"}, code=403)
-        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
         if self.path == "/api/run":
             cwd = os.path.expanduser(body.get("cwd", ""))
             if not os.path.isdir(cwd) or not body.get("prompt"):

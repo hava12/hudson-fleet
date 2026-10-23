@@ -6,7 +6,7 @@
 
 ## 아키텍처
 
-세션마다 뜨는 MCP 서버와 하나만 뜨는 대시보드 서버가 SQLite 파일 하나로 이어집니다. 둘은 HTTP 로 통신하지 않습니다.
+세션마다 뜨는 MCP 서버는 작업 기록을 대시보드 서버의 API 로 보냅니다. DB 는 대시보드 서버 하나만 씁니다 (나중에 서버를 따로 두고 함께 쓸 수 있게).
 
 ```mermaid
 flowchart TB
@@ -19,13 +19,13 @@ flowchart TB
     serve["hooks/serve.sh<br/>venv 의존성 설치"]
     rec["fleet/recorder.py<br/>1분 주기 기록"]
     web["fleet/web.py<br/>HTTP API"]
+    db[("SQLite<br/>metrics.db<br/>이 서버만 씀")]
   end
   subgraph USER["사용자"]
     browser["브라우저<br/>index.html"]
     gh["GitHub<br/>커밋 · 비교 페이지"]
   end
-  subgraph DATA["읽고 쓰는 곳"]
-    db[("SQLite<br/>metrics.db")]
+  subgraph DATA["서버 바깥 · Claude Code 와 git"]
     files[("~/.claude<br/>projects/*.jsonl<br/>sessions/PID.json")]
     cli["claude CLI<br/>agents · /usage · mcp list · haiku 정리"]
     git["git log<br/>push 한 저장소"]
@@ -39,14 +39,12 @@ flowchart TB
   web ~~~ rec
   browser -- "/api/* 5초마다" --> web
   browser -. "링크" .-> gh
-  mcp -- "task_start · task_update" --> db
+  mcp -- "task_start · task_update<br/>POST /api/agent/task" --> web
   mcp -. "부모 PID 로 세션 찾기" .-> files
   rec -- "세션 상태 · 지표 · 마감" --> db
-  rec --> cli
-  web --> db
-  web -- "대화 기록" --> files
-  web --> cli
-  web -- "push 커밋 목록" --> git
+  rec -- "세션 목록 · 사용량 · 토큰" --> DATA
+  web -- "작업 기록 저장 · 조회" --> db
+  web -- "대화 기록 · push 커밋 · MCP 상태" --> DATA
 ```
 
 ## 설치 (Claude Code 플러그인)
@@ -65,7 +63,7 @@ Claude Code 2.1.275 이전이면 두 단계로 설치합니다.
 설치하면 두 가지가 함께 들어옵니다.
 
 - **SessionStart 훅**: 세션이 시작될 때 대시보드 서버(8765)가 없으면 백그라운드로 띄웁니다. 세션이 다 끝나도 서버는 남습니다. 플러그인을 업데이트했다면 떠 있는 서버를 한 번 꺼야 새 코드로 뜹니다.
-- **MCP 서버 `fleet`**: 에이전트가 작업을 시작·완료·중단·반려할 때 직접 기록합니다 (아래 "작업 기록").
+- **MCP 서버 `fleet`**: 에이전트가 작업을 시작·완료·중단·반려할 때 직접 기록합니다 (아래 "작업 기록"). 기록은 대시보드 서버로 보냅니다.
 
 브라우저에서 http://127.0.0.1:8765 를 엽니다.
 
@@ -86,6 +84,8 @@ hooks/serve.sh      # → http://127.0.0.1:8765 (requirements.txt 가 비어 있
 | `task_start(text, tag)` | 작업을 시작하며 한 행을 만든다. id 를 돌려준다 |
 | `task_update(id, status, note?)` | done 완료 · stopped 중단 · rejected 반려 · todo 남은 일 |
 | `task_list()` | 이 세션의 작업 목록 (압축 뒤 이어받기) |
+
+MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내고, DB 에는 직접 쓰지 않습니다. 서버가 없으면 `hooks/start.sh` 로 한 번 띄우고 5초까지 기다린 뒤, 그래도 없으면 오류를 돌려줍니다 (그 기록은 남지 않습니다). 서버가 옛 버전이면 껐다 켜라고 알려 줍니다.
 
 어느 세션의 호출인지는 MCP 서버의 부모 프로세스(claude)로 찾습니다. `~/.claude/sessions/<pid>.json`의 `sessionId`를 읽으므로 에이전트가 세션 ID를 몰라도 됩니다.
 
@@ -129,6 +129,7 @@ hooks/serve.sh      # → http://127.0.0.1:8765 (requirements.txt 가 비어 있
 | `HUDSON_FLEET_RETENTION_DAYS` | `0` | 1분 지표(samples) 보관 일수. `0` 이면 지우지 않음 |
 | `HUDSON_FLEET_TERMINAL` | `Ghostty` | 끝난 세션을 다시 열 터미널 앱: `Ghostty` 또는 `Terminal` |
 | `HUDSON_FLEET_VENV` | `~/.local/share/hudson-fleet/venv` | 웹 서버 의존성을 설치할 venv 위치 (`hooks/serve.sh` 만 읽음) |
+| `HUDSON_FLEET_URL` | `http://127.0.0.1:<포트>` | MCP 서버가 작업 기록을 보낼 대시보드 서버 주소. 다른 PC 의 서버를 쓸 때만 바꿉니다 (`mcp_server.py` 만 읽음) |
 
 ## 데이터
 
@@ -151,6 +152,7 @@ MCP 서버와 웹 서버는 뜨는 방식이 달라 의존성 규칙도 다릅�
 | 몇 개 뜨나 | 세션마다 하나 | 하나 (훅이 포트를 보고 없을 때만 띄움) |
 | Python | 시스템 `python3` | `requirements.txt` 에 패키지가 있으면 venv, 없으면 시스템 `python3` |
 | 의존성 | **표준 라이브러리만** | `requirements.txt` 에 적은 것 |
+| DB | 쓰지 않음 (서버 API 로 보냄) | 혼자 씀 |
 
 - 시스템 Python(Homebrew 등)은 `pip install` 을 막습니다 (`externally-managed-environment`). 그래서 웹 서버 의존성은 venv 에 설치합니다.
 - `hooks/serve.sh` 가 `requirements.txt` 의 내용 해시를 venv 에 적어 두고, 바뀌었을 때만 다시 설치합니다. 설치가 실패하면 서버를 띄우지 않고 `~/.local/share/hudson-fleet/server.log` 에 남깁니다.
@@ -196,11 +198,13 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
 | `GET /api/usage` | 5시간·1주일 사용률 (`/usage` 결과) |
 | `GET /api/mcp` | MCP 서버 연결 상태 |
 | `GET /api/config` | 지금 적용된 설정 값 |
+| `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list, sid, text, tag, id, status, note}`. Origin 이 없는 요청만 |
 
 ## 보안
 
 - 서버는 `127.0.0.1`에서만 열립니다.
 - 다른 출처(Origin)에서 오는 POST 요청은 거부합니다.
+- `POST /api/agent/task` 만 Origin 이 **없는** 요청을 받습니다. 브라우저는 POST 에 Origin 을 꼭 붙이므로 다른 웹사이트는 이 길로 들어올 수 없습니다. 세션 ID 형식도 검사합니다.
 - 종료는 `claude agents` 목록에 있는 세션만 할 수 있습니다.
 
 ## 한계

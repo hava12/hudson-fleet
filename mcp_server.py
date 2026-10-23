@@ -1,4 +1,8 @@
-"""Hudson Fleet MCP — Claude Code 가 작업을 시작·완료·중단·반려할 때 직접 기록한다 (stdio, 표준 라이브러리만).
+"""Hudson Fleet MCP — Claude Code 가 작업을 시작·완료·중단·반려할 때 기록한다 (stdio, 표준 라이브러리만).
+
+기록은 대시보드 서버의 /api/agent/task 로 보낸다 — DB 는 서버 하나만 쓴다 (서버를 따로 두고 함께 쓸 때를 대비).
+서버가 없으면 한 번 띄워 보고(훅과 같은 start.sh), 그래도 없으면 오류로 돌려준다.
+ponytail: 못 보낸 기록은 버린다 — 빠지면 안 되게 되면 파일에 쌓았다가 다시 보낸다
 
 어느 세션의 호출인지는 부모 프로세스로 찾는다. claude 가 이 서버를 자식으로 띄우므로
 조상 pid 중 하나의 ~/.claude/sessions/<pid>.json 에 sessionId 가 있다. /clear 로 세션이 바뀔 수 있어 호출마다 다시 읽는다.
@@ -7,10 +11,17 @@ import json
 import os
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, ROOT)
 from fleet.config import SESSIONS  # noqa: E402
-from fleet.tasks import TAGS, add_task, saved_tasks, set_task  # noqa: E402
+from fleet.tasks import TAGS  # noqa: E402
+
+LOCAL = f"http://127.0.0.1:{os.environ.get('HUDSON_FLEET_PORT') or 8765}"
+URL = os.environ.get("HUDSON_FLEET_URL") or LOCAL  # 대시보드 서버 주소. 다른 PC 의 서버를 쓸 때만 바꾼다
 
 INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작업 단위로 기록한다. 대시보드와 세션 기록에 그대로 쓰인다.
 규칙 (일의 크기와 관계없이 지킨다):
@@ -54,17 +65,48 @@ def my_session():
     return None
 
 
+def post(body):
+    req = urllib.request.Request(URL + "/api/agent/task", json.dumps(body).encode(), {"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=5) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:  # 서버는 있는데 거절 — 400 은 이유가 본문에 있다
+        if e.code in (403, 404):  # 이 API 가 없던 서버: 경로가 없거나(404) Origin 검사가 먼저 막는다(403)
+            return {"error": "대시보드 서버가 옛 버전입니다. 서버를 껐다 켜라고 사용자에게 알리세요 (lsof -ti :8765 | xargs kill)"}
+        return json.loads(e.read() or "{}")
+
+
+def api(body):
+    """대시보드 서버로 보낸다. 내 PC 의 서버가 없으면 띄우고 5초까지 기다린다."""
+    try:
+        return post(body)
+    except urllib.error.URLError:
+        pass
+    if URL == LOCAL:  # 다른 PC 의 서버는 여기서 띄울 수 없다
+        subprocess.run([os.path.join(ROOT, "hooks", "start.sh")], env={**os.environ, "CLAUDE_PLUGIN_ROOT": ROOT}, timeout=10)
+        for _ in range(10):
+            time.sleep(0.5)
+            try:
+                return post(body)
+            except urllib.error.URLError:
+                continue
+    return {"error": f"대시보드 서버({URL})에 연결하지 못해 기록하지 못했습니다. 사용자에게 서버 상태를 확인하라고 알리세요"
+                     " (~/.local/share/hudson-fleet/server.log)"}
+
+
 def call(name, args):
     sid = my_session()
     if not sid:
         return "Claude Code 세션을 찾지 못했습니다", True
     if name == "task_start":
-        return json.dumps({"id": add_task(sid, args["text"][:160], "agent", tag=args.get("tag"))}), False
+        r = api({"op": "start", "sid": sid, "text": args.get("text"), "tag": args.get("tag")})
+        return (r["error"], True) if "error" in r else (json.dumps({"id": r["id"]}), False)
     if name == "task_update":
-        ok = set_task(args["id"], "agent", args["status"], note=args.get("note"), sid=sid)
-        return ("기록했습니다" if ok else "이 세션의 작업 id 가 아니거나 분류가 잘못됐습니다"), not ok
+        r = api({"op": "update", "sid": sid, "id": args.get("id"), "status": args.get("status"), "note": args.get("note")})
+        return (r["error"], True) if "error" in r else ("기록했습니다", False)
     if name == "task_list":
-        return json.dumps(saved_tasks(sid)[0], ensure_ascii=False), False
+        r = api({"op": "list", "sid": sid})
+        return (r["error"], True) if "error" in r else (json.dumps(r["tasks"], ensure_ascii=False), False)
     return f"없는 도구: {name}", True
 
 
