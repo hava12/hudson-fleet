@@ -8,7 +8,8 @@ const GROUP = { busy: 'work', running: 'work', blocked: 'wait', waiting: 'wait',
 export const GINFO = { work: ['작업 중', '#16a34a'], wait: ['입력 대기', '#d97706'], idle: ['쉬는 중', '#64748b'], done: ['끝남', '#a8a29e'], fail: ['실패', '#dc2626'] }
 export const grp = st => GROUP[st] || 'idle', isDead = st => ['done', 'fail'].includes(grp(st))  // 끝난 세션: 흐리게, 종료 메뉴 숨김
 export const FILL = { project: dark ? '#334155' : '#475569', agent: '#7c3aed' }
-export const TASK = { done: ['완료', 'var(--add)'], stopped: ['중단', 'var(--warn)'], todo: ['남은 일', 'var(--mute)'], rejected: ['반려', 'var(--del)'] }
+// 작업 상태 색: 남은 일은 노랑으로 눈에 띄게, 중단은 주황으로 남은 일과 구분 (style.css 의 --t-*)
+export const TASK = { done: ['완료', 'var(--t-done)'], stopped: ['중단', 'var(--t-stop)'], todo: ['남은 일', 'var(--t-todo)'], rejected: ['반려', 'var(--t-rej)'] }
 export const TAGS = ['개발', '디자인', '기획', '테스트', '문서', '디버그', '데이터', '운영', '기타']  // fleet/tasks.py TAGS 와 같은 순서
 export const LIVE = ['work', 'wait', 'idle']  // 메인 화면은 살아 있는 세션만 — 끝남·실패는 게시글에서만
 export const fmtTok = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : String(n || 0)

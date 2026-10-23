@@ -95,7 +95,7 @@ npm run build   # → ../dist
 | `src/Pages.jsx` | 세션 기록 · Push 기록 · 설정 |
 | `src/Mcp.jsx` | MCP 서버 그래프 |
 | `src/SidePanel.jsx` | 오른쪽 패널: 프로젝트 · 세션 · MCP 서버 · 끝난 세션 |
-| `src/TaskList.jsx` | 작업 목록 `TaskList` → `TaskRow` (key=작업 id, 펼침은 줄마다 `useState`). 줄 앞 기호(○ ✓ ✕ ‖)로 상태를 보이고, 상태가 섞이면 남은 일을 위로 묶고 완료·반려는 접는다. 남은 작업·작업 현황·세션 패널·세션 기록 4곳이 함께 씀 |
+| `src/TaskList.jsx` | 작업 목록 `TaskList` → `TaskRow` (key=작업 id, 펼침은 줄마다 `useState`). 상태가 섞이면 남은 일을 위로 묶고 완료·반려는 접는다. 남은 작업·작업 현황·세션 패널·세션 기록 4곳이 함께 씀 |
 | `src/Graph.jsx` | cytoscape 띄우기(`useCy`)와 높이 맞추기 |
 | `src/lib.jsx` | 상태·분류 표, 날짜·토큰 표시, `usePoll` |
 

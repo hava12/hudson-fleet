@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { TAGS, TASK, post, useApp } from './lib'
 
 const SRC = { agent: '에이전트가 직접 기록', haiku: 'haiku 가 대화에서 정리', human: '사람이 고침' }
-const MARK = { todo: '○', stopped: '‖', done: '✓', rejected: '✕' }  // 줄 앞 기호 — 상태를 글자색 말고 모양으로도
 const ORDER = ['todo', 'stopped', 'done', 'rejected']  // 묶음 순서: 아직 할 일이 위로
 const OPEN = { todo: true, stopped: true }  // 끝난 묶음(완료·반려)은 접어 둔다
 
@@ -23,13 +22,12 @@ export function TaskRow({ t, edit, lead }) {
   const del = () => confirm('이 작업 기록을 지울까요?') && save({ delete: true })
   return (
     <li className={'t-' + t.status} title={SRC[t.source] || ''}>
-      <span className="tmark" style={{ color: TASK[t.status]?.[1] }}>{MARK[t.status] || '·'}</span>
       {edit
         ? <select className="pill tsel" value={t.status} style={{ color: TASK[t.status]?.[1] }} title="분류 바꾸기"
             onChange={e => save({ status: e.target.value })}>
             {Object.entries(TASK).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}
           </select>
-        : null}
+        : <span className="pill" style={{ color: TASK[t.status]?.[1] }}>{TASK[t.status]?.[0] || t.status}</span>}
       {edit === 'all'
         ? <select className="pill tgsel" value={t.tag || ''} title="태그 바꾸기" onChange={e => save({ tag: e.target.value })}>
             {!t.tag && <option value="">태그</option>}
@@ -55,7 +53,7 @@ export function TaskList({ ts, max, sid, edit, lead, className = 'tasks' }) {
   const rows = l => <ul className={className}>{l.map(t => <TaskRow key={t.id} t={t} edit={edit} lead={lead?.(t)} />)}</ul>
   const groups = ORDER.map(k => [k, ts.filter(t => t.status === k)]).filter(([, l]) => l.length)
   if (groups.length > 1) return groups.map(([k, l]) => <details key={k} className="tgrp" open={!!OPEN[k]}>
-    <summary><span style={{ color: TASK[k][1] }}>{MARK[k]}</span> {TASK[k][0]} {l.length}</summary>{rows(l)}</details>)
+    <summary style={{ color: TASK[k][1] }}>{TASK[k][0]} {l.length}</summary>{rows(l)}</details>)
   return <>
     {rows(ts.slice(0, max || ts.length))}
     {max > 0 && ts.length > max && (sid

@@ -1,5 +1,5 @@
-:root{--warn:#b45309;--add:#067d17;--mod:#0032a0;--del:#6c707e;--bg:#f6f7f9;--fg:#0f172a;--mute:#64748b;--line:#e2e8f0;--card:#fff;--acc:#2563eb;--soft:#f1f5f9}
-@media (prefers-color-scheme:dark){:root{--warn:#fbbf24;--add:#629755;--mod:#6897bb;--del:#868a91;--bg:#0b1120;--fg:#e2e8f0;--mute:#94a3b8;--line:#1e293b;--card:#111827;--acc:#60a5fa;--soft:#1e293b}}
+:root{--warn:#b45309;--add:#067d17;--mod:#0032a0;--del:#6c707e;--bg:#f6f7f9;--fg:#0f172a;--mute:#64748b;--line:#e2e8f0;--card:#fff;--acc:#2563eb;--soft:#f1f5f9;--t-todo:#ca8a04;--t-stop:#ea580c;--t-done:#16a34a;--t-rej:#6c707e}
+@media (prefers-color-scheme:dark){:root{--warn:#fbbf24;--add:#629755;--mod:#6897bb;--del:#868a91;--bg:#0b1120;--fg:#e2e8f0;--mute:#94a3b8;--line:#1e293b;--card:#111827;--acc:#60a5fa;--soft:#1e293b;--t-todo:#facc15;--t-stop:#fb923c;--t-done:#4ade80;--t-rej:#94a3b8}}
 *{box-sizing:border-box}body{margin:0;font:14px/1.5 -apple-system,system-ui,"Apple SD Gothic Neo",sans-serif;background:var(--bg);color:var(--fg)}
 header{height:56px;padding:0 20px;border-bottom:1px solid var(--line);background:var(--card);display:flex;gap:8px;align-items:center}
 header h1{font-size:16px;margin:0 16px 0 0;letter-spacing:-.01em}header h1 span{color:var(--acc)}
@@ -74,8 +74,7 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 .tdel{border:0;background:none;color:var(--mute);cursor:pointer;font-size:11px;padding:0 4px;opacity:0}.tasks li:hover .tdel{opacity:1}.tdel:hover{color:var(--del)}
 .tasks li.t-rejected .tx{color:var(--mute);text-decoration:line-through}.more{margin-top:2px;align-self:flex-start}
 .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--mute);font-size:12px;margin-left:auto}
-/* 작업 목록: 줄 앞 기호(○ ✓ ✕ ‖)로 상태를 보이고, 끝난 일은 흐리게. 상태가 섞이면 묶음(.tgrp)으로 나눈다 */
-.tasks,.todo{list-style:none;padding-left:0}.tmark{display:inline-block;width:1.3em;font-weight:600}
+/* 작업 목록: 끝난 일은 흐리게. 상태가 섞이면 묶음(.tgrp)으로 나눈다 */
+.tasks,.todo{list-style:none;padding-left:0}
 .tasks li.t-done .tx,.tasks li.t-rejected .tx{color:var(--mute)}
-.tgrp>summary{font-size:12px;font-weight:600;color:var(--mute);margin:8px 0 2px}.tgrp:first-child>summary{margin-top:0}
-.tasks .dbox,.todo .dbox{margin-left:1.3em}
+.tgrp>summary{font-size:13px;font-weight:600;color:var(--mute);margin:8px 0 2px}.tgrp:first-child>summary{margin-top:0}
