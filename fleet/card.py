@@ -72,13 +72,14 @@ def tokens_svg():
     cut = [used[len(used) * k // 4] for k in (1, 2, 3)] if used else []
     cells, months, d = [], [], start
     while d <= today:
-        x, y = 40 + (d - start).days // 7 * 12, 52 + (d.weekday() + 1) % 7 * 12
+        x, y = 20 + (d - start).days // 7 * 12, 52 + (d.weekday() + 1) % 7 * 12
         v = days.get(d.isoformat(), 0)
-        cells.append(f'<rect x="{x}" y="{y}" width="10" height="10" rx="2" class="g{sum(v >= k for k in cut) + 1 if v else 0}"/>')
+        cells.append(f'<rect x="{x}" y="{y}" width="10" height="10" rx="2" class="g{sum(v >= k for k in cut) + 1 if v else 0}">'
+                     f'<title>{d.isoformat()} · {v:,} 토큰</title></rect>')  # hover — README 의 <img> 로는 안 뜨고 SVG 를 직접 열면 뜬다
         if d.day == 1:
             months.append(f'<text x="{x}" y="44" class="s">{d.month}월</text>')
         d += timedelta(days=1)
-    w = 40 + 53 * 12 + 18
+    w = 20 + 53 * 12 + 18
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="150" viewBox="0 0 {w} 150">
 <style>
 .bg{{fill:#fff;stroke:#d0d7de}}.t{{font:600 15px sans-serif;fill:#1f2328}}.s{{font:11px sans-serif;fill:#59636e}}
@@ -89,7 +90,7 @@ def tokens_svg():
 <rect x=".5" y=".5" width="{w - 1}" height="149" rx="8" class="bg"/>
 <text x="20" y="26" class="t">Claude Code 토큰 활동</text>
 <text x="{w - 20}" y="26" text-anchor="end" class="s">최근 1년 {won(sum(days.values()))} 토큰 · {len(used)}일 · 하루 최대 {won(max(used, default=0))}</text>
-{"".join(months)}<text x="12" y="73" class="s">월</text><text x="12" y="97" class="s">수</text><text x="12" y="121" class="s">금</text>
+{"".join(months)}
 {"".join(cells)}
 </svg>'''
 
