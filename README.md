@@ -118,8 +118,8 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 
 **프로필 카드** (`HUDSON_FLEET_GIST` 를 정했을 때)
 
-- 최근 7일·30일 완료한 작업을 태그별로 센 SVG 를 30분마다 Gist 에 덮어씁니다. GitHub 프로필 README 에 그 Gist 의 raw 주소를 이미지로 넣으면 됩니다.
-- 공개되는 그림이라 작업 문장·경로는 넣지 않고 태그와 건수만 넣습니다. 미리보기: `/api/card.svg`
+- 최근 7일·30일 완료한 작업을 태그별로 센 카드(`hudson-fleet.svg`)와 1년 토큰 잔디(`hudson-fleet-tokens.svg`)를 30분마다 Gist 에 덮어씁니다. GitHub 프로필 README 에 그 Gist 의 raw 주소를 이미지로 넣으면 됩니다.
+- 공개되는 그림이라 작업 문장·경로는 넣지 않고 태그와 건수만 넣습니다. 미리보기: `/api/card.svg` · `/api/tokens.svg`
 
 작업 정리(haiku)는 버튼을 누를 때와 세션이 끝날 때만 실행되며 Claude 구독 사용량을 씁니다.
 
