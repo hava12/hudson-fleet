@@ -61,29 +61,53 @@ export function Pushes() {
 // ── 설정: 환경 변수. 쓸 때마다 읽는 값은 화면에서 바꾼다 (DB settings 표) ──
 const SRC = { screen:['화면에서 바꿈', 'var(--acc)'], env: ['환경 변수', ''], default: ['기본값', ''] }
 // 고칠 수 있는 값: 입력 칸 + 저장. 비우고 저장하면 환경 변수·기본값으로 돌아간다
+// 토큰(secret)은 칸을 미리 채우지 않고(서버도 끝 4글자만 준다), 빈 칸 저장 대신 [지우기] 로 지운다
 function SettingValue({ c, done }) {
   const { G, setMsg } = useApp()
-  const [v, setV] = useState(c.src === 'screen' ? c.value : '')
+  const [v, setV] = useState(c.src === 'screen' && !c.secret ? c.value : '')
   if (!c.edit) return <code>{tilde(c.value, G.home)}</code>
-  const save = async e => {
-    e.preventDefault()
-    const r = await post('/api/config', { name: c.name, value: v })
-    setMsg(r.error || '저장했습니다')
+  const save = async value => {
+    const r = await post('/api/config', { name: c.name, value })
+    setMsg(r.error || (value ? '저장했습니다' : '지웠습니다'))
     if (r.ok) done()
   }
-  return <form className="uadd" style={{ marginTop: 0 }} onSubmit={save}>
-    <input value={v} placeholder={c.value} onChange={e => setV(e.target.value)} style={{ width: 160 }} />
-    <button className="sm">저장</button></form>
+  return <form className="uadd" style={{ marginTop: 0 }} onSubmit={e => { e.preventDefault(); save(v) }}>
+    <input type={c.secret ? 'password' : 'text'} autoComplete="off" value={v} onChange={e => setV(e.target.value)}
+      placeholder={c.secret ? c.value || '비어 있음' : c.value} style={{ width: c.secret ? 240 : 160 }} />
+    <button className="sm" disabled={c.secret && !v}>저장</button>
+    {c.secret && c.src === 'screen' && <button type="button" className="sm" onClick={() => save('')}>지우기</button>}</form>
+}
+
+// 연결: GitHub·Jira 토큰. [연결 확인] 은 저장된 토큰으로 내 계정 이름을 받아 온다 (/api/connect)
+const LINKS = [['github', 'GitHub', ['HUDSON_FLEET_GITHUB_TOKEN']],
+  ['jira', 'Jira', ['HUDSON_FLEET_JIRA_SITE', 'HUDSON_FLEET_JIRA_EMAIL', 'HUDSON_FLEET_JIRA_TOKEN']]]
+const LINK_NAMES = new Set(LINKS.flatMap(l => l[2]))
+function Links({ cs, n, done }) {
+  const [res, setRes] = useState({})  // 서비스 → 확인 결과 문장
+  const test = async k => {
+    setRes(r => ({ ...r, [k]: '확인 중…' }))
+    const x = await post('/api/connect', { service: k })
+    setRes(r => ({ ...r, [k]: x.ok ? `연결됨: ${x.who}` : x.error }))
+  }
+  return <section className="card">
+    <div className="sh"><h2>연결</h2><span className="meta">토큰은 이 PC 의 DB 에만 저장합니다. 에이전트는 fleet MCP 로 이 서버를 거쳐 씁니다</span></div>
+    {LINKS.map(([k, label, names]) => <div key={k}>
+      <h4>{label} <button className="sm" onClick={() => test(k)}>연결 확인</button> <span className="meta" style={{ fontWeight: 400 }}>{res[k]}</span></h4>
+      <div className="tw"><table className="tbl"><tbody>{names.map(nm => {
+        const c = cs.find(x => x.name === nm)
+        return c && <tr key={nm}><td className="meta" style={{ whiteSpace: 'normal', width: '45%' }}>{c.desc}</td><td><SettingValue key={n} c={c} done={done} /></td></tr>
+      })}</tbody></table></div></div>)}
+  </section>
 }
 
 export function Settings() {
   const [n, setN] = useState(0)
   const cs = usePoll('/api/config', 0, [n]) || []
-  return <div className="pg"><section className="card">
+  return <div className="pg"><Links cs={cs} n={n} done={() => setN(n + 1)} /><section className="card">
     <div className="sh"><h2>설정</h2><span className="meta">입력 칸이 있는 값은 여기서 바꾸면 바로 적용됩니다 (비우고 저장하면 원래대로) · 나머지는 환경 변수로만</span></div>
     <div className="tw"><table className="tbl"><tbody>
       <tr><th>이름</th><th>지금 값</th><th>설명</th></tr>
-      {cs.map(c => <tr key={c.name}>
+      {cs.filter(c => !LINK_NAMES.has(c.name)).map(c => <tr key={c.name}>
         <td><code>{c.name}</code> <span className="pill" style={{ fontSize: 11, color: SRC[c.src]?.[1] }}>{SRC[c.src]?.[0]}</span></td>
         <td><SettingValue key={n} c={c} done={() => setN(n + 1)} /></td>
         <td className="meta" style={{ whiteSpace: 'normal' }}>{c.desc}</td></tr>)}

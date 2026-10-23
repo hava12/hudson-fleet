@@ -85,6 +85,10 @@ EDIT = {  # 이름 → 받을 값 형식
     "HUDSON_FLEET_TERMINAL": r"Ghostty|Terminal",
     "HUDSON_FLEET_GIST": r"[0-9a-f]{1,40}",
     "HUDSON_FLEET_GIST_USER": r"[\w-]{1,39}",
+    "HUDSON_FLEET_GITHUB_TOKEN": r"\S{20,255}",
+    "HUDSON_FLEET_JIRA_SITE": r"[\w.-]+\.atlassian\.net",
+    "HUDSON_FLEET_JIRA_EMAIL": r"[^@\s]+@[^@\s]+",
+    "HUDSON_FLEET_JIRA_TOKEN": r"\S{16,512}",
 }
 BASE = dict(CFG)  # 환경 변수·기본값. 화면 값을 지우면 이리로 돌아간다
 
@@ -106,6 +110,8 @@ def set_setting(name, value):
     if name not in EDIT:
         return "화면에서 바꿀 수 없는 설정입니다 (환경 변수로만)"
     v = str(value or "").strip()
+    if name.endswith("_SITE"):  # https://…/ 를 붙여 넣어도 주소만 남긴다
+        v = re.sub(r"^https?://|/.*$", "", v)
     if v and not re.fullmatch(EDIT[name], v):
         return f"{name} 값 형식을 확인하세요"
     c = db()

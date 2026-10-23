@@ -161,6 +161,8 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 | `HUDSON_FLEET_TERMINAL` | `Ghostty` | 끝난 세션을 다시 열 터미널 앱: `Ghostty` 또는 `Terminal` |
 | `HUDSON_FLEET_GIST` | (비움) | 프로필 카드를 30분마다 덮어쓸 Gist id. 비우면 끔 |
 | `HUDSON_FLEET_GIST_USER` | (비움) | Gist 를 올릴 `gh` 계정. 비우면 `gh` 의 현재 계정 |
+| `HUDSON_FLEET_GITHUB_TOKEN` | (비움) | GitHub 개인 액세스 토큰. 설정(⚙) → **연결** 칸에서 넣습니다 |
+| `HUDSON_FLEET_JIRA_SITE` · `_EMAIL` · `_TOKEN` | (비움) | Jira 사이트 주소(예: `aptplay.atlassian.net`), 로그인 이메일, API 토큰. 설정(⚙) → **연결** 칸에서 넣습니다 |
 | `HUDSON_FLEET_URL` | `http://127.0.0.1:<포트>` | MCP 서버가 작업 기록을 보낼 대시보드 서버 주소. 다른 PC 의 서버를 쓸 때만 바꿉니다 (`mcp_server.py` 만 읽음) |
 
 ## 데이터
@@ -195,6 +197,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `fleet/agents.py` | 살아 있는 세션: `claude agents`, 프로세스, 그래프, 패널 개요, MCP 상태, 다시 열기 |
 | `fleet/tasks.py` | 작업 기록(추가·수정·조회)과 haiku 정리, `TAGS` |
 | `fleet/usage.py` | `/usage` 사용률, 세션별 5시간 몫, 날짜별 토큰 |
+| `fleet/links.py` | GitHub·Jira REST 연결 (토큰 인증은 이 파일의 `github()`·`jira()` 두 곳만, 표준 라이브러리만) |
 | `fleet/pushes.py` | 세션에서 실행한 git push 기록 (Claude 의 Bash 와 사용자의 `!` 명령) |
 | `fleet/card.py` | 프로필 카드 SVG 그리기와 Gist 덮어쓰기 |
 | `fleet/recorder.py` | 1분 주기 기록 스레드: 지표, 세션 상태, 끝난 세션 마감, 30분마다 프로필 카드 |
@@ -221,7 +224,8 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `GET /api/mcp` | MCP 서버 연결 상태 |
 | `GET /api/version` | 화면을 띄운 리더의 버전과 설치된 플러그인 버전 |
 | `POST /api/handover` | 더 새 버전 대기자가 리더 자리를 넘겨 달라고 함 `{version}`. Origin 이 없는 요청만, 더 새 버전일 때만 물러남 |
-| `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지) · 바꾸기 `{name, value}` |
+| `POST /api/connect` | 연결 확인 `{service: github·jira}` → 저장된 토큰으로 내 계정 이름 `{ok, who}` 또는 `{error}` |
+| `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지, `secret`: 토큰이라 끝 4글자만) · 바꾸기 `{name, value}` |
 | `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list, sid, text, tag, id, status, note}`. Origin 이 없는 요청만 |
 
 ## 보안

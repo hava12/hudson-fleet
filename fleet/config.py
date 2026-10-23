@@ -24,6 +24,11 @@ CONFIG = [  # (이름, 기본값, 설명)
     ("HUDSON_FLEET_TERMINAL", "Ghostty", "끝난 세션을 다시 열 터미널 앱: Ghostty 또는 Terminal"),
     ("HUDSON_FLEET_GIST", "", "프로필 카드(완료 작업 태그별 건수 SVG)를 30분마다 덮어쓸 Gist id. 비우면 끔"),
     ("HUDSON_FLEET_GIST_USER", "", "Gist 를 올릴 gh 계정 (gh auth token --user). 비우면 gh 의 현재 계정"),
+    # 연결 (설정 ⚙ → 연결 칸). 이름이 _TOKEN 으로 끝나면 화면·API 에 끝 4글자만 보인다
+    ("HUDSON_FLEET_GITHUB_TOKEN", "", "GitHub 개인 액세스 토큰 (github.com/settings/tokens)"),
+    ("HUDSON_FLEET_JIRA_SITE", "", "Jira 사이트 주소 (예: aptplay.atlassian.net)"),
+    ("HUDSON_FLEET_JIRA_EMAIL", "", "Jira 에 로그인하는 이메일"),
+    ("HUDSON_FLEET_JIRA_TOKEN", "", "Jira API 토큰 (id.atlassian.com/manage-profile/security/api-tokens)"),
 ]
 CFG = {k: os.environ.get(k) or d for k, d, _ in CONFIG}
 PORT = int(CFG["HUDSON_FLEET_PORT"])

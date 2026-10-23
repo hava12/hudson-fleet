@@ -14,6 +14,7 @@ from .agents import agents, find_session, graph, mcp_servers, reopen, session
 from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, DEAD, ORIGIN, VERSION, claude, installed_version, ver
 from .db import EDIT, db, metrics, my_title, saved_settings, set_setting, set_title
+from .links import LinkError, check as check_link
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
 from .transcripts import overview, transcript
@@ -78,7 +79,9 @@ class H(BaseHTTPRequestHandler):
             return self.send(graph())
         if u.path == "/api/config":
             saved = saved_settings()  # src: screen 화면에서 바꿈 · env 환경 변수 · default 기본값
-            return self.send([{"name": k, "value": CFG[k], "default": d, "desc": desc, "edit": k in EDIT,
+            hide = lambda k, v: ("****" + v[-4:] if v else "") if k.endswith("_TOKEN") else v  # 토큰은 끝 4글자만
+            return self.send([{"name": k, "value": hide(k, CFG[k]), "default": hide(k, d), "desc": desc, "edit": k in EDIT,
+                               "secret": k.endswith("_TOKEN"),
                                "src": "screen" if k in saved else "env" if k in os.environ else "default"}
                               for k, d, desc in CONFIG])
         if u.path == "/api/sessions":  # ?status=closed|work|wait|idle (없으면 전체) &limit=
@@ -148,6 +151,11 @@ class H(BaseHTTPRequestHandler):
         # 다른 웹사이트가 localhost 로 실행 요청을 보내는 것(CSRF) 차단
         if self.headers.get("Origin") != ORIGIN:
             return self.send({"error": "bad origin"}, code=403)
+        if self.path == "/api/connect":  # {service: github|jira} — 저장된 토큰으로 내 계정 이름을 받아 와 연결을 확인한다
+            try:
+                return self.send({"ok": True, "who": check_link(body.get("service"))})
+            except LinkError as e:
+                return self.send({"error": str(e)})
         if self.path == "/api/config":  # {name, value} — EDIT 에 있는 설정만. 빈 값이면 환경 변수·기본값으로
             err = set_setting(body.get("name"), body.get("value"))
             return self.send({"error": err} if err else {"ok": True})
