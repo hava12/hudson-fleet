@@ -48,7 +48,7 @@ h2{font-size:13px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02e
 a.lk{color:var(--fg);font-weight:600;cursor:pointer;text-decoration:none}a.lk:hover{color:var(--acc)}
 .acts{white-space:nowrap}.acts button{margin-right:4px}.danger{color:#dc2626}
 #feed{display:grid;grid-template-columns:repeat(auto-fill,minmax(0,320px));gap:12px}  /* 카드 폭 고정: 패널을 열고 닫아도 칸 수만 바뀐다 */
-.post{display:flex;flex-direction:column;gap:8px}.post .ph{display:flex;gap:6px;align-items:baseline}
+.post{display:flex;flex-direction:column;gap:5px;padding:10px 14px}.post .tasks li{margin-bottom:2px}  /* 남은 일만 보여 주므로 촘촘하게 */.post .ph{display:flex;gap:6px;align-items:baseline}
 .post .ttl{font-weight:600;font-size:15px;line-height:1.35}
 .post .body{font-size:13px;white-space:pre-wrap;word-break:break-word}.post .pf{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:auto}
 #side{overflow:hidden;border-left:1px solid var(--line);background:var(--card);position:relative;display:flex;flex-direction:column;min-width:0}
@@ -267,7 +267,7 @@ async function loadFeed(){
     <div class="ph">${pill(p.status)}<span class="meta">${when(p.last)}</span></div>
     <div class="ttl">${esc(p.title||p.name||p.sid.slice(0,8))}</div>
     <div class="meta">${esc(tilde(p.cwd))}</div>
-    ${p.tasks.length?taskList(p.tasks,3,p.sid):'<div class="body meta">정리된 작업 없음</div>'}
+    ${(td=>td.length?taskList(td,3,p.sid):'<div class="body meta">남은 작업 없음</div>')(p.tasks.filter(t=>t.status==='todo'))}
     <div class="pf">${p.tasks.length?`<span class="tag">${taskSum(p.tasks)}</span>`:''}
       <span style="margin-left:auto"></span>      <button class="sm" data-act="sum" data-sid="${esc(p.sid)}">${p.tasks.length?(p.stale?'다시 정리':'정리됨'):'작업 정리'}</button></div>
   </article>`).join('')||'<div class="meta">작업 현황이 없습니다</div>';
