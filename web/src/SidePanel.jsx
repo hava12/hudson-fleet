@@ -35,8 +35,9 @@ function TitleBtn({ sid, title }) {
 function SessionPushes({ sid }) {
   const ps = usePoll('/api/pushes?sid=' + encodeURIComponent(sid))
   return <details open><summary><h4 style={{ display: 'inline-block' }}>Push{ps ? ` · ${ps.length}건` : ''}</h4></summary>
-    {!ps ? <div className="meta">불러오는 중…</div> : ps.length ? ps.map((p, i) => <div key={i} style={{ marginBottom: 8 }}>
-      <div className="meta">{when(p.ts)} · <RepoLink r={p.remote} /> {p.ref}</div><Commits p={p} /></div>)
+    {!ps ? <div className="meta">불러오는 중…</div> : ps.length ? ps.map(p => <details key={p.id} className="push">{/* 한 건씩 접어 두고 누르면 커밋 목록 */}
+      <summary className="meta">{when(p.ts)} · <RepoLink r={p.remote} /> {p.ref} · 커밋 {p.commits.length}개</summary>
+      <div className="pcommits"><Commits p={p} /></div></details>)
       : <div className="meta">이 세션에서 push 한 기록이 없습니다</div>}
   </details>
 }

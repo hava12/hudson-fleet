@@ -82,3 +82,4 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 .tgrp>.tasks{padding-left:16px}
 .tasks>li,.todo>li{display:flex;align-items:baseline;column-gap:4px}.tbody{flex:1;min-width:0}.tasks .pill{margin-right:0}
 .dbox{margin-top:2px}.dbox .dets{padding-left:16px}.dbox .tnote{padding-left:16px}
+.push>summary{margin:4px 0}.pcommits{padding-left:16px;margin-bottom:6px}
