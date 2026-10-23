@@ -30,22 +30,34 @@ def norm_tag(tag):
     return tag if tag in TAGS else "기타"
 
 
-def add_task(sid, text, source, status="todo", tag=None):
+MAX_DETAILS = 3  # 3-Step-Desc: 지금은 2단계(작업 + 설명 3줄). 3단계는 항목을 {text, details} 로 늘려 받는다
+
+
+def norm_details(d):
+    """작업을 풀어 쓴 설명 줄 → JSON 배열 (줄당 120자, 최대 3줄). 안 주면 None (바꾸지 않음), 빈 목록이면 지운다."""
+    if d is None:
+        return None
+    lines = [str(x).strip()[:120] for x in (d if isinstance(d, list) else [d]) if str(x).strip()]
+    return json.dumps(lines[:MAX_DETAILS], ensure_ascii=False)
+
+
+def add_task(sid, text, source, status="todo", tag=None, details=None):
     """작업 한 행을 맨 뒤(sort 최댓값 + 1)에 넣고 이력에 'start' 를 남긴다. 새 id 를 돌려준다."""
     t = now_iso()
     c = db()
     c.execute("INSERT INTO sessions (sid) VALUES (?) ON CONFLICT(sid) DO NOTHING", (sid,))
     sort = (c.execute("SELECT max(sort) FROM session_tasks WHERE sid = ?", (sid,)).fetchone()[0] or 0) + 1
-    tid = c.execute("INSERT INTO session_tasks (sid, sort, status, text, source, created_at, updated_at, tag)"
-                    " VALUES (?,?,?,?,?,?,?,?)", (sid, sort, status, text, source, t, t, norm_tag(tag))).lastrowid
+    tid = c.execute("INSERT INTO session_tasks (sid, sort, status, text, source, created_at, updated_at, tag, details)"
+                    " VALUES (?,?,?,?,?,?,?,?,?)",
+                    (sid, sort, status, text, source, t, t, norm_tag(tag), norm_details(details))).lastrowid
     c.execute("INSERT INTO task_events (task_id, ts, status, note) VALUES (?,?,?,?)", (tid, t, "start", source))
     c.commit()
     c.close()
     return tid
 
 
-def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None, tag=None):
-    """작업 한 행의 분류·태그·순서를 바꾸거나 지운다. sid 를 주면 그 세션의 작업만 건드린다 (MCP 용).
+def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None, tag=None, details=None):
+    """작업 한 행의 분류·태그·순서·설명 줄을 바꾸거나 지운다. sid 를 주면 그 세션의 작업만 건드린다 (MCP 용).
     사람이 haiku 행을 고치면 source 를 human 으로 바꿔 다음 haiku 정리 때 지워지지 않게 한다."""
     if (status is not None and status not in TASK_STATUS.values()) or (tag is not None and tag not in TAGS):
         return False
@@ -55,18 +67,20 @@ def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None,
         n = c.execute(f"DELETE FROM session_tasks WHERE {where}", key).rowcount
     else:
         n = c.execute(f"UPDATE session_tasks SET status = coalesce(?, status), sort = coalesce(?, sort),"
-                      f" tag = coalesce(?, tag), updated_at = ?,"
+                      f" tag = coalesce(?, tag), details = coalesce(?, details), note = coalesce(?, note), updated_at = ?,"
                       f" source = CASE WHEN ? = 'human' AND source = 'haiku' THEN 'human' ELSE source END WHERE {where}",
-                      (status, sort, tag, now_iso(), by, *key)).rowcount
+                      (status, sort, tag, norm_details(details), note.strip()[:200] if isinstance(note, str) and note.strip()
+                       else None, now_iso(), by, *key)).rowcount
     if n:
+        what = status or ("tag:" + tag if tag else "details" if details is not None else "moved")
         c.execute("INSERT INTO task_events (task_id, ts, status, note) VALUES (?,?,?,?)",
-                  (tid, now_iso(), "deleted" if delete else status or ("tag:" + tag if tag else "moved"), note or by))
+                  (tid, now_iso(), "deleted" if delete else what, note or by))
     c.commit()
     c.close()
     return n == 1
 
 
-TASKS_SQL = "SELECT id, sort, status, text, source, tag FROM session_tasks WHERE sid = ? ORDER BY sort, id"
+TASKS_SQL = "SELECT id, sort, status, text, source, tag, details, note FROM session_tasks WHERE sid = ? ORDER BY sort, id"
 
 
 def saved_tasks(sid):

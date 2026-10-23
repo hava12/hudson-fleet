@@ -42,9 +42,9 @@ def agent_task(body):
     if not re.fullmatch(r"[0-9a-f-]{36}", sid):
         return {"error": "세션 ID 확인"}, 400
     if op == "start" and isinstance(body.get("text"), str) and body["text"].strip():
-        return {"id": add_task(sid, body["text"][:160], "agent", tag=body.get("tag"))}, 200
+        return {"id": add_task(sid, body["text"][:160], "agent", tag=body.get("tag"), details=body.get("details"))}, 200
     if op == "update":
-        ok = set_task(body.get("id"), "agent", body.get("status"), note=body.get("note"), sid=sid)
+        ok = set_task(body.get("id"), "agent", body.get("status"), note=body.get("note"), sid=sid, details=body.get("details"))
         return ({"ok": True}, 200) if ok else ({"error": "이 세션의 작업 id 가 아니거나 분류가 잘못됐습니다"}, 400)
     if op == "list":
         return {"tasks": saved_tasks(sid)[0]}, 200
@@ -86,7 +86,7 @@ class H(BaseHTTPRequestHandler):
             c = db()
             c.row_factory = sqlite3.Row
             out = [dict(r) for r in c.execute(
-                "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, coalesce(s.my_title, s.title) AS title, s.name, s.cwd, s.status AS sst"
+                "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, t.details, coalesce(s.my_title, s.title) AS title, s.name, s.cwd, s.status AS sst"
                 " FROM session_tasks t JOIN sessions s USING (sid) WHERE t.status = 'todo'"
                 " ORDER BY coalesce(s.ended_at, s.last_seen) DESC, t.sort, t.id")]
             c.close()

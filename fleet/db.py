@@ -29,6 +29,10 @@ def db():
               " sort REAL, status TEXT, text TEXT, source TEXT, created_at TEXT, updated_at TEXT)")
     if "tag" not in {r[1] for r in c.execute("PRAGMA table_info(session_tasks)")}:  # 일의 종류 (TAGS). 옛 행은 비어 있다
         c.execute("ALTER TABLE session_tasks ADD COLUMN tag TEXT")
+    if "details" not in {r[1] for r in c.execute("PRAGMA table_info(session_tasks)")}:  # 3-Step-Desc 설명 줄 (JSON 배열)
+        c.execute("ALTER TABLE session_tasks ADD COLUMN details TEXT")
+    if "note" not in {r[1] for r in c.execute("PRAGMA table_info(session_tasks)")}:  # 완료·중단·반려 때의 비고 한 줄
+        c.execute("ALTER TABLE session_tasks ADD COLUMN note TEXT")
     c.execute("CREATE TABLE IF NOT EXISTS task_events (id INTEGER PRIMARY KEY, task_id INT, ts TEXT, status TEXT,"
               " note TEXT)")  # 시작·완료·중단·반려·순서 변경 이력 (추가만)
     # Claude 가 한 git push. 대화 기록이 지워져도 남도록 커밋 메시지까지 저장한다

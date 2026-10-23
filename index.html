@@ -75,7 +75,7 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 .dots::after{content:'...';font-family:ui-monospace,monospace;display:inline-block;overflow:hidden;vertical-align:bottom;width:0;animation:dots 1.2s steps(4,end) infinite}
 @keyframes dots{to{width:4ch}}
 /* 기록한 작업: 1. 2. 3. 순서 + 분류(완료·중단·남은 일) */
-.tasks{margin:0;padding-left:22px;font-size:13px;line-height:1.6}.tasks li{margin-bottom:6px}.tasks li::marker{color:var(--mute)}.tasks .pill{font-size:11px;margin-right:4px}.tsel,.tgsel{border:1px solid var(--line);background:var(--soft);cursor:pointer;padding:1px 4px}
+.tasks{margin:0;padding-left:22px;font-size:13px;line-height:1.6}.dets{margin:2px 0 0;padding-left:16px;font-size:12px;line-height:1.5;color:var(--mute);list-style:'└ '}.tnote{margin-top:2px;font-size:12px;color:var(--mute)}.tx.has{cursor:pointer}.tx.has::after{content:' ▸';color:var(--mute);font-size:11px}.tx.has.open::after{content:' ▾'}.tasks li{margin-bottom:6px}.tasks li::marker{color:var(--mute)}.tasks .pill{font-size:11px;margin-right:4px}.tsel,.tgsel{border:1px solid var(--line);background:var(--soft);cursor:pointer;padding:1px 4px}
 .tdel{border:0;background:none;color:var(--mute);cursor:pointer;font-size:11px;padding:0 4px;opacity:0}.tasks li:hover .tdel{opacity:1}.tdel:hover{color:var(--del)}
 .tasks li.t-rejected .tx{color:var(--mute);text-decoration:line-through}.more{margin-top:2px;align-self:flex-start}
 .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--mute);font-size:12px;margin-left:auto}
@@ -127,9 +127,17 @@ const TASK={done:['완료','var(--add)'],stopped:['중단','var(--warn)'],todo:[
 const TAGS=['개발','디자인','기획','테스트','문서','디버그','데이터','운영','기타'];  // fleet/tasks.py TAGS 와 같은 순서
 const tagPill=(t,edit)=>edit?`<select class="pill tgsel" data-id="${t.id}" title="태그 바꾸기">${t.tag?'':'<option value="" selected>태그</option>'}${TAGS.map(k=>`<option${k===t.tag?' selected':''}>${k}</option>`).join('')}</select>`
   :t.tag?`<span class="pill">${esc(t.tag)}</span>`:'';
+// 3-Step-Desc: 작업 아래 설명 줄(최대 3) + 완료·중단·반려의 비고
+// 작업 문장 + 설명 줄·비고. 설명은 접어 두고 문장을 누르면 펼친다 (아래 document 클릭 처리)
+const tx=(t,after='')=>{let d=[];try{d=JSON.parse(t.details||'[]')}catch{}
+  const box=(d.length?`<ul class="dets">${d.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'')
+    +(t.note&&t.status!=='todo'?`<div class="tnote">비고 · ${esc(t.note)}</div>`:'');
+  return box?`<span class="tx has" title="눌러서 설명 보기">${esc(t.text)}</span>${after}<div class="dbox" hidden>${box}</div>`:`<span class="tx">${esc(t.text)}</span>${after}`};
+document.addEventListener('click',e=>{const x=e.target.closest('.tx.has');if(!x)return;e.stopPropagation();
+  const b=x.parentElement.querySelector('.dbox');b.hidden=!b.hidden;x.classList.toggle('open',!b.hidden)},true);
 const taskList=(ts,max,sid,edit)=>`<ol class="tasks">${ts.slice(0,max||ts.length).map(t=>`<li class="t-${t.status}" title="${({agent:'에이전트가 직접 기록',haiku:'haiku 가 대화에서 정리',human:'사람이 고침'})[t.source]||''}">${edit
     ?`<select class="pill tsel" data-id="${t.id}" style="color:${TASK[t.status]?.[1]}" title="분류 바꾸기">${Object.entries(TASK).map(([k,[l]])=>`<option value="${k}"${k===t.status?' selected':''}>${l}</option>`).join('')}</select>`
-    :`<span class="pill" style="color:${TASK[t.status]?.[1]}">${TASK[t.status]?.[0]||esc(t.status)}</span>`}${tagPill(t,edit)} <span class="tx">${esc(t.text)}</span>${edit?`<button class="tdel" data-id="${t.id}" title="이 기록 삭제">✕</button>`:''}</li>`).join('')}</ol>`
+    :`<span class="pill" style="color:${TASK[t.status]?.[1]}">${TASK[t.status]?.[0]||esc(t.status)}</span>`}${tagPill(t,edit)} ${tx(t,edit?`<button class="tdel" data-id="${t.id}" title="이 기록 삭제">✕</button>`:'')}</li>`).join('')}</ol>`
   +(max&&ts.length>max?(sid?`<button class="sm more" data-act="more" data-sid="${esc(sid)}">더보기 (+${ts.length-max})</button>`:`<div class="meta">외 ${ts.length-max}건</div>`):'');
 const taskSum=ts=>ts.length?Object.entries(TASK).filter(([k])=>ts.some(t=>t.status===k)).map(([k,[l,c]])=>`<span style="color:${c}">${l} ${ts.filter(t=>t.status===k).length}</span>`).join(' · '):'<span class="meta">없음</span>';
 const pill=st=>`<span class="pill"><i class="dot" style="background:${GINFO[grp(st)][1]}"></i>${GINFO[grp(st)][0]}</span>`;
@@ -238,7 +246,7 @@ function renderTable(g){  // 남은 일 한 줄씩: [세션] - 할 일. 숫자 �
   const ts=TODO.filter(t=>!statF||(live.has(t.sid)&&pick(live.get(t.sid))));
   $('todo').classList.toggle('meta',!ts.length);
   $('todo').innerHTML=ts.length?`<ul class="todo">${ts.map(t=>{const nm=esc(t.name||t.sid.slice(0,8));
-    return `<li><select class="pill tsel" data-id="${t.id}" style="color:${TASK.todo[1]}" title="분류 바꾸기">${Object.entries(TASK).map(([k,[l]])=>`<option value="${k}"${k==='todo'?' selected':''}>${l}</option>`).join('')}</select> ${live.has(t.sid)?`<a class="lk" data-act="open" data-sid="${esc(t.sid)}">[${nm}]</a>`:`<span class="meta" title="끝난 세션 · ${esc(t.title||'')}">[${nm}]</span>`} - ${esc(t.text)}</li>`}).join('')}</ul>`
+    return `<li><select class="pill tsel" data-id="${t.id}" style="color:${TASK.todo[1]}" title="분류 바꾸기">${Object.entries(TASK).map(([k,[l]])=>`<option value="${k}"${k==='todo'?' selected':''}>${l}</option>`).join('')}</select> ${live.has(t.sid)?`<a class="lk" data-act="open" data-sid="${esc(t.sid)}">[${nm}]</a>`:`<span class="meta" title="끝난 세션 · ${esc(t.title||'')}">[${nm}]</span>`} - ${tx(t)}</li>`}).join('')}</ul>`
     :(statF?'해당하는 세션의 남은 일이 없습니다':'남은 일이 없습니다');
   $('tblh').innerHTML=statF?`남은 작업 · ${statF==='agent'?'서브에이전트가 있는 세션':GINFO[statF][0]}만 보기 <button class="sm" id="clrF">필터 해제</button>`:'남은 작업';
   if($('clrF'))$('clrF').onclick=()=>setStat('');

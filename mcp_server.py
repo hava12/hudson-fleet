@@ -28,6 +28,9 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
 1. 사용자가 무언가를 만들거나, 고치거나, 실행·조사하라고 하면 첫 작업 전에 task_start(text, tag) 를 부른다.
    text 는 120자 이내, 동사로 끝나는 한 문장. tag 는 일의 종류 하나 (도구 설명의 정의를 보고 고른다).
 2. 그 일이 끝나면 task_update(id, "done"). 끝내지 못하고 멈추면 "stopped", 사용자가 하지 않기로 하면 "rejected".
+   이 세 가지는 note 에 비고 한 줄을 꼭 남긴다 — 완료면 결과, 중단이면 멈춘 이유, 반려면 반려 이유.
+   details 는 text 를 풀어 쓴 설명 1줄씩 최대 3개다. task_start 때는 할 일(계획)을, task_update 때는 실제로 한 일·결과를
+   적어 바꾼다 (줄마다 60자 안팎, 동사로 끝냄). 한 줄로 충분한 작은 일은 비워 둔다.
 3. 이 도구들이 지연 로드(deferred) 상태면 먼저 ToolSearch 로
    "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list" 를 불러온다.
 4. 일하는 도중에 사용자가 덧붙인 요청도 규칙 1 을 따른다. 하던 일의 일부가 아니면 따로 task_start 한다
@@ -37,17 +40,22 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
 5. 기록하지 않는 것: 질문에 답만 하는 경우, 확인·잡담. 같은 일을 두 번 시작하지 않는다.
 6. 대화가 압축(compact)된 뒤에는 task_list 로 기록을 확인하고 이어서 쓴다."""
 
+DETAILS = {"type": "array", "items": {"type": "string"}, "maxItems": 3}  # 3-Step-Desc (fleet/tasks.py MAX_DETAILS)
+
 TOOLS = [
     {"name": "task_start", "description": "작업을 시작하며 기록한다. 새 작업 id 를 돌려준다.",
      "inputSchema": {"type": "object", "properties": {
          "text": {"type": "string", "description": "120자 이내 한 문장"},
          "tag": {"type": "string", "enum": list(TAGS),
-                 "description": "일의 종류 — " + " · ".join(f"{k}: {v}" for k, v in TAGS.items())}},
+                 "description": "일의 종류 — " + " · ".join(f"{k}: {v}" for k, v in TAGS.items())},
+         "details": {**DETAILS, "description": "선택. 할 일(계획)을 풀어 쓴 설명 1줄씩 최대 3개"}},
                      "required": ["text", "tag"]}},
     {"name": "task_update", "description": "작업의 결과를 기록한다: done 완료 · stopped 중단 · rejected 반려 · todo 남은 일.",
      "inputSchema": {"type": "object", "properties": {
          "id": {"type": "integer"}, "status": {"type": "string", "enum": ["done", "stopped", "rejected", "todo"]},
-         "note": {"type": "string", "description": "선택. 결과나 멈춘 이유 한 줄"}}, "required": ["id", "status"]}},
+         "note": {"type": "string", "description": "비고 한 줄 (done·stopped·rejected 때 꼭): 완료면 결과, 중단이면 멈춘 이유, 반려면 반려 이유"},
+         "details": {**DETAILS, "description": "선택. 실제로 한 일·결과 1줄씩 최대 3개. 주면 기존 설명을 바꾼다"}},
+                     "required": ["id", "status"]}},
     {"name": "task_list", "description": "이 세션에 기록된 작업 목록 (순서대로).",
      "inputSchema": {"type": "object", "properties": {}}},
 ]
@@ -99,10 +107,11 @@ def call(name, args):
     if not sid:
         return "Claude Code 세션을 찾지 못했습니다", True
     if name == "task_start":
-        r = api({"op": "start", "sid": sid, "text": args.get("text"), "tag": args.get("tag")})
+        r = api({"op": "start", "sid": sid, "text": args.get("text"), "tag": args.get("tag"), "details": args.get("details")})
         return (r["error"], True) if "error" in r else (json.dumps({"id": r["id"]}), False)
     if name == "task_update":
-        r = api({"op": "update", "sid": sid, "id": args.get("id"), "status": args.get("status"), "note": args.get("note")})
+        r = api({"op": "update", "sid": sid, "id": args.get("id"), "status": args.get("status"), "note": args.get("note"),
+                 "details": args.get("details")})
         return (r["error"], True) if "error" in r else ("기록했습니다", False)
     if name == "task_list":
         r = api({"op": "list", "sid": sid})
