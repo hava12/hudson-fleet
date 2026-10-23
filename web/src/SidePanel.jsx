@@ -34,7 +34,7 @@ function TitleBtn({ sid, title }) {
 // 그 세션이 한 push 만. push 안 한 커밋은 대화 기록에 push 결과가 없어 여기 안 나온다
 function SessionPushes({ sid }) {
   const ps = usePoll('/api/pushes?sid=' + encodeURIComponent(sid))
-  return <details open><summary><h4 style={{ display: 'inline-block' }}>Push{ps ? ` · ${ps.length}건` : ''}</h4></summary>
+  return <details open className="sec"><summary><h4 style={{ display: 'inline-block' }}>Push{ps ? ` · ${ps.length}건` : ''}</h4></summary>
     {!ps ? <div className="meta">불러오는 중…</div> : ps.length ? ps.map(p => <details key={p.id} className="push">{/* 한 건씩 접어 두고 누르면 커밋 목록 */}
       <summary className="meta">{when(p.ts)} · <RepoLink r={p.remote} /> {p.ref} · 커밋 {p.commits.length}개</summary>
       <div className="pcommits"><Commits p={p} /></div></details>)
@@ -68,11 +68,11 @@ function SessionPanel({ sid, agent }) {
     {proc.length > 0 && <div className="meta" title={proc.map(p => p.path).join('\n')}>
       🖥 {[...proc].reverse().map(p => p.name + (p === proc[0] ? `(${p.pid})` : '')).join(' › ')}</div>}
     {log != null && <pre style={{ marginTop: 8 }}>{log}</pre>}
-    {!agent && <details open={sumOpen} onToggle={e => { if (e.target === e.currentTarget) sumOpen = e.target.open }}>
+    {!agent && <details className="sec" open={sumOpen} onToggle={e => { if (e.target === e.currentTarget) sumOpen = e.target.open }}>
       <summary><h4 style={{ display: 'inline-block' }}>세션 요약</h4></summary>
       <div><b>{ov.title || '(제목 없음)'}</b> <TitleBtn sid={sid} title={ov.title} /></div>
       <div className="meta">{when(ov.first)} → {when(ov.last)}</div>
-      <details open={taskOpen} onToggle={e => { e.stopPropagation(); taskOpen = e.target.open }}>
+      <details className="sec" open={taskOpen} onToggle={e => { e.stopPropagation(); taskOpen = e.target.open }}>
         <summary><h4 style={{ display: 'inline-block', fontSize: 13 }}>기록할 작업 · {ts.length}건</h4></summary>
         {ai.err ? <div>{ai.err}</div> : ts.length ? <TaskList ts={ts} edit="all" /> : <div className="meta">아직 정리하지 않았습니다</div>}
         <div style={{ marginTop: 6 }}><button className="sm" disabled={ai.busy} onClick={summarize}>{ai.busy ? '요약 중…' : ai.label || (ts.length ? '다시 정리' : '작업 정리')}</button>
@@ -102,7 +102,7 @@ function HistoryPanel({ sid }) {
     <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
       <button className="sm" disabled={busy} onClick={() => reopen(false)} title="같은 세션 ID 로 이어서 엽니다. 다시 살아나면 현황으로 돌아갑니다">이어서 열기</button>
       <button className="sm" disabled={busy} onClick={() => reopen(true)} title="대화를 복사한 새 세션으로 엽니다 (--fork-session). 이 기록은 그대로 남습니다">복사해 열기</button></div>
-    <details open><summary><h4 style={{ display: 'inline-block' }}>기록한 작업 · {s.tasks.length}건</h4></summary>
+    <details open className="sec"><summary><h4 style={{ display: 'inline-block' }}>기록한 작업 · {s.tasks.length}건</h4></summary>
       {s.tasks.length ? <TaskList ts={s.tasks} /> : <div className="meta">기록할 작업 없음</div>}</details>
     <SessionPushes sid={sid} /></>
 }

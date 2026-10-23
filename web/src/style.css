@@ -55,6 +55,8 @@ h3{margin:0 0 4px;font-size:15px;word-break:break-all}h4{margin:16px 0 6px;font-
 .meta{color:var(--mute);font-size:12px;word-break:break-all}
 pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:10px;margin:0;font-size:12px;max-height:50vh;overflow:auto}
 details>summary{cursor:pointer}
+/* 패널의 접는 칸(세션 요약·기록할 작업·Push): 제목 아래 내용을 한 칸 들여 써 제목과 깊이가 달라 보이게 */
+.sec>:not(summary){margin-left:16px}
 .tag{padding:0 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute);font-size:12px}
 #menu{position:fixed;display:none;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #0003;padding:4px;z-index:9}
 #menu div{padding:6px 12px;border-radius:4px;cursor:pointer}#menu div:hover{background:var(--soft)}
@@ -71,7 +73,8 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 @keyframes dots{to{width:4ch}}
 /* 기록한 작업: 1. 2. 3. 순서 + 분류(완료·중단·남은 일) */
 .tasks{margin:0;padding-left:22px;font-size:13px;line-height:1.6}.dets{margin:2px 0 0;padding-left:16px;font-size:12px;line-height:1.5;color:var(--mute);list-style:'└ '}.tnote{margin-top:2px;font-size:12px;color:var(--mute)}.tx.has{cursor:pointer}.tx.has::after{content:' ▸';color:var(--mute);font-size:11px}.tx.has.open::after{content:' ▾'}.tasks li{margin-bottom:6px}.tasks li::marker{color:var(--mute)}.tasks .pill{font-size:11px;margin-right:4px}.tsel,.tgsel{border:1px solid var(--line);background:var(--soft);cursor:pointer;padding:1px 4px}
-.tdel{border:0;background:none;color:var(--mute);cursor:pointer;font-size:11px;padding:0 4px;opacity:0}.tasks li:hover .tdel{opacity:1}.tdel:hover{color:var(--del)}
+/* 삭제 단추는 줄 흐름에서 빼 오른쪽 끝에 띄운다 — 투명해도 자리를 차지해 혼자 다음 줄로 넘어가 빈 줄이 생겼다 */
+.tasks>li{position:relative}.tdel{position:absolute;right:0;top:0;border:0;background:var(--card);color:var(--mute);cursor:pointer;font-size:11px;padding:0 4px;opacity:0}.tasks li:hover .tdel{opacity:1}.tdel:hover{color:var(--del)}
 .tasks li.t-rejected .tx{color:var(--mute);text-decoration:line-through}.more{margin-top:2px;align-self:flex-start}
 .legend{display:flex;gap:12px;flex-wrap:wrap;color:var(--mute);font-size:12px;margin-left:auto}
 /* 작업 목록: 끝난 일은 흐리게. 상태가 섞이면 묶음(.tgrp)으로 나눈다 */
