@@ -1,3 +1,0 @@
-# 대시보드 웹 서버만 쓰는 의존성. 한 줄에 하나, 버전을 고정한다 (예: jinja2==3.1.4)
-# 넣으면 hooks/serve.sh 가 venv(~/.local/share/hudson-fleet/venv)에 설치하고 그 python 으로 서버를 띄운다.
-# mcp_server.py 가 가져오는 fleet/tasks·db·config·transcripts 에서는 쓰지 않는다 — MCP 서버는 시스템 python3 으로 뜬다.

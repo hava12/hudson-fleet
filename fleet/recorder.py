@@ -26,6 +26,8 @@ def archive(n, status):
         return
     if n["kind"] == "background":
         reason = status
+    elif not n.get("pid"):  # 리더가 바뀌는 사이에 끝나 DB 에서 찾은 세션 — 끝난 방식을 모른다
+        reason = "gone"
     else:
         try:
             os.kill(n["pid"], 0)
@@ -91,10 +93,18 @@ def save_daily():
     c.close()
 
 
+def unclosed():
+    """DB 에 아직 살아 있다고 남은 세션 — 리더가 바뀌면 메모리의 prev 가 없어지므로 여기서 이어받는다."""
+    c = db()
+    rows = c.execute("SELECT sid, name, cwd, kind, app FROM sessions WHERE status IN ('work', 'wait', 'idle')").fetchall()
+    c.close()
+    return {sid: {"sessionId": sid, "label": name, "cwd": cwd, "kind": kind, "app": app} for sid, name, cwd, kind, app in rows}
+
+
 def record():
     """1분마다 지표 한 줄: 상태별 살아 있는 세션 수, 실행 중 서브에이전트 수, 5시간·1주일 사용률.
     10분마다 날짜별 토큰 합계(잔디), 30분마다 프로필 카드도 갱신한다. 세션 상태는 sessions 에 남기고, 사라진 세션은 closed 로 마감한다."""
-    prev = {}
+    prev = unclosed()  # 앞 리더(끝난 세션의 MCP 서버)가 마감하지 못한 세션도 마감한다
     for i in itertools.count():
         try:
             if i % 10 == 0:

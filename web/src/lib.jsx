@@ -18,13 +18,13 @@ export const modelName = m => m.replace(/^claude-/, '').replace(/-(\d+)-(\d+).*$
 export const get = async p => (await fetch(p)).json()
 export const post = async (p, b) => (await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })).json()
 
-// ms 마다 다시 받는다. 실패하면 3초 뒤 다시. deps 가 바뀌면 바로 다시 (ms 가 없으면 deps 가 바뀔 때만)
+// ms 마다 다시 받는다. 실패하면 1초 뒤 다시 (리더가 바뀌는 1~2초 동안은 마지막 값을 그대로 보여 준다). deps 가 바뀌면 바로 다시 (ms 가 없으면 deps 가 바뀔 때만)
 export function usePoll(url, ms, deps = []) {
   const [data, setData] = useState(null)
   useEffect(() => {
     let t, live = true
     const run = () => get(url).then(d => { if (live) { setData(d); if (ms) t = setTimeout(run, ms) } },
-      () => { if (live) t = setTimeout(run, 3000) })
+      () => { if (live) t = setTimeout(run, 1000) })
     run()
     return () => { live = false; clearTimeout(t) }
   }, [url, ms, ...deps])

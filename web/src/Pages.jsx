@@ -79,7 +79,6 @@ function SettingValue({ c, done }) {
 export function Settings() {
   const [n, setN] = useState(0)
   const cs = usePoll('/api/config', 0, [n]) || []
-  const port = cs.find(c => c.name === 'HUDSON_FLEET_PORT')?.value
   return <div className="pg"><section className="card">
     <div className="sh"><h2>설정</h2><span className="meta">입력 칸이 있는 값은 여기서 바꾸면 바로 적용됩니다 (비우고 저장하면 원래대로) · 나머지는 환경 변수로만</span></div>
     <div className="tw"><table className="tbl"><tbody>
@@ -91,9 +90,8 @@ export function Settings() {
     </tbody></table></div>
     <h4>환경 변수로 바꾸는 방법 (포트·DB 경로)</h4>
     <ol className="meta" style={{ margin: 0, paddingLeft: 20, lineHeight: 1.8 }}>
-      <li><code>~/.claude/settings.json</code> 의 <code>"env"</code> 에 적습니다. Claude Code 가 훅·MCP 서버에 넘겨 줍니다. (서버만 쓰는 값은 <code>~/.local/share/hudson-fleet/.env</code> 에 적어도 됩니다)</li>
-      <li>떠 있는 대시보드 서버를 끕니다 (<code>lsof -ti :{port} | xargs kill</code>).</li>
-      <li>새 Claude Code 세션을 시작하면 SessionStart 훅이 새 값으로 서버를 띄웁니다.</li></ol>
+      <li><code>~/.claude/settings.json</code> 의 <code>"env"</code> 에 적습니다. Claude Code 가 MCP 서버에 넘겨 줍니다. (서버만 쓰는 값은 <code>~/.local/share/hudson-fleet/.env</code> 에 적어도 됩니다)</li>
+      <li>Claude Code 세션을 모두 닫았다 다시 열면, 새로 리더가 된 MCP 서버가 새 값으로 대시보드를 띄웁니다.</li></ol>
     <pre style={{ marginTop: 10 }}>{'// ~/.claude/settings.json (예시)\n' + JSON.stringify({ env: { HUDSON_FLEET_PORT: '8766' } }, null, 2)}</pre>
   </section></div>
 }

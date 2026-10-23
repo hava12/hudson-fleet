@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-# 설정은 모두 환경 변수 — ~/.claude/settings.json 의 "env" 에 적으면 훅·MCP·서버가 함께 받는다. 바꾸면 서버 재시작.
+# 설정은 모두 환경 변수 — ~/.claude/settings.json 의 "env" 에 적으면 MCP 서버와 그 안의 대시보드 서버가 받는다. 바꾸면 세션을 모두 다시 연다.
 # DB 옆 .env (KEY=VALUE 줄) 도 읽는다. 플러그인을 업데이트해도 남는 곳. 환경 변수에 이미 있으면 그쪽이 먼저
 ENV_FILE = Path.home() / ".local" / "share" / "hudson-fleet" / ".env"
 if ENV_FILE.is_file():

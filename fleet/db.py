@@ -77,7 +77,7 @@ def metrics(hours):
 
 
 # ── 화면에서 바꾸는 설정 (settings 표, 환경 변수보다 먼저). 쓸 때마다 CFG 를 읽는 값만 받는다 ──
-# 포트·DB 경로·관리자 아이디는 서버가 켜질 때 정해지고 훅·MCP 도 환경 변수로 읽으므로 화면에서 바꾸지 않는다
+# 포트·DB 경로는 서버가 켜질 때 정해지고 MCP 서버도 환경 변수로 읽으므로 화면에서 바꾸지 않는다
 EDIT = {  # 이름 → 받을 값 형식
     "HUDSON_FLEET_AUTO_SUMMARY": r"[01]",
     "HUDSON_FLEET_SUMMARY_MODEL": r"[\w.\[\]-]{1,60}",

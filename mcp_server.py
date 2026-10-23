@@ -1,7 +1,7 @@
 """Hudson Fleet MCP — Claude Code 가 작업을 시작·완료·중단·반려할 때 기록한다 (stdio, 표준 라이브러리만).
 
-기록은 대시보드 서버의 /api/agent/task 로 보낸다 — DB 는 서버 하나만 쓴다 (서버를 따로 두고 함께 쓸 때를 대비).
-서버가 없으면 한 번 띄워 보고(훅과 같은 start.sh), 그래도 없으면 오류로 돌려준다.
+기록은 대시보드 서버의 /api/agent/task 로 보낸다 — DB 는 서버 하나만 쓴다.
+대시보드 서버도 여기서 띄운다: 세션마다 뜨는 MCP 서버 중 포트를 먼저 연 하나가 맡는다 (server.lead, 리더 선출).
 ponytail: 못 보낸 기록은 버린다 — 빠지면 안 되게 되면 파일에 쌓았다가 다시 보낸다
 
 어느 세션의 호출인지는 부모 프로세스로 찾는다. claude 가 이 서버를 자식으로 띄우므로
@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -85,21 +86,14 @@ def post(body):
 
 
 def api(body):
-    """대시보드 서버로 보낸다. 내 PC 의 서버가 없으면 띄우고 5초까지 기다린다."""
-    try:
-        return post(body)
-    except urllib.error.URLError:
-        pass
-    if URL == LOCAL:  # 다른 PC 의 서버는 여기서 띄울 수 없다
-        subprocess.run([os.path.join(ROOT, "hooks", "start.sh")], env={**os.environ, "CLAUDE_PLUGIN_ROOT": ROOT}, timeout=10)
-        for _ in range(10):
+    """대시보드 서버로 보낸다. 리더가 바뀌는 중(1~2초)일 수 있어 5초까지 다시 시도한다."""
+    for _ in range(10):
+        try:
+            return post(body)
+        except urllib.error.URLError:
             time.sleep(0.5)
-            try:
-                return post(body)
-            except urllib.error.URLError:
-                continue
-    return {"error": f"대시보드 서버({URL})에 연결하지 못해 기록하지 못했습니다. 사용자에게 서버 상태를 확인하라고 알리세요"
-                     " (~/.local/share/hudson-fleet/server.log)"}
+    return {"error": f"대시보드 서버({URL})에 연결하지 못해 기록하지 못했습니다. 사용자에게 다른 프로그램이 포트를 쓰고 있지 않은지"
+                     " 확인하라고 알리세요 (lsof -i :8765)"}
 
 
 def call(name, args):
@@ -121,11 +115,18 @@ def call(name, args):
 
 def reply(mid, result=None, error=None):
     msg = {"jsonrpc": "2.0", "id": mid, **({"error": error} if error else {"result": result})}
-    sys.stdout.write(json.dumps(msg, ensure_ascii=False) + "\n")
-    sys.stdout.flush()
+    OUT.write(json.dumps(msg, ensure_ascii=False) + "\n")
+    OUT.flush()
+
+
+OUT = sys.stdout  # MCP 통신 전용. 대시보드 서버의 print·로그는 stderr 로 (stdout 에 섞이면 통신이 깨진다)
 
 
 def main():
+    sys.stdout = sys.stderr
+    if URL == LOCAL:  # 다른 PC 의 서버를 쓰면 여기서 띄우지 않는다
+        from server import lead
+        threading.Thread(target=lead, daemon=True).start()
     for line in sys.stdin:  # stdio MCP: 한 줄에 JSON-RPC 메시지 하나
         try:
             m = json.loads(line)
