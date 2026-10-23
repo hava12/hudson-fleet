@@ -29,16 +29,16 @@ def card_svg():
     w7, w30 = counts(7), counts(30)
     tags = sorted((t for t in TAGS if w30.get(t)), key=lambda t: -w30[t]) or ["개발"]  # 많이 한 일부터
     top = max(w30.values(), default=1)
-    rows, y = [], 78
+    rows, y = [], 58
     for t in tags:
         a, b = w7.get(t, 0), w30.get(t, 0)
-        rows.append(f'<text x="20" y="{y + 11}" class="l">{escape(t)}</text>'
-                    f'<rect x="80" y="{y}" width="{max(2, 150 * a / top):.0f}" height="12" rx="3" class="b7"/>'
-                    f'<text x="236" y="{y + 11}" class="n">{a}</text>'
-                    f'<rect x="270" y="{y}" width="{max(2, 150 * b / top):.0f}" height="12" rx="3" class="b30"/>'
-                    f'<text x="426" y="{y + 11}" class="n">{b}</text>')
-        y += 22
-    h = y + 14
+        rows.append(f'<text x="20" y="{y + 10}" class="l">{escape(t)}</text>'
+                    f'<rect x="80" y="{y}" width="{max(2, 150 * a / top):.0f}" height="11" rx="3" class="b7"/>'
+                    f'<text x="236" y="{y + 10}" class="n">{a}</text>'
+                    f'<rect x="270" y="{y}" width="{max(2, 150 * b / top):.0f}" height="11" rx="3" class="b30"/>'
+                    f'<text x="426" y="{y + 10}" class="n">{b}</text>')
+        y += 18
+    h = y + 10
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="470" height="{h}" viewBox="0 0 470 {h}">
 <style>
@@ -48,10 +48,10 @@ def card_svg():
 .b7{{fill:#3fb950}}.b30{{fill:#4493f8}}}}
 </style>
 <rect x=".5" y=".5" width="469" height="{h - 1}" rx="8" class="bg"/>
-<text x="20" y="30" class="t">Claude Code 와 완료한 작업</text>
-<text x="450" y="30" text-anchor="end" class="s">{stamp} · hudson-fleet</text>
-<text x="80" y="62" class="h">최근 7일 · {sum(w7.values())}건</text>
-<text x="270" y="62" class="h">최근 30일 · {sum(w30.values())}건</text>
+<text x="20" y="28" class="t">Claude Code 와 완료한 작업</text>
+<text x="450" y="28" text-anchor="end" class="s">{stamp} · hudson-fleet</text>
+<text x="80" y="48" class="h">최근 7일 · {sum(w7.values())}건</text>
+<text x="270" y="48" class="h">최근 30일 · {sum(w30.values())}건</text>
 {"".join(rows)}
 </svg>'''
 
@@ -77,10 +77,10 @@ def tokens_svg():
     weeks = [(monday - timedelta(weeks=k), sum(days.get((monday - timedelta(weeks=k, days=-d)).isoformat(), 0)
                                                for d in range(7))) for k in range(11, -1, -1)]
     top = max(v for _, v in weeks) or 1
-    w, x0, bw, gap, base, ph = 612, 64, 38, 6, 290, 130  # 막대 영역: 왼쪽 눈금 글자 뒤 x=64, 바닥 y=290, 높이 130
-    tile = "".join(f'<text x="{20 + k * 145}" y="66" class="s">{t}</text>'
-                   f'<text x="{20 + k * 145}" y="94" class="big">{won(v)}</text>' for k, (t, v) in enumerate(tiles))
-    step = next(m * 10 ** e for e in range(3, 12) for m in (1, 2, 5) if m * 10 ** e >= top / 3)  # 눈금은 1·2·5 단위
+    w, x0, bw, gap, base, ph = 612, 64, 38, 6, 162, 44  # 막대 영역: 왼쪽 눈금 글자 뒤 x=64, 바닥 y=162, 높이 44
+    tile = "".join(f'<text x="{20 + k * 145}" y="52" class="s">{t}</text>'
+                   f'<text x="{20 + k * 145}" y="76" class="big">{won(v)}</text>' for k, (t, v) in enumerate(tiles))
+    step = next(m * 10 ** e for e in range(3, 12) for m in (1, 2, 5) if m * 10 ** e >= top / 2)  # 눈금은 1·2·5 단위, 2줄 이하
     grid = "".join(f'<line x1="{x0}" x2="{w - 20}" y1="{base - ph * g / top:.0f}" y2="{base - ph * g / top:.0f}" class="gl"/>'
                    f'<text x="{x0 - 8}" y="{base - ph * g / top + 4:.0f}" text-anchor="end" class="s">{won(g)}</text>'
                    for g in range(step, top + 1, step))
@@ -93,10 +93,10 @@ def tokens_svg():
         if k in (peak, 11) and v:
             bars.append(f'<text x="{x + bw / 2}" y="{base - h - 6:.0f}" text-anchor="middle" class="v">{won(v)}</text>')
         if k % 2 == 1 or k == 11:
-            bars.append(f'<text x="{x + bw / 2}" y="{base + 16}" text-anchor="middle" class="s">'
+            bars.append(f'<text x="{x + bw / 2}" y="{base + 14}" text-anchor="middle" class="s">'
                         f'{"이번 주" if k == 11 else f"{wk.month}/{wk.day}"}</text>')
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    h = base + 34
+    h = base + 30
     return f'''<svg xmlns="http://www.w3.org/2000/svg" width="{w}" height="{h}" viewBox="0 0 {w} {h}">
 <style>
 .bg{{fill:#fff;stroke:#d0d7de}}.t{{font:600 15px sans-serif;fill:#1f2328}}.s{{font:11px sans-serif;fill:#59636e}}
@@ -106,10 +106,10 @@ def tokens_svg():
 .gl{{stroke:#30363d}}.bar{{fill:#4493f8}}.ax{{stroke:#3d444d}}}}
 </style>
 <rect x=".5" y=".5" width="{w - 1}" height="{h - 1}" rx="8" class="bg"/>
-<text x="20" y="30" class="t">Claude Code 토큰 사용량</text>
-<text x="{w - 20}" y="30" text-anchor="end" class="s">{stamp} · hudson-fleet</text>
+<text x="20" y="28" class="t">Claude Code 토큰 사용량</text>
+<text x="{w - 20}" y="28" text-anchor="end" class="s">{stamp} · hudson-fleet</text>
 {tile}
-<text x="20" y="134" class="s">주간 토큰 · 최근 12주</text>
+<text x="20" y="100" class="s">주간 토큰 · 최근 12주</text>
 {grid}<line x1="{x0}" x2="{w - 20}" y1="{base}" y2="{base}" class="ax"/>
 {"".join(bars)}
 </svg>'''
