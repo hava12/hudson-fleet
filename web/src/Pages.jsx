@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TaskSum, fmtTok, tilde, useApp, usePoll, when } from './lib'
+import { TaskSum, fmtTok, post, tilde, useApp, usePoll, when } from './lib'
 
 export const REASON = { switched: '세션 전환 (/clear·/resume)', exited: '프로세스 종료', stopped: '중지', failed: '실패', completed: '완료', gone: '사라짐' }
 
@@ -58,12 +58,42 @@ export function Pushes() {
   </section></div>
 }
 
-// ── 설정: 환경 변수 (읽기 전용) ──
+// ── 설정: 로그인 계정 + 환경 변수 (읽기 전용) ──
+function Accounts() {
+  const { setMsg } = useApp()
+  const [n, setN] = useState(0)
+  const us = usePoll('/api/users', 0, [n]) || []
+  const save = async b => {
+    const r = await post('/api/users', b)
+    if (r.error) return setMsg(r.error), false
+    setN(n + 1)
+    return true
+  }
+  const add = async e => {
+    e.preventDefault()
+    const f = new FormData(e.target)
+    if (await save({ name: f.get('name'), password: f.get('password') })) e.target.reset()
+  }
+  return <section className="card">
+    <div className="sh"><h2>로그인 계정</h2><span className="meta">모두 같은 권한입니다</span></div>
+    <div className="tw"><table className="tbl"><tbody>
+      <tr><th>아이디</th><th>만든 때</th><th /></tr>
+      {us.map(u => <tr key={u.name}><td><b>{u.name}</b></td>
+        <td className="meta">{u.env ? '.env 관리자 (HUDSON_FLEET_ADMIN_*)' : when(u.created_at)}</td>
+        <td>{!u.env && <button className="sm danger" onClick={() => confirm(`${u.name} 계정을 지울까요?`) && save({ name: u.name, delete: true })}>삭제</button>}</td></tr>)}
+    </tbody></table></div>
+    <form className="uadd" onSubmit={add}>
+      <input name="name" placeholder="아이디" autoComplete="off" required />
+      <input name="password" type="password" placeholder="비밀번호 (8자 이상)" autoComplete="new-password" minLength={8} required />
+      <button className="pri">계정 추가</button></form>
+  </section>
+}
+
 export function Settings() {
   const { G } = useApp()
   const cs = usePoll('/api/config') || []
   const port = cs.find(c => c.name === 'HUDSON_FLEET_PORT')?.value
-  return <div className="pg"><section className="card">
+  return <div className="pg"><Accounts /><section className="card">
     <div className="sh"><h2>설정</h2><span className="meta">모두 환경 변수로 정합니다 · 이 화면은 지금 서버에 적용된 값입니다</span></div>
     <div className="tw"><table className="tbl"><tbody>
       <tr><th>환경 변수</th><th>지금 값</th><th>설명</th></tr>

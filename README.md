@@ -149,6 +149,8 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 
 모두 환경 변수로 정합니다. `~/.claude/settings.json` 의 `"env"` 에 적으면 Claude Code 가 훅·MCP 서버에 넘겨 주고, 훅이 띄우는 대시보드 서버도 같은 값을 받습니다. 바꾼 뒤에는 떠 있는 서버를 끄면 다음 세션 시작 때 새 값으로 뜹니다. 지금 적용된 값은 웹의 **설정** 메뉴에서 봅니다.
 
+`~/.local/share/hudson-fleet/.env` 에 `KEY=VALUE` 줄로 적어도 됩니다. 플러그인을 업데이트해도 남는 곳입니다. 같은 이름이 환경 변수에 이미 있으면 환경 변수가 먼저입니다.
+
 | 환경 변수 | 기본값 | 설명 |
 |---|---|---|
 | `HUDSON_FLEET_PORT` | `8765` | 대시보드 서버 포트 |
@@ -159,6 +161,8 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 | `HUDSON_FLEET_TERMINAL` | `Ghostty` | 끝난 세션을 다시 열 터미널 앱: `Ghostty` 또는 `Terminal` |
 | `HUDSON_FLEET_GIST` | (비움) | 프로필 카드를 30분마다 덮어쓸 Gist id. 비우면 끔 |
 | `HUDSON_FLEET_GIST_USER` | (비움) | Gist 를 올릴 `gh` 계정. 비우면 `gh` 의 현재 계정 |
+| `HUDSON_FLEET_ADMIN_USER` | `admin` | 대시보드 로그인 관리자 아이디 |
+| `HUDSON_FLEET_ADMIN_PASSWORD` | `admin` | 관리자 비밀번호. **기본값 그대로 두지 마세요.** 설정 화면에는 `****` 로 보입니다 |
 | `HUDSON_FLEET_VENV` | `~/.local/share/hudson-fleet/venv` | 웹 서버 의존성을 설치할 venv 위치 (`hooks/serve.sh` 만 읽음) |
 | `HUDSON_FLEET_URL` | `http://127.0.0.1:<포트>` | MCP 서버가 작업 기록을 보낼 대시보드 서버 주소. 다른 PC 의 서버를 쓸 때만 바꿉니다 (`mcp_server.py` 만 읽음) |
 
@@ -224,6 +228,8 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
 
 | 경로 | 내용 |
 |---|---|
+| `POST /api/login` · `POST /api/logout` · `GET /api/me` | 로그인 `{user, password}` → `hf` 쿠키 · 로그아웃 · 지금 사용자. `.env` 관리자와 설정 화면(오른쪽 위 ⚙)에서 추가한 계정 모두 로그인할 수 있습니다. 화면 파일과 로그인, `/api/agent/task` 말고는 모두 로그인이 필요합니다 (없으면 401) |
+| `GET /api/users` · `POST /api/users` | 로그인 계정 목록 · 추가 `{name, password}`(8자 이상) · 삭제 `{name, delete: true}`. `.env` 관리자는 지울 수 없습니다. 비밀번호는 `pbkdf2` 로 바꿔 `users` 표에 저장합니다 |
 | `GET /api/sessions?status=closed\|work\|wait\|idle&limit=50` | 세션과 작업 목록 |
 | `GET /api/pushes?limit=200&sid=` | 세션에서 실행한 git push — Claude 의 Bash 와 사용자의 `!` 명령, 세션 밖 터미널은 빠짐 (시각·레포·브랜치·커밋 메시지·세션). `sid` 를 주면 그 세션 것만. 대화 기록이 지워져도 DB 에 남습니다 |
 | `GET /api/metrics?hours=24` | 1분 단위 지표 |
@@ -237,6 +243,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
 
 - 서버는 `127.0.0.1`에서만 열립니다.
 - 다른 출처(Origin)에서 오는 POST 요청은 거부합니다.
+- API 는 로그인해야 쓸 수 있습니다. 쿠키는 `HttpOnly`·`SameSite=Strict` 이고, 로그인 상태는 서버 메모리에만 있어 서버를 다시 켜면 다시 로그인합니다.
 - `POST /api/agent/task` 만 Origin 이 **없는** 요청을 받습니다. 브라우저는 POST 에 Origin 을 꼭 붙이므로 다른 웹사이트는 이 길로 들어올 수 없습니다. 세션 ID 형식도 검사합니다.
 - 종료는 `claude agents` 목록에 있는 세션만 할 수 있습니다.
 

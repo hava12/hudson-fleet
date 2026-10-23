@@ -6,6 +6,14 @@ from pathlib import Path
 
 
 # 설정은 모두 환경 변수 — ~/.claude/settings.json 의 "env" 에 적으면 훅·MCP·서버가 함께 받는다. 바꾸면 서버 재시작.
+# DB 옆 .env (KEY=VALUE 줄) 도 읽는다. 플러그인을 업데이트해도 남는 곳. 환경 변수에 이미 있으면 그쪽이 먼저
+ENV_FILE = Path.home() / ".local" / "share" / "hudson-fleet" / ".env"
+if ENV_FILE.is_file():
+    for line in ENV_FILE.read_text().splitlines():
+        k, eq, v = line.partition("=")
+        if eq and not k.strip().startswith("#"):
+            os.environ.setdefault(k.strip(), v.strip().strip("'\""))
+
 CONFIG = [  # (이름, 기본값, 설명)
     ("HUDSON_FLEET_PORT", "8765", "대시보드 서버 포트"),
     ("HUDSON_FLEET_DB", str(Path.home() / ".local" / "share" / "hudson-fleet" / "metrics.db"), "SQLite 파일 경로"),
@@ -15,6 +23,8 @@ CONFIG = [  # (이름, 기본값, 설명)
     ("HUDSON_FLEET_TERMINAL", "Ghostty", "끝난 세션을 다시 열 터미널 앱: Ghostty 또는 Terminal"),
     ("HUDSON_FLEET_GIST", "", "프로필 카드(완료 작업 태그별 건수 SVG)를 30분마다 덮어쓸 Gist id. 비우면 끔"),
     ("HUDSON_FLEET_GIST_USER", "", "Gist 를 올릴 gh 계정 (gh auth token --user). 비우면 gh 의 현재 계정"),
+    ("HUDSON_FLEET_ADMIN_USER", "admin", "대시보드 로그인 관리자 아이디"),
+    ("HUDSON_FLEET_ADMIN_PASSWORD", "admin", "관리자 비밀번호. 이 화면에는 가려서 보여 줌"),
 ]
 CFG = {k: os.environ.get(k) or d for k, d, _ in CONFIG}
 PORT = int(CFG["HUDSON_FLEET_PORT"])

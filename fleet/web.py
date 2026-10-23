@@ -3,6 +3,7 @@ import json
 import mimetypes
 import os
 import re
+import secrets
 import signal
 import sqlite3
 from http.server import BaseHTTPRequestHandler
@@ -12,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 from .agents import agents, find_session, graph, mcp_servers, reopen, session
 from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, DEAD, ORIGIN, claude
-from .db import db, metrics, my_title, set_title
+from .db import add_user, check_login, db, del_user, metrics, my_title, set_title, users
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
 from .transcripts import overview, transcript
@@ -54,27 +55,45 @@ def agent_task(body):
 
 
 DIST = (Path(__file__).parent.parent / "dist").resolve()  # web/ 의 React 빌드 결과
+TOKENS = {}  # 로그인 쿠키 값 → 아이디. ponytail: 메모리에만 — 서버를 다시 켜면 다시 로그인. 오래 유지하려면 DB 로
+COOKIE = "hf"
 
 
 class H(BaseHTTPRequestHandler):
-    def send(self, body, ctype="application/json", code=200):
+    def send(self, body, ctype="application/json", code=200, cookie=None):
         data = body if isinstance(body, bytes) else json.dumps(body, ensure_ascii=False).encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype + "; charset=utf-8")
+        if cookie is not None:  # HttpOnly: 화면 스크립트가 못 읽음 · SameSite=Strict: 다른 사이트에서 온 요청엔 안 붙음
+            self.send_header("Set-Cookie", f"{COOKIE}={cookie}; HttpOnly; SameSite=Strict; Path=/" + ("" if cookie else "; Max-Age=0"))
         self.end_headers()
         self.wfile.write(data)
+
+    def token(self):
+        m = re.search(rf"(?:^|;\s*){COOKIE}=([\w-]+)", self.headers.get("Cookie", ""))
+        return m and m[1]
+
+    def user(self):
+        return TOKENS.get(self.token())
 
     def do_GET(self):
         u = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
-        if u.path == "/" or u.path.startswith("/assets/"):
+        if u.path == "/" or u.path.startswith("/assets/"):  # 화면 파일은 누구나 — 로그인 창도 이 안에 있다
             f = (DIST / (u.path.lstrip("/") or "index.html")).resolve()
             if f.is_relative_to(DIST) and f.is_file():  # ../ 로 dist 밖을 읽지 못하게
                 return self.send(f.read_bytes(), mimetypes.guess_type(f.name)[0] or "application/octet-stream")
+        if not self.user():
+            return self.send({"error": "로그인이 필요합니다"}, code=401)
+        if u.path == "/api/me":
+            return self.send({"user": self.user()})
+        if u.path == "/api/users":
+            return self.send(users())
         if u.path == "/api/graph":
             return self.send(graph())
         if u.path == "/api/config":
-            return self.send([{"name": k, "value": CFG[k], "default": d, "desc": desc, "set": k in os.environ}
+            hide = lambda k, v: "****" if k.endswith("PASSWORD") else v
+            return self.send([{"name": k, "value": hide(k, CFG[k]), "default": hide(k, d), "desc": desc, "set": k in os.environ}
                               for k, d, desc in CONFIG])
         if u.path == "/api/sessions":  # ?status=closed|work|wait|idle (없으면 전체) &limit=
             c = db()
@@ -137,6 +156,26 @@ class H(BaseHTTPRequestHandler):
         # 다른 웹사이트가 localhost 로 실행 요청을 보내는 것(CSRF) 차단
         if self.headers.get("Origin") != ORIGIN:
             return self.send({"error": "bad origin"}, code=403)
+        if self.path == "/api/login":  # {user, password} — 관리자 하나 (.env 의 HUDSON_FLEET_ADMIN_*)
+            if not check_login(body.get("user"), body.get("password")):
+                return self.send({"error": "아이디 또는 비밀번호가 틀렸습니다"}, code=401)
+            t = secrets.token_urlsafe(32)
+            TOKENS[t] = body["user"]
+            return self.send({"user": body["user"]}, cookie=t)
+        if not self.user():
+            return self.send({"error": "로그인이 필요합니다"}, code=401)
+        if self.path == "/api/logout":
+            TOKENS.pop(self.token(), None)
+            return self.send({"ok": True}, cookie="")
+        if self.path == "/api/users":  # {name, password} 추가 · {name, delete: true} 삭제 (그 계정의 로그인도 끊는다)
+            if body.get("delete"):
+                if not del_user(body.get("name")):
+                    return self.send({"error": "지울 수 있는 계정이 아닙니다"})
+                for t in [t for t, n in TOKENS.items() if n == body["name"]]:
+                    TOKENS.pop(t)
+                return self.send({"ok": True})
+            err = add_user(body.get("name"), body.get("password"))
+            return self.send({"error": err} if err else {"ok": True})
         if self.path == "/api/run":
             cwd = os.path.expanduser(body.get("cwd", ""))
             if not os.path.isdir(cwd) or not body.get("prompt"):
