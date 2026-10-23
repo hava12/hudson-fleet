@@ -13,8 +13,11 @@ main{display:grid;grid-template-columns:1fr var(--sidew,minmax(360px,38%));heigh
 h2{font-size:13px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02em}
 .sh{display:flex;align-items:center;gap:6px 12px;margin-bottom:12px;flex-wrap:wrap}.sh h2{white-space:nowrap}
 #cy{height:160px;border-radius:8px;background:var(--soft);position:relative}
-.ncard.work::before{content:'';position:absolute;top:-3px;left:-1px;right:-1px;height:3px;border-radius:10px 10px 0 0;overflow:hidden;  /* 작업 중: 위쪽 띠에 빛이 오른쪽으로 흐른다 */
-  background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent) no-repeat;background-size:40% 100%;animation:flow 1.4s linear infinite}
+/* 작업 중: 위 테두리에 빛이 오른쪽으로 흐른다. 3px 띠에 radius 를 주면 곡선이 납작해져 카드 모서리와 어긋나므로,
+   카드와 같은 크기·radius 의 상자를 깔고 mask 로 위 3px(테두리 자리)만 남긴다 — 곡선이 카드 테두리와 같다 */
+.ncard.work::before{content:'';position:absolute;inset:-3px -1px -1px;border-radius:inherit;padding-top:3px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.85),transparent) no-repeat;background-size:40% 100%;animation:flow 1.4s linear infinite;
+  mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
 @keyframes flow{from{background-position:-70% 0}to{background-position:170% 0}}
 @media (prefers-reduced-motion:reduce){.ncard.work::before{animation:none}}
 .ncard.on{box-shadow:0 0 0 2px var(--c),0 6px 20px rgba(0,0,0,.25)}.ncard.faded{opacity:.15}
