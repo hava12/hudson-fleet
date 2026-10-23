@@ -22,7 +22,7 @@ flowchart TB
     db[("SQLite<br/>metrics.db<br/>이 서버만 씀")]
   end
   subgraph USER["사용자"]
-    browser["브라우저<br/>index.html"]
+    browser["브라우저<br/>dist/ · React"]
     gh["GitHub<br/>커밋 · 비교 페이지"]
   end
   subgraph DATA["서버 바깥 · Claude Code 와 git"]
@@ -75,7 +75,29 @@ hooks/serve.sh      # → http://127.0.0.1:8765 (requirements.txt 가 비어 있
 
 - Python 3.9 이상. MCP 서버는 표준 라이브러리만, 웹 서버는 `requirements.txt` 의 의존성을 더 쓸 수 있습니다 (아래 "의존성").
 - `claude` CLI가 PATH에 있어야 합니다.
-- 그래프 라이브러리(cytoscape, dagre)는 CDN에서 받으므로 인터넷 연결이 필요합니다.
+- 화면은 `web/` 의 React(Vite) 앱이고, 서버는 빌드 결과 `dist/` 를 내보냅니다. 그래프 라이브러리도 함께 묶여 인터넷 연결 없이 뜹니다.
+
+## 화면 개발 (web/)
+
+```sh
+cd web && npm install
+npm run dev     # → http://localhost:5173 (API 는 떠 있는 8765 서버로 넘깁니다)
+npm run build   # → ../dist
+```
+
+- `dist/` 는 커밋합니다. 플러그인 설치가 저장소를 그대로 받기 때문입니다.
+- `web/` 이 바뀐 커밋이 main 에 들어오면 GitHub Actions(`.github/workflows/web.yml`)가 빌드해 `dist/` 를 커밋하고 플러그인 패치 버전을 1 올립니다. 그래서 `web/` 만 고칠 때는 버전을 손으로 올리지 않습니다.
+
+| 파일 | 하는 일 |
+|---|---|
+| `src/main.jsx` | 상단 메뉴·사용량·알림, 페이지 전환(#home 등), 오른쪽 패널 틀, 함께 쓰는 상태(`App` 컨텍스트) |
+| `src/Home.jsx` | 현황: 숫자 타일, 상태별 노드(그래프 + `SessionCard`), 남은 작업, 작업 현황 리스트 |
+| `src/Pages.jsx` | 세션 기록 · Push 기록 · 설정 |
+| `src/Mcp.jsx` | MCP 서버 그래프 |
+| `src/SidePanel.jsx` | 오른쪽 패널: 프로젝트 · 세션 · MCP 서버 · 끝난 세션 |
+| `src/TaskList.jsx` | 작업 목록 `TaskList` → `TaskRow` (key=작업 id, 펼침은 줄마다 `useState`). 남은 작업·작업 현황·세션 패널·세션 기록 4곳이 함께 씀 |
+| `src/Graph.jsx` | cytoscape 띄우기(`useCy`)와 높이 맞추기 |
+| `src/lib.jsx` | 상태·분류 표, 날짜·토큰 표시, `usePoll` |
 
 ## 작업 기록 (MCP)
 
@@ -187,7 +209,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server"
 | `fleet/pushes.py` | Claude 가 실행한 git push 기록 |
 | `fleet/card.py` | 프로필 카드 SVG 그리기와 Gist 덮어쓰기 |
 | `fleet/recorder.py` | 1분 주기 기록 스레드: 지표, 세션 상태, 끝난 세션 마감, 30분마다 프로필 카드 |
-| `fleet/web.py` | HTTP API 와 화면 |
+| `fleet/web.py` | HTTP API 와 화면 (`dist/`) |
 | `mcp_server.py` | 작업 기록 MCP 서버 (stdio). 대시보드 서버의 `/api/agent/task` 로 보냅니다 (DB 는 서버만 씀) |
 
 ```

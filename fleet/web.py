@@ -1,5 +1,6 @@
 """HTTP API 와 대시보드 화면."""
 import json
+import mimetypes
 import os
 import re
 import signal
@@ -52,6 +53,9 @@ def agent_task(body):
     return {"error": "op 확인 (start·update·list)"}, 400
 
 
+DIST = (Path(__file__).parent.parent / "dist").resolve()  # web/ 의 React 빌드 결과
+
+
 class H(BaseHTTPRequestHandler):
     def send(self, body, ctype="application/json", code=200):
         data = body if isinstance(body, bytes) else json.dumps(body, ensure_ascii=False).encode()
@@ -63,8 +67,10 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
-        if u.path == "/":
-            return self.send((Path(__file__).parent.parent / "index.html").read_bytes(), "text/html")
+        if u.path == "/" or u.path.startswith("/assets/"):
+            f = (DIST / (u.path.lstrip("/") or "index.html")).resolve()
+            if f.is_relative_to(DIST) and f.is_file():  # ../ 로 dist 밖을 읽지 못하게
+                return self.send(f.read_bytes(), mimetypes.guess_type(f.name)[0] or "application/octet-stream")
         if u.path == "/api/graph":
             return self.send(graph())
         if u.path == "/api/config":
