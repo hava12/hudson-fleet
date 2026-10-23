@@ -80,6 +80,21 @@ def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None,
     return n == 1
 
 
+def move_task(tid, to_sid):
+    """남은 일을 다른 세션으로 옮긴다 (끝난 세션의 남은 일 → 살아 있는 세션). 그 세션 목록의 맨 끝에 붙인다.
+    살아 있는 세션인지는 부르는 쪽(web)이 확인한다."""
+    c = db()
+    c.execute("INSERT OR IGNORE INTO sessions (sid) VALUES (?)", (to_sid,))  # 아직 1분 기록 전인 새 세션
+    n = c.execute("UPDATE session_tasks SET sid = ?, updated_at = ?,"
+                  " sort = (SELECT coalesce(max(sort), 0) + 1 FROM session_tasks WHERE sid = ?) WHERE id = ? AND status = 'todo'",
+                  (to_sid, now_iso(), to_sid, tid)).rowcount
+    if n:
+        c.execute("INSERT INTO task_events (task_id, ts, status, note) VALUES (?,?,?,?)", (tid, now_iso(), "moved", "to:" + to_sid))
+    c.commit()
+    c.close()
+    return n == 1
+
+
 TASKS_SQL = "SELECT id, sort, status, text, source, tag, details, note FROM session_tasks WHERE sid = ? ORDER BY sort, id"
 
 

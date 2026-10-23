@@ -14,7 +14,7 @@ from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, DEAD, ORIGIN, claude
 from .db import db, metrics, my_title, set_title
 from .pushes import pushes
-from .tasks import TASKS_SQL, add_task, saved_tasks, set_task, summarize
+from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
 from .transcripts import overview, transcript
 from .usage import usage, usage5h_all
 
@@ -145,6 +145,10 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/api/reopen":  # {sid, fork?} — 끝난 세션을 새 터미널 창에서 claude --resume 으로 연다
             out, code = reopen(body.get("sid", ""), bool(body.get("fork")))
             return self.send(out, code=code)
+        if self.path == "/api/task" and "to" in body:  # {id, to} — 남은 일을 살아 있는 세션으로 옮긴다
+            if not find_session(body["to"] or ""):
+                return self.send({"error": "살아 있는 세션으로만 옮길 수 있습니다"})
+            return self.send({"ok": True} if move_task(body.get("id"), body["to"]) else {"error": "남은 일만 옮길 수 있습니다"})
         if self.path == "/api/task":  # {id, status?, tag?, sort?, delete?} — 사람이 웹에서 고친다
             ok = set_task(body.get("id"), "human", body.get("status"), sort=body.get("sort"), delete=bool(body.get("delete")),
                           tag=body.get("tag"))

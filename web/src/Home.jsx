@@ -134,7 +134,7 @@ export default function Home() {
         : todo.length ? <TaskList ts={todo} className="todo" edit="status" lead={t => {
           const nm = t.name || t.sid.slice(0, 8)
           return <>{live.has(t.sid) ? <a className="lk" onClick={() => openSide({ type: 'session', sid: t.sid })}>[{nm}]</a>
-            : <span className="meta" title={'끝난 세션 · ' + (t.title || '')}>[{nm}]</span>} - </>
+            : <><span className="meta" title={'끝난 세션 · ' + (t.title || '')}>[{nm}]</span><MoveTo t={t} to={ss} /></>} - </>
         }} />
         : <div className="meta">{statF ? '해당하는 세션의 남은 일이 없습니다' : '남은 일이 없습니다'}</div>}
     </section>
@@ -147,6 +147,19 @@ export default function Home() {
     {menu && <div id="menu" style={{ display: 'block', left: menu.x, top: menu.y }}>
       <div className="danger" onClick={() => stopSession(menu.n)}>세션 종료하기</div></div>}
   </div>
+}
+
+// 끝난 세션의 남은 일을 살아 있는 세션으로 옮긴다 — 실행은 그 세션에서 사람이 시킨다
+function MoveTo({ t, to }) {
+  const { setMsg, bump } = useApp()
+  const move = async e => {
+    const r = await post('/api/task', { id: t.id, to: e.target.value })
+    r.ok ? bump() : setMsg(r.error)
+  }
+  return <select className="pill tsel" value="" title="살아 있는 세션으로 옮기기" onChange={move}>
+    <option value="">세션으로 옮기기</option>
+    {to.map(n => <option key={n.sessionId} value={n.sessionId}>{n.label}</option>)}
+  </select>
 }
 
 function Post({ p, home }) {
