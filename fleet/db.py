@@ -18,7 +18,7 @@ def db():
     c.execute("CREATE TABLE IF NOT EXISTS samples (ts INTEGER PRIMARY KEY, work INT, wait INT, idle INT,"
               " agents INT, pct5h INT, pct1w INT)")
     c.execute("CREATE TABLE IF NOT EXISTS daily (day TEXT PRIMARY KEY, tokens INT)")
-    # 세션 1 : 작업 N · 파일 N. 살아 있는 세션도 1분마다 상태를 남기고, 끝나면 status=closed 로 바뀐다
+    # 세션 1 : 작업 N. 살아 있는 세션도 1분마다 상태를 남기고, 끝나면 status=closed 로 바뀐다
     c.execute("CREATE TABLE IF NOT EXISTS sessions (sid TEXT PRIMARY KEY, name TEXT, title TEXT, cwd TEXT, kind TEXT,"
               " app TEXT, status TEXT, status_since TEXT, started_at TEXT, last_seen TEXT, ended_at TEXT,"
               " end_reason TEXT, tokens INT, tasks_mtime REAL)")  # status: work · wait · idle · closed
@@ -35,7 +35,8 @@ def db():
         c.execute("ALTER TABLE session_tasks ADD COLUMN note TEXT")
     c.execute("CREATE TABLE IF NOT EXISTS task_events (id INTEGER PRIMARY KEY, task_id INT, ts TEXT, status TEXT,"
               " note TEXT)")  # 시작·완료·중단·반려·순서 변경 이력 (추가만)
-    # Claude 가 한 git push. 대화 기록이 지워져도 남도록 커밋 메시지까지 저장한다
+    c.execute("DROP TABLE IF EXISTS session_files")  # 지운 "바뀐 파일" 기능(44f3f93)이 남긴 표
+    # 세션에서 한 git push (Claude 의 Bash · 사용자의 ! 명령). 대화 기록이 지워져도 남도록 커밋 메시지까지 저장한다
     c.execute("CREATE TABLE IF NOT EXISTS pushes (id TEXT PRIMARY KEY, ts TEXT, sid TEXT, cwd TEXT, remote TEXT,"
               " ref TEXT, old TEXT, new TEXT, commits TEXT)")  # id = tool_use id + ref, commits = JSON [[hash, 제목]]
     return c
