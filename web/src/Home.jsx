@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { fitBox, textW, useCy } from './Graph'
 import { TaskList } from './TaskList'
-import { Dot, FILL, GINFO, LIVE, Pill, TaskSum, dark, fmtTok, grp, modelName, post, tilde, useApp, usePoll, when } from './lib'
+import { Dot, FILL, GINFO, LIVE, dark, fmtTok, grp, modelName, post, tilde, useApp, usePoll } from './lib'
 
 // 세션 노드는 자리만 카드 크기로 잡고, 그 위에 카드(SessionCard)를 겹친다 (노드 이름표로는 줄마다 모양을 줄 수 없다)
 const NW = 300, NH = 132
@@ -45,7 +45,6 @@ export default function Home() {
   const [menu, setMenu] = useState(null)  // 우클릭 메뉴 {x, y, n}
   const U5 = usePoll('/api/usage5h', 60000) || {}
   const TODO = usePoll('/api/todo', 10000, [ver])
-  const feed = usePoll('/api/feed', 60000, [ver])
   const pick = n => statF === 'agent' ? G.nodes.some(a => a.type === 'agent' && a.sid === n.sessionId) : grp(n.status) === statF
 
   useEffect(() => {
@@ -139,11 +138,6 @@ export default function Home() {
         : <div className="meta">{statF ? '해당하는 세션의 남은 일이 없습니다' : '남은 일이 없습니다'}</div>}
     </section>
 
-    <section><div className="sh"><h2>작업 현황 리스트</h2><span className="meta">1분마다 갱신</span></div>
-      {!feed ? <div className="meta">불러오는 중…</div> : feed.length ? <div id="feed">{feed.map(p => <Post key={p.sid} p={p} home={G.home} />)}</div>
-        : <div className="meta">작업 현황이 없습니다</div>}
-    </section>
-
     {menu && <div id="menu" style={{ display: 'block', left: menu.x, top: menu.y }}>
       <div className="danger" onClick={() => stopSession(menu.n)}>세션 종료하기</div></div>}
   </div>
@@ -160,28 +154,4 @@ function MoveTo({ t, to }) {
     <option value="">세션으로 옮기기</option>
     {to.map(n => <option key={n.sessionId} value={n.sessionId}>{n.label}</option>)}
   </select>
-}
-
-function Post({ p, home }) {
-  const { openSide, setMsg, bump } = useApp()
-  const [busy, setBusy] = useState(false)
-  const td = p.tasks.filter(t => t.status === 'todo')
-  const sum = async e => {
-    e.stopPropagation()
-    setBusy(true)
-    const r = await post('/api/summary', { sid: p.sid })
-    if (r.error) setMsg(r.error)
-    setBusy(false)
-    bump()
-  }
-  // 카드 아무 데나 누르면 상세
-  return <article className="card post" onClick={e => !e.target.closest('button,select,a') && openSide({ type: 'session', sid: p.sid })} data-post>
-    <div className="ph"><Pill st={p.status} /><span className="meta">{when(p.last)}</span></div>
-    <div className="ttl">{p.title || p.name || p.sid.slice(0, 8)}</div>
-    <div className="meta">{tilde(p.cwd, home)}</div>
-    {td.length ? <TaskList ts={td} max={3} sid={p.sid} /> : <div className="body meta">남은 작업 없음</div>}
-    <div className="pf">{p.tasks.length > 0 && <span className="tag"><TaskSum ts={p.tasks} /></span>}
-      <span style={{ marginLeft: 'auto' }} />
-      <button className="sm" disabled={busy} onClick={sum}>{busy ? '요약 중…' : p.tasks.length ? (p.stale ? '다시 정리' : '정리됨') : '작업 정리'}</button></div>
-  </article>
 }

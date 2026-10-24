@@ -150,7 +150,7 @@ export function Settings() {
     <div className="tw"><table className="tbl"><tbody>
       <tr><th>이름</th><th>지금 값</th><th>설명</th></tr>
       {cs.filter(c => !LINK_NAMES.has(c.name)).map(c => <tr key={c.name}>
-        <td><code>{c.name}</code> <span className="pill" style={{ fontSize: 11, color: SRC[c.src]?.[1] }}>{SRC[c.src]?.[0]}</span></td>
+        <td><code>{c.name}</code> <span className="pill" style={{ fontSize: 12, color: SRC[c.src]?.[1] }}>{SRC[c.src]?.[0]}</span></td>
         <td><SettingValue key={n} c={c} done={() => setN(n + 1)} /></td>
         <td className="meta" style={{ whiteSpace: 'normal' }}>{c.desc}</td></tr>)}
     </tbody></table></div>

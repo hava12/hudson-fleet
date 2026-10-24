@@ -50,17 +50,10 @@ export function TaskRow({ t, edit, lead }) {
 }
 
 // 작업 목록. 상태가 섞여 있으면 남은 일 → 중단 → 완료 → 반려로 묶고 끝난 묶음은 접는다 (<details> 라 펼침은 갱신에도 남는다)
-// max 를 넘으면 sid 가 있을 때 더보기(패널에서 전체), 없으면 "외 N건" — max 는 한 가지 상태만 보여 주는 곳(작업 현황 카드)에서 쓴다
-export function TaskList({ ts, max, sid, edit, lead, className = 'tasks' }) {
-  const { openSide } = useApp()
+export function TaskList({ ts, edit, lead, className = 'tasks' }) {
   const rows = l => <ul className={className}>{l.map(t => <TaskRow key={t.id} t={t} edit={edit} lead={lead?.(t)} />)}</ul>
   const groups = ORDER.map(k => [k, ts.filter(t => t.status === k)]).filter(([, l]) => l.length)
   if (groups.length > 1) return groups.map(([k, l]) => <details key={k} className="tgrp" open={!!OPEN[k]}>
     <summary style={{ color: TASK[k][1] }}>{TASK[k][0]} {l.length}</summary>{rows(l)}</details>)
-  return <>
-    {rows(ts.slice(0, max || ts.length))}
-    {max > 0 && ts.length > max && (sid
-      ? <button className="sm more" onClick={e => { e.stopPropagation(); openSide({ type: 'session', sid }, true) }}>더보기 (+{ts.length - max})</button>
-      : <div className="meta">외 {ts.length - max}건</div>)}
-  </>
+  return rows(ts)
 }

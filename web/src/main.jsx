@@ -103,7 +103,7 @@ function App() {
   const raw = usePoll('/api/graph', 5000)
   const G = useMemo(() => raw ? live(raw) : { nodes: [], edges: [], home: '' }, [raw])
   const bump = useCallback(() => setVer(v => v + 1), [])
-  // keep: 이미 열려 있어도 닫지 않는다 (더보기·알림)
+  // keep: 이미 열려 있어도 닫지 않는다 (알림)
   const openSide = useCallback((k, keep) => {
     setSide(cur => !keep && sideKey(cur) === sideKey(k) ? null : k)
     if (innerWidth <= 900) requestAnimationFrame(() => document.getElementById('side')?.scrollIntoView({ behavior: 'smooth' }))

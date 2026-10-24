@@ -10,34 +10,14 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from .agents import agents, find_session, graph, mcp_servers, reopen, session
+from .agents import find_session, graph, mcp_servers, reopen, session
 from .card import card_svg, tokens_svg
-from .config import CFG, CONFIG, DEAD, ORIGIN, VERSION, claude, installed_version, ver
+from .config import CFG, CONFIG, ORIGIN, VERSION, claude, installed_version, ver
 from .db import EDIT, db, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issues
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
-from .transcripts import overview, transcript
 from .usage import usage, usage5h_all
-
-
-def feed():
-    """세션별 작업 게시글: 개요 + 저장해 둔 AI 요약. 새 요약은 만들지 않는다 (토큰 절약)."""
-    posts = []
-    for s in agents():
-        sid = s["sessionId"]
-        path = transcript(sid)
-        if not path or (s.get("status") or s.get("state")) in DEAD:  # 끝난 세션은 게시글에서도 뺀다
-            continue
-        ov = overview(path)
-        tasks, tmt = saved_tasks(sid)
-        ps = ov["prompts"]
-        posts.append({"sid": sid, "name": s.get("name") or s.get("id"), "cwd": s["cwd"], "kind": s["kind"],
-                      "status": s.get("status") or s.get("state", ""), "title": my_title(sid) or ov["title"],
-                      "first": ov["first"], "last": ov["last"], "nprompts": len(ps),
-                      "goal": ps[0]["text"] if ps else "", "recent": ps[-1]["text"] if len(ps) > 1 else "",
-                      "tasks": tasks, "stale": tmt is not None and tmt != path.stat().st_mtime})
-    return sorted(posts, key=lambda p: p["last"], reverse=True)
 
 
 def agent_task(body):
@@ -130,8 +110,6 @@ class H(BaseHTTPRequestHandler):
             return self.send(tokens_svg().encode(), "image/svg+xml")
         if u.path == "/api/usage5h":
             return self.send(usage5h_all())
-        if u.path == "/api/feed":
-            return self.send(feed())
         if u.path == "/api/session":
             se = session(q.get("sid", ""))
             if t := my_title(q.get("sid", "")):
