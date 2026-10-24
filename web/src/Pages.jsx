@@ -58,11 +58,43 @@ export function Pushes() {
   </section></div>
 }
 
+// ── 이슈·PR: 나에게 할당된 Jira 이슈, 내 PR·리뷰 요청 PR (설정 ⚙ → 연결). API 를 아끼려고 자동 갱신 없이 [새로 고침] ──
+const JCAT = { new: 'var(--t-todo)', indeterminate: 'var(--acc)', done: 'var(--t-done)' }  // Jira 상태 분류 → 색
+const Ext = ({ u, t }) => <a className="lk" href={u} target="_blank" rel="noopener">{t}</a>
+const Off = ({ e }) => <div className="meta">{e} <a className="lk" href="#settings">설정으로 가기</a></div>
+// 내 PR·리뷰 요청 두 표의 칸 폭을 고정해 제목 칸이 같은 자리에서 시작하게
+const PrTable = ({ ps }) => <div className="tw"><table className="tbl"><tbody>
+  {ps.map(p => <tr key={p.url}><td style={{ width: 260 }}><Ext u={p.url} t={`${p.repo}#${p.num}`} /></td>
+    <td style={{ whiteSpace: 'normal' }}>{p.title}{p.draft && <span className="pill" style={{ marginLeft: 6 }}>초안</span>}</td>
+    <td className="meta" style={{ width: 140 }}>{when(p.updated)}</td></tr>)}
+  {!ps.length && <tr><td className="meta">없음</td></tr>}</tbody></table></div>
+export function Issues() {
+  const [n, setN] = useState(0)
+  const J = usePoll('/api/jira', 0, [n]), GH = usePoll('/api/github', 0, [n])
+  const again = <button className="sm" style={{ marginLeft: 'auto' }} onClick={() => setN(n + 1)}>새로 고침</button>
+  return <div className="pg">
+    <section className="card"><div className="sh"><h2>Jira</h2>
+      <span className="meta">{J?.items ? `나에게 할당된, 끝나지 않은 이슈 ${J.items.length}건` : ''}</span>{again}</div>
+      {!J ? <div className="meta">불러오는 중…</div> : J.error ? <Off e={J.error} /> : <div className="tw"><table className="tbl"><tbody>
+        <tr><th>키</th><th>제목</th><th>상태</th><th>프로젝트</th><th>업데이트</th></tr>
+        {J.items.map(i => <tr key={i.key}><td><Ext u={i.url} t={i.key} /></td><td style={{ whiteSpace: 'normal' }}>{i.title}</td>
+          <td><span className="pill" style={{ color: JCAT[i.cat] }}>{i.status}</span></td>
+          <td className="meta">{i.project} · {i.type}</td><td className="meta">{when(i.updated)}</td></tr>)}
+        {!J.items.length && <tr><td colSpan="5" className="meta">할당된 이슈가 없습니다</td></tr>}</tbody></table></div>}
+    </section>
+    <section className="card"><div className="sh"><h2>GitHub</h2>
+      <span className="meta">{GH?.mine ? `열린 내 PR ${GH.mine.length}건 · 리뷰 요청 ${GH.review.length}건` : ''}</span>{again}</div>
+      {!GH ? <div className="meta">불러오는 중…</div> : GH.error ? <Off e={GH.error} /> : <>
+        <h4>내 PR</h4><PrTable ps={GH.mine} /><h4>나에게 리뷰 요청</h4><PrTable ps={GH.review} /></>}
+    </section>
+  </div>
+}
+
 // ── 설정: 환경 변수. 쓸 때마다 읽는 값은 화면에서 바꾼다 (DB settings 표) ──
 const SRC = { screen:['화면에서 바꿈', 'var(--acc)'], env: ['환경 변수', ''], default: ['기본값', ''] }
 // 고칠 수 있는 값: 입력 칸 + 저장. 비우고 저장하면 환경 변수·기본값으로 돌아간다
 // 토큰(secret)은 칸을 미리 채우지 않고(서버도 끝 4글자만 준다), 빈 칸 저장 대신 [지우기] 로 지운다
-function SettingValue({ c, done }) {
+function SettingValue({ c, done, w }) {  // w: 입력 칸 폭 — 연결 칸은 모두 같은 폭으로
   const { G, setMsg } = useApp()
   const [v, setV] = useState(c.src === 'screen' && !c.secret ? c.value : '')
   if (!c.edit) return <code>{tilde(c.value, G.home)}</code>
@@ -73,7 +105,7 @@ function SettingValue({ c, done }) {
   }
   return <form className="uadd" style={{ marginTop: 0 }} onSubmit={e => { e.preventDefault(); save(v) }}>
     <input type={c.secret ? 'password' : 'text'} autoComplete="off" value={v} onChange={e => setV(e.target.value)}
-      placeholder={c.secret ? c.value || '비어 있음' : c.value} style={{ width: c.secret ? 240 : 160 }} />
+      placeholder={c.secret ? c.value || '비어 있음' : c.value} style={{ width: w || (c.secret ? 240 : 160) }} />
     <button className="sm" disabled={c.secret && !v}>저장</button>
     {c.secret && c.src === 'screen' && <button type="button" className="sm" onClick={() => save('')}>지우기</button>}</form>
 }
@@ -104,7 +136,7 @@ function Links({ cs, n, done }) {
         {on && <> <button className="sm" onClick={() => test(k)}>연결 확인</button> <span className="meta" style={{ fontWeight: 400 }}>{res[k]}</span></>}</h4>
       {on && <div className="tw"><table className="tbl"><tbody>{names.map(nm => {
         const c = cs.find(x => x.name === nm)
-        return c && <tr key={nm}><td className="meta" style={{ whiteSpace: 'normal', width: '45%' }}>{c.desc}</td><td><SettingValue key={n} c={c} done={done} /></td></tr>
+        return c && <tr key={nm}><td className="meta" style={{ whiteSpace: 'normal', width: '45%', verticalAlign: 'middle' }}>{c.desc}</td><td><SettingValue key={n} c={c} done={done} w={280} /></td></tr>
       })}</tbody></table></div>}</div>
     })}
   </section>

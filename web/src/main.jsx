@@ -3,11 +3,11 @@ import { createRoot } from 'react-dom/client'
 import './style.css'
 import Home from './Home'
 import Mcp from './Mcp'
-import { History, Pushes, Settings } from './Pages'
+import { History, Issues, Pushes, Settings } from './Pages'
 import SidePanel from './SidePanel'
 import { App as Ctx, grp, isDead, post, tilde, usePoll } from './lib'
 
-const PAGES = { home: ['현황', Home], history: ['세션 기록', History], pushes: ['Push 기록', Pushes], mcp: ['MCP 서버', Mcp], settings: ['설정', Settings] }
+const PAGES = { home: ['현황', Home], history: ['세션 기록', History], pushes: ['Push 기록', Pushes], issues: ['이슈·PR', Issues], mcp: ['MCP 서버', Mcp], settings: ['설정', Settings] }
 const page = () => PAGES[location.hash.slice(1)] ? location.hash.slice(1) : 'home'
 const sideKey = k => k && k.type + ':' + (k.sid || k.id) + (k.agent || '')
 

@@ -3,7 +3,9 @@ gh 같은 도구를 설치하지 않아도 되게 표준 라이브러리(urllib)
 ponytail: 인증은 이 파일의 github()·jira() 두 곳만 — Jira 를 OAuth 로 바꾸게 되면 jira() 만 고친다."""
 import base64
 import json
+import re
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from .config import CFG
@@ -52,6 +54,28 @@ def jira(path, body=None, method=None):
         raise LinkError("Jira 사이트·이메일·토큰을 모두 넣으세요. 설정(⚙) → 연결")
     auth = base64.b64encode(f"{email}:{tok}".encode()).decode()  # Jira Cloud: 이메일 + API 토큰 기본 인증
     return _json(_req(f"https://{site}{path}", {"Authorization": "Basic " + auth}, body, method), "Jira")
+
+
+def jira_issues():
+    """나에게 할당되고 아직 끝나지 않은 이슈 (최근 업데이트 순, 50건까지)."""
+    q = urllib.parse.urlencode({"jql": "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC",
+                                "fields": "summary,status,priority,project,issuetype,updated", "maxResults": 50})
+    site = CFG["HUDSON_FLEET_JIRA_SITE"]
+    return [{"key": i["key"], "url": f"https://{site}/browse/{i['key']}", "title": f["summary"],
+             "status": f["status"]["name"], "cat": f["status"]["statusCategory"]["key"],  # new · indeterminate · done
+             "project": f["project"]["key"], "type": f["issuetype"]["name"],
+             "priority": (f.get("priority") or {}).get("name"),
+             "updated": re.sub(r"([+-]\d\d)(\d\d)$", r"\1:\2", f["updated"])}  # +0900 → +09:00 (Safari 가 읽게)
+            for i in jira("/rest/api/3/search/jql?" + q).get("issues", []) for f in [i["fields"]]]
+
+
+def github_prs():
+    """열려 있는 내 PR 과 나에게 리뷰 요청된 PR (검색 API, 최근 업데이트 순)."""
+    def find(q):
+        items = github("/search/issues?" + urllib.parse.urlencode({"q": q, "sort": "updated", "per_page": 50}))["items"]
+        return [{"num": p["number"], "title": p["title"], "url": p["html_url"], "draft": p.get("draft", False),
+                 "repo": p["repository_url"].split("/repos/", 1)[1], "updated": p["updated_at"]} for p in items]
+    return {"mine": find("is:pr is:open author:@me"), "review": find("is:pr is:open review-requested:@me")}
 
 
 def check(service):

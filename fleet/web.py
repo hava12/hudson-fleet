@@ -14,7 +14,7 @@ from .agents import agents, find_session, graph, mcp_servers, reopen, session
 from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, DEAD, ORIGIN, VERSION, claude, installed_version, ver
 from .db import EDIT, db, metrics, my_title, saved_settings, set_setting, set_title
-from .links import LinkError, check as check_link
+from .links import LinkError, check as check_link, github_prs, jira_issues
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
 from .transcripts import overview, transcript
@@ -75,6 +75,11 @@ class H(BaseHTTPRequestHandler):
                 return self.send(f.read_bytes(), mimetypes.guess_type(f.name)[0] or "application/octet-stream")
         if u.path == "/api/version":  # 화면을 띄운 리더의 버전과 설치된 버전 — 다르면 화면이 알리고, 바뀌면 새로 고친다
             return self.send({"version": VERSION, "installed": installed_version()})
+        if u.path in ("/api/jira", "/api/github"):  # 이슈·PR 페이지 — 둘을 따로 받아 한쪽이 실패해도 다른 쪽은 보인다
+            try:
+                return self.send({"items": jira_issues()} if u.path == "/api/jira" else github_prs())
+            except LinkError as e:
+                return self.send({"error": str(e)})
         if u.path == "/api/graph":
             return self.send(graph())
         if u.path == "/api/config":

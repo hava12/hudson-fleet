@@ -117,7 +117,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 
 ## 기능
 
-상단 메뉴는 **현황 · 세션 기록 · MCP 서버** 세 개이고, 오른쪽 위에 구독 사용량(5시간·1주일)을 작게 보여 줍니다.
+상단 메뉴는 **현황 · 세션 기록 · Push 기록 · 이슈·PR · MCP 서버** 이고, 오른쪽 위에 구독 사용량(5시간·1주일), 버전, 설정(⚙)이 있습니다.
 
 **현황** (5초마다 갱신, 끝났거나 실패한 세션과 1회성 `claude -p` 실행은 빼고 보여 줍니다)
 
@@ -131,6 +131,12 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 
 - 대시보드 서버가 켜져 있는 동안 끝난 세션을 1분 안에 저장합니다. 종료 이유, 토큰, 기록할 작업을 남깁니다.
 - **다시 열기**: 상세 패널의 [이어서 열기]는 같은 세션 ID 로(`claude --resume`), [복사해 열기]는 기록을 남긴 채 새 ID 로(`--fork-session`) 터미널 새 창에서 엽니다.
+
+**이슈·PR** (설정 ⚙ → 연결에서 GitHub·Jira 를 켜고 토큰을 넣었을 때)
+
+- **Jira**: 나에게 할당되고 아직 끝나지 않은 이슈. 키를 누르면 Jira 로 갑니다.
+- **GitHub**: 열려 있는 내 PR 과 나에게 리뷰 요청된 PR.
+- API 호출을 아끼려고 자동으로 갱신하지 않습니다. [새로 고침] 을 누릅니다.
 
 **MCP 서버**
 
@@ -225,6 +231,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `GET /api/mcp` | MCP 서버 연결 상태 |
 | `GET /api/version` | 화면을 띄운 리더의 버전과 설치된 플러그인 버전 |
 | `POST /api/handover` | 더 새 버전 대기자가 리더 자리를 넘겨 달라고 함 `{version}`. Origin 이 없는 요청만, 더 새 버전일 때만 물러남 |
+| `GET /api/jira` · `GET /api/github` | 이슈·PR 페이지: 나에게 할당된 끝나지 않은 Jira 이슈 `{items}` · 열린 내 PR 과 리뷰 요청 PR `{mine, review}`. 꺼져 있거나 토큰이 없으면 `{error}` |
 | `POST /api/connect` | 연결 확인 `{service: github·jira}` → 저장된 토큰으로 내 계정 이름 `{ok, who}` 또는 `{error}` |
 | `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지, `secret`: 토큰이라 끝 4글자만) · 바꾸기 `{name, value}` |
 | `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list, sid, text, tag, id, status, note}`. Origin 이 없는 요청만 |
