@@ -5,12 +5,13 @@
 나머지는 1초마다 다시 열어 보다가, 맡던 세션이 끝나 포트가 비면 하나가 이어받는다 (화면은 1~2초 멈췄다 이어진다).
 플러그인을 업데이트하면 새 세션의 대기자가 10초마다 리더 버전을 보고, 리더가 더 옛 버전이면 자리를 넘겨 달라고 한다."""
 import json
+import socket
 import threading
 import time
 import urllib.request
 from http.server import ThreadingHTTPServer
 
-from fleet.config import ORIGIN, PORT, VERSION, ver
+from fleet.config import ORIGIN, PORT, VERSION, installed_version, ver
 from fleet.db import DB, load_settings
 from fleet.recorder import record
 from fleet.web import H
@@ -41,11 +42,27 @@ def ask_handover():
         pass
 
 
+def port_free():
+    """포트를 여는(bind) 대신 접속해 본다 — 비어 있는지 보기만 하고 자리를 잡지 않는다."""
+    try:
+        socket.create_connection(("127.0.0.1", PORT), timeout=0.5).close()
+        return False
+    except OSError:
+        return True
+
+
 def lead():
     """포트를 열 때까지 1초마다 시도하고, 열면 그 서버를 맡는다 (MCP 서버의 백그라운드 스레드).
-    새 버전에 자리를 넘기면 5초 쉬었다가 다시 대기자가 된다 — 새 버전이 1초마다 시도하니 먼저 연다."""
-    n = 0
+    새 버전에 자리를 넘기면 5초 쉬었다가 다시 대기자가 된다. 옛 버전 대기자는 양보하므로 넘겨줄 때 새 버전이 먼저 연다."""
+    n = free = 0
     while True:
+        # 이 PC 에 더 새 버전이 설치돼 있으면 나는 옛 버전 — 포트가 3초 넘게 비어 있을 때만 맡는다.
+        # 새 버전 대기자는 1초마다 시도하니 먼저 잡고, 새 버전 세션이 없으면 3초 뒤 내가 맡아 화면이 꺼지지 않는다
+        if ver(installed_version()) > ver(VERSION):
+            free = free + 1 if port_free() else 0
+            if free <= 3:
+                time.sleep(1)
+                continue
         try:
             srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
         except OSError:  # 다른 세션이 맡고 있다
