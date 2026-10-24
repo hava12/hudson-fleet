@@ -60,7 +60,7 @@ def track(alive):
             if n.get("startedAt") else None
         c.execute("INSERT INTO sessions (sid, name, cwd, kind, app, status, status_since, started_at, last_seen)"
                   " VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(sid) DO UPDATE SET name=excluded.name, app=excluded.app,"
-                  " last_seen=excluded.last_seen, ended_at=NULL, end_reason=NULL,"  # --resume 로 다시 살아난 세션
+                  " last_seen=excluded.last_seen, ended_at=NULL, end_reason=NULL, deleted_at=NULL,"  # --resume 로 다시 살아난 세션 (지운 기록도 되살린다)
                   " status_since=CASE WHEN sessions.status IS excluded.status"
                   " THEN sessions.status_since ELSE excluded.status_since END, status=excluded.status",
                   (sid, n.get("label"), n["cwd"], n["kind"], n.get("app"), STATE.get(n["status"], "idle"), t, started, t))

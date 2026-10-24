@@ -4,7 +4,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-from .config import CFG
+from .config import CFG, now_iso
 
 
 # 지표 저장소. 대화 기록은 cleanupPeriodDays(기본 30일) 뒤 지워지지만 이 표는 남는다.
@@ -26,6 +26,8 @@ def db():
         c.execute("ALTER TABLE sessions DROP COLUMN user")
     if "my_title" not in {r[1] for r in c.execute("PRAGMA table_info(sessions)")}:  # 대시보드에서 붙인 제목 (Claude Code 파일은 안 건드림)
         c.execute("ALTER TABLE sessions ADD COLUMN my_title TEXT")
+    if "deleted_at" not in {r[1] for r in c.execute("PRAGMA table_info(sessions)")}:  # 세션 기록에서 지운 시각 (soft delete — 행·작업은 남는다)
+        c.execute("ALTER TABLE sessions ADD COLUMN deleted_at TEXT")
     # status: todo 남은 일 · done 완료 · stopped 중단 · rejected 반려 / source: agent(MCP) · haiku · human
     c.execute("CREATE TABLE IF NOT EXISTS session_tasks (id INTEGER PRIMARY KEY, sid TEXT REFERENCES sessions(sid),"
               " sort REAL, status TEXT, text TEXT, source TEXT, created_at TEXT, updated_at TEXT)")
@@ -65,6 +67,17 @@ def set_title(sid, title):
     c.commit()
     c.close()
     return True
+
+
+def delete_session(sid):
+    """끝난 세션을 세션 기록·남은 일에서 숨긴다 (soft delete: deleted_at 만 적는다). 지웠으면 True.
+    --resume 으로 다시 살아나면 recorder.track 이 deleted_at 을 지워 되돌린다."""
+    c = db()
+    n = c.execute("UPDATE sessions SET deleted_at = ? WHERE sid = ? AND status = 'closed' AND deleted_at IS NULL",
+                  (now_iso(), sid)).rowcount
+    c.commit()
+    c.close()
+    return n == 1
 
 
 def metrics(hours):
@@ -131,4 +144,10 @@ if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m
     assert set_setting("HUDSON_FLEET_RETENTION_DAYS", "30") is None and CFG["HUDSON_FLEET_RETENTION_DAYS"] == "30"
     assert saved_settings() == {"HUDSON_FLEET_RETENTION_DAYS": "30"}
     assert set_setting("HUDSON_FLEET_RETENTION_DAYS", "") is None and CFG["HUDSON_FLEET_RETENTION_DAYS"] == BASE["HUDSON_FLEET_RETENTION_DAYS"]
+    k = db()
+    k.executemany("INSERT INTO sessions (sid, status) VALUES (?, ?)", [("s-closed", "closed"), ("s-live", "work")])
+    k.commit()
+    k.close()
+    assert delete_session("s-closed") and not delete_session("s-closed")  # 두 번 지우지 않는다
+    assert not delete_session("s-live")  # 살아 있는 세션은 못 지운다
     print("ok")

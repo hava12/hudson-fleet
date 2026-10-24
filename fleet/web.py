@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 from .agents import find_session, graph, mcp_servers, reopen, session
 from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, ORIGIN, VERSION, claude, installed_version, ver
-from .db import EDIT, db, metrics, my_title, saved_settings, set_setting, set_title
+from .db import EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issues
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
@@ -74,7 +74,7 @@ class H(BaseHTTPRequestHandler):
             c.row_factory = sqlite3.Row
             st = q.get("status")
             out = [dict(r) for r in c.execute(
-                "SELECT * FROM sessions WHERE status IS NOT NULL" + (" AND status = ?" if st else "")
+                "SELECT * FROM sessions WHERE status IS NOT NULL AND deleted_at IS NULL" + (" AND status = ?" if st else "")
                 + " ORDER BY coalesce(ended_at, last_seen) DESC LIMIT ?", (*([st] if st else []), int(q.get("limit", 50))))]
             for s in out:
                 s["title"] = s["my_title"] or s["title"]
@@ -82,12 +82,12 @@ class H(BaseHTTPRequestHandler):
                     TASKS_SQL, (s["sid"],))]
             c.close()
             return self.send(out)
-        if u.path == "/api/todo":  # 남은 일 — 끝난 세션 것도 포함
+        if u.path == "/api/todo":  # 남은 일 — 끝난 세션 것도 포함 (지운 세션 것은 뺀다)
             c = db()
             c.row_factory = sqlite3.Row
             out = [dict(r) for r in c.execute(
                 "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, t.details, coalesce(s.my_title, s.title) AS title, s.name, s.cwd, s.status AS sst"
-                " FROM session_tasks t JOIN sessions s USING (sid) WHERE t.status = 'todo'"
+                " FROM session_tasks t JOIN sessions s USING (sid) WHERE t.status = 'todo' AND s.deleted_at IS NULL"
                 " ORDER BY coalesce(s.ended_at, s.last_seen) DESC, t.sort, t.id")]
             c.close()
             return self.send(out)
@@ -158,6 +158,8 @@ class H(BaseHTTPRequestHandler):
             ok = set_task(body.get("id"), "human", body.get("status"), sort=body.get("sort"), delete=bool(body.get("delete")),
                           tag=body.get("tag"))
             return self.send({"ok": ok} if ok else {"error": "작업 또는 분류 확인"})
+        if self.path == "/api/session/delete":  # {sid} — 끝난 세션을 세션 기록에서 지운다 (soft delete)
+            return self.send({"ok": True} if delete_session(body.get("sid")) else {"error": "끝난 세션만 지울 수 있습니다"})
         if self.path == "/api/title":  # {sid, title} — 대시보드에서만 쓰는 제목. 빈 값이면 원래대로
             return self.send({"ok": True} if set_title(body.get("sid"), body.get("title")) else {"error": "세션 확인"})
         if self.path == "/api/summary":  # 토큰을 쓰므로 GET 이 아닌 POST (출처 검사 대상)

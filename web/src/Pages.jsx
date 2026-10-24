@@ -5,22 +5,30 @@ export const REASON = { switched: '세션 전환 (/clear·/resume)', exited: '�
 
 // ── 세션 기록: 끝난 세션 (sessions 1 : session_tasks N) ──
 export function History() {
-  const { G, ver, openSide } = useApp()
+  const { G, ver, side, openSide, setMsg, bump } = useApp()
   const [n, setN] = useState(0)  // 새로 고침
   const H = usePoll('/api/sessions?status=closed&limit=200', 0, [ver, n])
+  const del = async s => {  // soft delete — DB 에는 남고, --resume 으로 다시 살아나면 되돌아온다
+    if (!confirm(`"${s.title || s.name || s.sid.slice(0, 8)}" 기록을 지울까요?\n세션 기록과 남은 일 목록에서 사라집니다.`)) return
+    const r = await post('/api/session/delete', { sid: s.sid })
+    if (r.error) return setMsg(r.error)
+    if (side?.type === 'history' && side.sid === s.sid) openSide(side)  // 같은 키로 부르면 패널이 닫힌다
+    bump()
+  }
   return <div className="pg"><section className="card">
     <div className="sh"><h2>끝난 세션</h2>
       {H && <span className="meta">{H.length}개 · 토큰 합계 {fmtTok(H.reduce((t, s) => t + (s.tokens || 0), 0))}</span>}
       <button className="sm" style={{ marginLeft: 'auto' }} onClick={() => setN(n + 1)}>새로 고침</button></div>
     <div className="tw"><table className="tbl"><tbody>
-      <tr><th>끝난 시각</th><th>세션</th><th>종료 이유</th><th>작업</th><th>토큰</th></tr>
+      <tr><th>끝난 시각</th><th>세션</th><th>종료 이유</th><th>작업</th><th>토큰</th><th /></tr>
       {H?.map(s => <tr key={s.sid}>
         <td className="meta">{when(s.ended_at)}</td>
         <td><a className="lk" onClick={() => openSide({ type: 'history', sid: s.sid })}>{s.title || s.name || s.sid.slice(0, 8)}</a>
           <div className="meta" title={s.cwd}>{tilde(s.cwd, G.home)} · {s.kind === 'background' ? '백그라운드' : s.app || '대화형'}</div></td>
         <td><span className="pill">{REASON[s.end_reason] || s.end_reason}</span></td>
-        <td><TaskSum ts={s.tasks} /></td><td className="meta">{fmtTok(s.tokens)}</td></tr>)}
-      {H && !H.length && <tr><td colSpan="5" className="meta">아직 기록된 세션이 없습니다</td></tr>}
+        <td><TaskSum ts={s.tasks} /></td><td className="meta">{fmtTok(s.tokens)}</td>
+        <td className="acts"><button className="sm danger" onClick={() => del(s)}>삭제</button></td></tr>)}
+      {H && !H.length && <tr><td colSpan="6" className="meta">아직 기록된 세션이 없습니다</td></tr>}
     </tbody></table></div>
     <p className="meta" style={{ margin: '10px 0 0' }}>대시보드 서버가 켜져 있는 동안 끝난 세션을 1분 안에 저장합니다. 저장 전에 haiku 로 작업 내용을 요약합니다.</p>
   </section></div>

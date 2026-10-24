@@ -130,6 +130,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 
 - 대시보드 서버가 켜져 있는 동안 끝난 세션을 1분 안에 저장합니다. 종료 이유, 토큰, 기록할 작업을 남깁니다.
 - **다시 열기**: 상세 패널의 [이어서 열기]는 같은 세션 ID 로(`claude --resume`), [복사해 열기]는 기록을 남긴 채 새 ID 로(`--fork-session`) 터미널 새 창에서 엽니다.
+- **삭제**: 줄 끝 [삭제]는 그 기록을 세션 기록과 남은 일 목록에서 숨깁니다(soft delete — DB 의 `sessions.deleted_at` 만 적고 행·작업·push 는 남깁니다). `--resume` 으로 다시 살아나면 되돌아옵니다. 프로필 카드의 완료 건수는 그대로입니다.
 
 **이슈·PR** (설정 ⚙ → 연결에서 GitHub·Jira 를 켜고 토큰을 넣었을 때)
 
@@ -222,7 +223,8 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 
 | 경로 | 내용 |
 |---|---|
-| `GET /api/sessions?status=closed\|work\|wait\|idle&limit=50` | 세션과 작업 목록 |
+| `GET /api/sessions?status=closed\|work\|wait\|idle&limit=50` | 세션과 작업 목록 (지운 기록은 빠짐) |
+| `POST /api/session/delete` | 끝난 세션 기록 지우기 `{sid}` (soft delete). 끝난 세션이 아니거나 이미 지웠으면 `{error}` |
 | `GET /api/pushes?limit=200&sid=` | 세션에서 실행한 git push — Claude 의 Bash 와 사용자의 `!` 명령, 세션 밖 터미널은 빠짐 (시각·레포·브랜치·커밋 메시지·세션). `sid` 를 주면 그 세션 것만. 대화 기록이 지워져도 DB 에 남습니다 |
 | `GET /api/metrics?hours=24` | 1분 단위 지표 |
 | `GET /api/daily` | 날짜별 토큰 (최근 1년) |
