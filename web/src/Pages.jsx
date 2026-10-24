@@ -78,12 +78,18 @@ function SettingValue({ c, done }) {
     {c.secret && c.src === 'screen' && <button type="button" className="sm" onClick={() => save('')}>지우기</button>}</form>
 }
 
-// 연결: GitHub·Jira 토큰. [연결 확인] 은 저장된 토큰으로 내 계정 이름을 받아 온다 (/api/connect)
-const LINKS = [['github', 'GitHub', ['HUDSON_FLEET_GITHUB_TOKEN']],
-  ['jira', 'Jira', ['HUDSON_FLEET_JIRA_SITE', 'HUDSON_FLEET_JIRA_EMAIL', 'HUDSON_FLEET_JIRA_TOKEN']]]
-const LINK_NAMES = new Set(LINKS.flatMap(l => l[2]))
+// 연결: GitHub·Jira. [사용] 을 켜야 입력 칸이 보이고 쓰인다 (꺼도 값은 남음). [연결 확인] 은 저장된 토큰으로 내 계정 이름을 받아 온다
+const LINKS = [['github', 'GitHub', 'HUDSON_FLEET_GITHUB_ON', ['HUDSON_FLEET_GITHUB_TOKEN']],
+  ['jira', 'Jira', 'HUDSON_FLEET_JIRA_ON', ['HUDSON_FLEET_JIRA_SITE', 'HUDSON_FLEET_JIRA_EMAIL', 'HUDSON_FLEET_JIRA_TOKEN']]]
+const LINK_NAMES = new Set(LINKS.flatMap(l => [l[2], ...l[3]]))
 function Links({ cs, n, done }) {
+  const { setMsg } = useApp()
   const [res, setRes] = useState({})  // 서비스 → 확인 결과 문장
+  const toggle = async (name, on) => {
+    const r = await post('/api/config', { name, value: on ? '1' : '0' })
+    if (r.error) setMsg(r.error)
+    done()
+  }
   const test = async k => {
     setRes(r => ({ ...r, [k]: '확인 중…' }))
     const x = await post('/api/connect', { service: k })
@@ -91,12 +97,16 @@ function Links({ cs, n, done }) {
   }
   return <section className="card">
     <div className="sh"><h2>연결</h2><span className="meta">토큰은 이 PC 의 DB 에만 저장합니다. 에이전트는 fleet MCP 로 이 서버를 거쳐 씁니다</span></div>
-    {LINKS.map(([k, label, names]) => <div key={k}>
-      <h4>{label} <button className="sm" onClick={() => test(k)}>연결 확인</button> <span className="meta" style={{ fontWeight: 400 }}>{res[k]}</span></h4>
-      <div className="tw"><table className="tbl"><tbody>{names.map(nm => {
+    {LINKS.map(([k, label, onName, names]) => {
+      const on = cs.find(x => x.name === onName)?.value === '1'
+      return <div key={k}>
+      <h4>{label} <label className="meta" style={{ fontWeight: 400 }}><input type="checkbox" checked={on} onChange={e => toggle(onName, e.target.checked)} /> 사용</label>
+        {on && <> <button className="sm" onClick={() => test(k)}>연결 확인</button> <span className="meta" style={{ fontWeight: 400 }}>{res[k]}</span></>}</h4>
+      {on && <div className="tw"><table className="tbl"><tbody>{names.map(nm => {
         const c = cs.find(x => x.name === nm)
         return c && <tr key={nm}><td className="meta" style={{ whiteSpace: 'normal', width: '45%' }}>{c.desc}</td><td><SettingValue key={n} c={c} done={done} /></td></tr>
-      })}</tbody></table></div></div>)}
+      })}</tbody></table></div>}</div>
+    })}
   </section>
 }
 

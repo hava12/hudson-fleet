@@ -31,7 +31,13 @@ def _req(url, head, body, method):
                                               "User-Agent": "hudson-fleet", **head}, method=method)
 
 
+def _on(name, label):
+    if CFG[f"HUDSON_FLEET_{name}_ON"] != "1":
+        raise LinkError(f"{label} 연결이 꺼져 있습니다. 설정(⚙) → 연결에서 '사용'을 켜세요")
+
+
 def github(path, body=None, method=None):
+    _on("GITHUB", "GitHub")
     tok = CFG["HUDSON_FLEET_GITHUB_TOKEN"]
     if not tok:
         raise LinkError("GitHub 토큰이 없습니다. 설정(⚙) → 연결에서 넣으세요")
@@ -40,6 +46,7 @@ def github(path, body=None, method=None):
 
 
 def jira(path, body=None, method=None):
+    _on("JIRA", "Jira")
     site, email, tok = (CFG[f"HUDSON_FLEET_JIRA_{k}"] for k in ("SITE", "EMAIL", "TOKEN"))
     if not (site and email and tok):
         raise LinkError("Jira 사이트·이메일·토큰을 모두 넣으세요. 설정(⚙) → 연결")

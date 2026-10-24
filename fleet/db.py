@@ -85,6 +85,8 @@ EDIT = {  # 이름 → 받을 값 형식
     "HUDSON_FLEET_TERMINAL": r"Ghostty|Terminal",
     "HUDSON_FLEET_GIST": r"[0-9a-f]{1,40}",
     "HUDSON_FLEET_GIST_USER": r"[\w-]{1,39}",
+    "HUDSON_FLEET_GITHUB_ON": r"[01]",
+    "HUDSON_FLEET_JIRA_ON": r"[01]",
     "HUDSON_FLEET_GITHUB_TOKEN": r"\S{20,255}",
     "HUDSON_FLEET_JIRA_SITE": r"[\w.-]+\.atlassian\.net",
     "HUDSON_FLEET_JIRA_EMAIL": r"[^@\s]+@[^@\s]+",
