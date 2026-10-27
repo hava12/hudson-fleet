@@ -180,11 +180,12 @@ export function Settings() {
   const cs = usePoll('/api/config', 0, [n]) || []
   return <div className="pg"><Links cs={cs} n={n} done={() => setN(n + 1)} /><section className="card">
     <div className="sh"><h2>설정</h2><span className="meta">입력 칸이 있는 값은 여기서 바꾸면 바로 적용됩니다 (비우고 저장하면 원래대로) · 나머지는 환경 변수로만</span></div>
-    <div className="tw"><table className="tbl"><tbody>
-      <tr><th>이름</th><th>지금 값</th><th>설명</th></tr>
+    {/* 칸 폭을 고정한다 — 긴 값(DB 경로)이 칸을 넓혀 설명 칸이 좁아지면 설명이 글자마다 꺾여 줄 높이가 들쭉날쭉해진다 */}
+    <div className="tw"><table className="tbl" style={{ tableLayout: 'fixed', minWidth: 900 }}><tbody>
+      <tr><th style={{ width: 360 }}>이름</th><th style={{ width: 320 }}>지금 값</th><th>설명</th></tr>
       {cs.filter(c => !LINK_NAMES.has(c.name)).map(c => <tr key={c.name}>
         <td><code>{c.name}</code> <span className="pill" style={{ fontSize: 12, color: SRC[c.src]?.[1] }}>{SRC[c.src]?.[0]}</span></td>
-        <td><SettingValue key={n} c={c} done={() => setN(n + 1)} /></td>
+        <td style={{ whiteSpace: 'normal', wordBreak: 'break-all' }}><SettingValue key={n} c={c} done={() => setN(n + 1)} /></td>
         <td className="meta" style={{ whiteSpace: 'normal' }}>{c.desc}</td></tr>)}
     </tbody></table></div>
     <h4>환경 변수로 바꾸는 방법 (포트·DB 경로)</h4>

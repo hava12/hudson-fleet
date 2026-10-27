@@ -46,7 +46,7 @@ h2{font-size:14px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02e
 .tbl{width:100%;border-collapse:collapse;font-size:14px}
 .tbl th{text-align:left;font-weight:500;color:var(--mute);font-size:13px;padding:6px 10px;border-bottom:1px solid var(--line)}
 .tbl td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:top}.tbl tr:last-child td{border-bottom:0}
-.tbl td{white-space:nowrap}td.loc{font-family:ui-monospace,monospace;font-size:13px;color:var(--mute);max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.tbl td{white-space:nowrap}.tbl input,.tbl select:not(.pill){padding:3px 8px;font-size:13px}  /* 표 안 입력 칸은 작게 — 글자 줄과 높이를 맞춘다 */td.loc{font-family:ui-monospace,monospace;font-size:13px;color:var(--mute);max-width:200px;overflow:hidden;text-overflow:ellipsis}
 .pill{display:inline-flex;align-items:center;padding:1px 8px;border-radius:99px;font-size:13px;background:var(--soft);white-space:nowrap}
 a.lk{color:var(--fg);font-weight:600;cursor:pointer;text-decoration:none}a.lk:hover{color:var(--acc)}
 .acts{white-space:nowrap}.acts button{margin-right:4px}.danger{color:#dc2626}
