@@ -125,12 +125,12 @@ function App() {
   return <Ctx.Provider value={{ G, side, openSide, setMsg, stopSession, ver, bump }}>
     <header><h1>Hudson <span>Fleet</span></h1>
       <nav>{Object.entries(PAGES).filter(([k]) => k !== 'settings').map(([k, [l]]) => <a key={k} href={'#' + k} className={pg === k ? 'on' : ''}>{l}</a>)}</nav>
-      <span className="meta" style={{ marginLeft: 'auto' }}>{msg}</span>
+      <div className="hr"><span className="meta hmsg" title={msg}>{msg}</span>
       <button className="sm" disabled={notiOn() || !window.Notification} title="세션이 입력 대기로 바뀌거나 끝나면 알립니다"
         onClick={() => Notification.requestPermission().then(() => setNoti(n => n + 1))}>{notiOn() ? '알림 켜짐' : '알림 켜기'}</button>
       <Usage />
       <Version />
-      <a href="#settings" className={'gear' + (pg === 'settings' ? ' on' : '')} title="설정" aria-label="설정">⚙</a></header>
+      <a href="#settings" className={'gear' + (pg === 'settings' ? ' on' : '')} title="설정" aria-label="설정">⚙</a></div></header>
     {down && <div className="down">대시보드 서버에 닿지 않습니다. 대시보드는 Claude Code 세션(MCP 서버)이 띄우므로, 세션이 모두 꺼졌거나 옛 버전 세션만 남았을 수 있습니다. 세션을 하나 열면 1~2초 안에 다시 이어집니다.</div>}
     <main className={side ? '' : 'noside'}>
       <div id="dash"><Page /></div>
