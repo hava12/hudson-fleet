@@ -20,7 +20,8 @@ main{display:grid;grid-template-columns:minmax(0,1fr) var(--sidew,minmax(360px,3
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
 h2{font-size:14px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02em}
 .sh{display:flex;align-items:center;gap:6px 12px;margin-bottom:12px;flex-wrap:wrap}.sh h2{white-space:nowrap}
-#cy{height:160px;border-radius:8px;background:var(--soft);position:relative}
+/* 현황 그래프: 높이는 창에 맞춰 고정 — 세션이 늘고 줄어도 아래 내용이 들썩이지 않고, 배율로 맞춘다. 카드(HTML)가 영역 밖으로 나가면 자른다 */
+#cy{height:clamp(380px,calc(100vh - 290px),1020px);border-radius:8px;background:var(--soft);position:relative;overflow:hidden}
 /* 작업 중: 위 테두리에 빛이 오른쪽으로 흐른다. 3px 띠에 radius 를 주면 곡선이 납작해져 카드 모서리와 어긋나므로,
    카드와 같은 크기·radius 의 상자를 깔고 mask 로 위 3px(테두리 자리)만 남긴다 — 곡선이 카드 테두리와 같다 */
 .ncard.work::before{content:'';position:absolute;inset:-3px -1px -1px;border-radius:inherit;padding-top:3px;

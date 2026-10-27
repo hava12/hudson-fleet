@@ -39,7 +39,7 @@ function SessionCard({ e, n, u = {}, on, home }) {
 export default function Home() {
   const { G, side, openSide, stopSession, ver } = useApp()
   const ref = useRef(), sig = useRef('')
-  const cy = useCy(ref, { style: STYLE }, 1020)
+  const cy = useCy(ref, { style: STYLE, autoungrabify: true })  // 노드는 끌어 옮기지 않는다 (카드가 영역 밖으로 나가지 않게)
   const [, redraw] = useReducer(x => x + 1, 0)  // 이동·확대 때 카드 자리만 다시
   const [statF, setStatF] = useState('')  // 숫자 타일로 고른 상태 ('' = 전체)
   const [menu, setMenu] = useState(null)  // 우클릭 메뉴 {x, y, n}
@@ -57,6 +57,7 @@ export default function Home() {
     })
     cy.on('cxttap', 'node[type="session"]', e => setMenu({ x: e.originalEvent.clientX, y: e.originalEvent.clientY, n: e.target.data() }))
     cy.on('tap cxttap', e => { if (e.target === cy) setMenu(null) })
+    cy.on('dbltap', e => { if (e.target === cy) fitBox(cy) })  // 옮기거나 확대한 뒤 빈 곳을 두 번 누르면 전체 보기
     const hide = () => setMenu(null)
     document.addEventListener('click', hide)
     // 작업 중 세션으로 들어가는 선이 오른쪽으로 흐른다. 초당 12번만, 화면에 보이고 흐를 선이 있을 때만
@@ -83,7 +84,7 @@ export default function Home() {
       cy.elements().remove()
       cy.add([...nodes.map(d => ({ data: d })), ...G.edges.map(e => ({ data: { id: e.source + '>' + e.target, ...e } }))])
       cy.layout({ name: 'dagre', rankDir: 'LR', nodeSep: 14, rankSep: 60 }).run()
-      fitBox(cy, 1020)
+      fitBox(cy)
     }
     cy.edges().forEach(e => e.toggleClass('flow', e.target().data('type') === 'session' && grp(e.target().data('status')) === 'work'))
     redraw()
@@ -116,7 +117,8 @@ export default function Home() {
   return <div className="pg">
     <section className="card"><div className="sh"><h2>상태별 노드</h2><div className="legend">
       {LIVE.map(k => <span key={k}><Dot c={GINFO[k][1]} />{GINFO[k][0]}</span>)}
-      <span><Dot c={FILL.project} sq />프로젝트</span><span><Dot c={FILL.agent} sq />서브에이전트</span></div></div>
+      <span><Dot c={FILL.project} sq />프로젝트</span><span><Dot c={FILL.agent} sq />서브에이전트</span>
+      <span className="meta">빈 곳 두 번 누르기: 전체 보기</span></div></div>
       <div id="cy" ref={ref} onContextMenu={e => e.preventDefault()}>
         {cy && <div id="cards">{cy.nodes('[type="session"]').map(e => <SessionCard key={e.id()} e={e} n={e.data()} u={U5[e.data('sessionId')]} home={G.home}
           on={side?.type === 'session' && side.sid === e.data('sessionId')} />)}</div>}
