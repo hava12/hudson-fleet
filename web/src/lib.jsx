@@ -41,6 +41,8 @@ export const App = createContext(null)
 export const useApp = () => useContext(App)
 export const tilde = (p, home) => p && home && p.startsWith(home) ? '~' + p.slice(home.length) : p
 
+// 물음표에 마우스를 올리거나(휴대폰은 누르면) 설명 상자가 뜬다
+export const Tip = ({ children }) => <span className="tip" tabIndex={0} aria-label="설명 보기">?<span className="tipbox" role="tooltip">{children}</span></span>
 export const Dot = ({ c, sq }) => <i className="dot" style={{ background: c, borderRadius: sq ? 2 : undefined }} />
 export const Pill = ({ st }) => <span className="pill"><Dot c={GINFO[grp(st)][1]} />{GINFO[grp(st)][0]}</span>
 export const TaskSum = ({ ts }) => ts.length

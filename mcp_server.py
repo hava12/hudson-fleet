@@ -33,7 +33,7 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
    details 는 text 를 풀어 쓴 설명 1줄씩 최대 3개다. task_start 때는 할 일(계획)을, task_update 때는 실제로 한 일·결과를
    적어 바꾼다 (줄마다 60자 안팎, 동사로 끝냄). 한 줄로 충분한 작은 일은 비워 둔다.
 3. 이 도구들이 지연 로드(deferred) 상태면 먼저 ToolSearch 로
-   "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list,mcp__plugin_hudson-fleet_fleet__project_list" 를 불러온다.
+   "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list,mcp__plugin_hudson-fleet_fleet__project_list,mcp__plugin_hudson-fleet_fleet__project_archive,mcp__plugin_hudson-fleet_fleet__resource_save,mcp__plugin_hudson-fleet_fleet__resource_search" 를 불러온다.
 4. 일하는 도중에 사용자가 덧붙인 요청도 규칙 1 을 따른다. 하던 일의 일부가 아니면 따로 task_start 한다
    (예: 노드 모양을 고치는 중에 "애니메이션도 넣어 줘" → 새 행). 바로 하지 않고 미루는 일도 task_start 만 해 두면 남은 일로 남는다.
    사용자에게 방법을 고르게 하거나 진행 여부를 묻는 제안을 했으면, 답을 기다리는 동안 그 제안도 task_start 로 남긴다
@@ -43,7 +43,12 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
 7. 프로젝트: 세션에서 처음 task_start 하기 전에 project_list 를 한 번 불러, 이 일이 속한 프로젝트가 있으면 task_start 의
    project 에 그 id 를 넣는다 (Jira 에픽 프로젝트는 이슈가 그 에픽 밑인지, 직접 만든 프로젝트는 이름·완료 조건으로 판단).
    지시문에 프로젝트 번호가 적혀 있으면 그것을 쓴다. 맞는 것이 없거나 애매하면 비워 둔다 — 프로젝트는 사용자만 만든다.
-   사용자가 다른 프로젝트라고 알려 주면 task_update 의 project 로 바로잡는다."""
+   사용자가 다른 프로젝트라고 알려 주면 task_update 의 project 로 바로잡는다.
+8. 자료(Resources)·보관(Archives) — PARA 의 R·A. resource_save 는 두 경우에만 부른다: 사용자가 남기라고 했을 때,
+   프로젝트를 보관할 때 남기는 정리 한 장(무엇을 정했고 왜, 다음에 알아야 할 것). 스스로 판단해 수시로 남기지 않는다.
+   직접 만든 프로젝트(kind own)의 완료 조건을 채운 것 같으면, 보관할지와 정리 한 장을 남길지 사용자에게 한 번에 묻고
+   동의하면 project_archive 와 resource_save 를 부른다. Jira 에픽 프로젝트는 에픽이 Done 이 되면 저절로 보관된다.
+   일을 시작할 때 같은 주제의 자료가 있을 법하면 resource_search 로 먼저 찾아본다."""
 
 DETAILS = {"type": "array", "items": {"type": "string"}, "maxItems": 3}  # 3-Step-Desc (fleet/tasks.py MAX_DETAILS)
 
@@ -65,9 +70,21 @@ TOOLS = [
                      "required": ["id", "status"]}},
     {"name": "task_list", "description": "이 세션에 기록된 작업 목록 (순서대로).",
      "inputSchema": {"type": "object", "properties": {}}},
-    {"name": "project_list", "description": "끝나지 않은 프로젝트 목록 (id, 이름, 종류 own 직접·jira 에픽, 에픽 키, 완료 조건, 영역)."
-                                            " task_start 의 project 를 고를 때 쓴다.",
+    {"name": "project_list", "description": "끝나지 않은 프로젝트(id, 이름, 종류 own 직접·jira 에픽, 에픽 키, 완료 조건, 영역)와"
+                                            " 보관하지 않은 영역(id, 이름, 유지할 상태). task_start 의 project, resource_save 의 project·area 를 고를 때 쓴다.",
      "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "project_archive", "description": "직접 만든 프로젝트(kind own)를 끝남으로 바꿔 보관한다. 사용자가 대화에서 동의했을 때만 부른다.",
+     "inputSchema": {"type": "object", "properties": {"id": {"type": "integer"}}, "required": ["id"]}},
+    {"name": "resource_save", "description": "자료(Resources) 한 건을 남긴다. 사용자가 남기라고 했을 때와, 프로젝트를 보관할 때 정리 한 장만.",
+     "inputSchema": {"type": "object", "properties": {
+         "title": {"type": "string", "description": "80자 이내 제목"},
+         "summary": {"type": "string", "description": "100자 이내 한 줄 요약 — 목록에서 이것만 보고 쓸지 판단한다"},
+         "body": {"type": "string", "description": "본문 (결정·근거·다음에 알아야 할 것, 2만 자 이내)"},
+         "project": {"type": "integer", "description": "선택. 관련 프로젝트 id"},
+         "area": {"type": "integer", "description": "선택. 관련 영역 id (안 주면 프로젝트의 영역)"}},
+                     "required": ["title", "summary", "body"]}},
+    {"name": "resource_search", "description": "자료를 낱말로 찾는다 (낱말마다 제목·요약·본문 어딘가에 든 것, 최근 5건, 본문 1500자까지).",
+     "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "띄어 쓴 낱말들. 비우면 최근 자료"}}}},
 ]
 
 
@@ -124,7 +141,16 @@ def call(name, args):
         return (r["error"], True) if "error" in r else (json.dumps(r["tasks"], ensure_ascii=False), False)
     if name == "project_list":
         r = api({"op": "projects", "sid": sid})
-        return (r["error"], True) if "error" in r else (json.dumps(r["projects"], ensure_ascii=False), False)
+        return (r["error"], True) if "error" in r else (json.dumps(r, ensure_ascii=False), False)
+    if name == "project_archive":
+        r = api({"op": "project_archive", "sid": sid, "id": args.get("id")})
+        return (r["error"], True) if "error" in r else ("보관했습니다", False)
+    if name == "resource_save":
+        r = api({"op": "resource_save", "sid": sid, **{k: args.get(k) for k in ("title", "summary", "body", "project", "area")}})
+        return (r["error"], True) if "error" in r else (json.dumps({"id": r["id"]}), False)
+    if name == "resource_search":
+        r = api({"op": "resource_search", "sid": sid, "query": args.get("query")})
+        return (r["error"], True) if "error" in r else (json.dumps(r["resources"], ensure_ascii=False), False)
     return f"없는 도구: {name}", True
 
 

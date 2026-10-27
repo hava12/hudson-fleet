@@ -18,7 +18,8 @@ from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, ORIGIN, VERSION, claude, installed, installed_version, ver
 from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
-from .para import has_project, open_projects, para, project_of_epic, save_area, save_project
+from .para import (agent_view, archive_project, delete_resource, has_project, para, project_of_epic, resources_for, save_area,
+                   save_project, save_resource, search_resources)
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
 from .usage import usage, usage5h_all
@@ -41,8 +42,16 @@ def agent_task(body):
     if op == "list":
         return {"tasks": saved_tasks(sid)[0]}, 200
     if op == "projects":
-        return {"projects": open_projects()}, 200
-    return {"error": "op 확인 (start·update·list·projects)"}, 400
+        return agent_view(), 200
+    if op == "project_archive":
+        err = archive_project(body.get("id"))
+        return ({"error": err}, 400) if err else ({"ok": True}, 200)
+    if op == "resource_save":
+        r = save_resource(body, sid)
+        return ({"id": r}, 200) if isinstance(r, int) else ({"error": r}, 400)
+    if op == "resource_search":
+        return {"resources": search_resources(body.get("query"))}, 200
+    return {"error": "op 확인 (start·update·list·projects·project_archive·resource_save·resource_search)"}, 400
 
 
 JIRA_KEY = re.compile(r"[A-Z][A-Z0-9_]+-\d+")
@@ -69,6 +78,8 @@ def assign_prompt(i):
     body = i["body"][:4000] or "(본문 없음)"
     p = project_of_epic(i["epic"]) or project_of_epic(i["key"])  # 이슈의 에픽(또는 에픽 그 자체)에 연결한 프로젝트
     pj = f"\n\n이 일은 프로젝트 #{p[0]} 「{p[1]}」 의 일이야. 작업을 기록할 때(task_start) project 값으로 {p[0]} 번을 넣어." if p else ""
+    if rs := p and resources_for(p[0], p[2]):  # 같은 프로젝트·영역의 자료 — 필요하면 resource_search 로 본문을 본다
+        pj += "\n\n[관련 자료 (resource_search 로 본문을 볼 수 있어)]\n" + "\n".join(f"- {t}: {m}" for t, m in rs)
     return (f"{i['key']} 「{i['title']}」 Jira 이슈를 맡아 처리해 줘. {i['url']}\n\n[이슈 본문]\n{body}\n\n"
             "먼저 코드를 살펴 무엇을 바꿀지 계획을 세우고 진행해. 커밋·push 는 하지 말고, 끝나면 바꾼 것과 확인한 것을 정리해 줘." + pj)
 
@@ -190,9 +201,11 @@ class H(BaseHTTPRequestHandler):
             except LinkError as e:
                 return self.send({"error": str(e)})
             return self.send({"text": claude("--bg", "-n", f"{i['key']} {i['title']}"[:60], assign_prompt(i), cwd=cwd)})
-        if self.path in ("/api/area", "/api/project"):  # 영역·프로젝트 만들기·고치기·지우기 (fleet/para.py)
+        if self.path in ("/api/area", "/api/project"):  # 영역·프로젝트 만들기·고치기·보관·지우기 (fleet/para.py)
             err = (save_area if self.path == "/api/area" else save_project)(body)
             return self.send({"error": err} if err else {"ok": True})
+        if self.path == "/api/resource":  # {id} — 자료 지우기 (자료는 에이전트가 MCP 로 남긴다)
+            return self.send({"ok": True} if delete_resource(body.get("id")) else {"error": "자료를 찾지 못했습니다"})
         if self.path == "/api/upgrade":  # [새 버전으로 바꾸기] — 설치된 새 버전의 server.py 를 세션과 따로 띄우고 자리를 넘긴다
             row = installed()
             new = Path(row.get("installPath", "")) / "server.py"

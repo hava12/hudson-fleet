@@ -44,6 +44,11 @@ def db():
     # kind: own 직접 만듦 · jira 에픽 / status: pending 시작 전 · active 진행 중 · done 끝남 (jira 는 에픽 상태를 받아 적기만)
     c.execute("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY, kind TEXT, name TEXT, epic TEXT UNIQUE,"
               " area_id INT, done_when TEXT, status TEXT, jira_status TEXT, start TEXT, end TEXT)")
+    if "archived_at" not in {r[1] for r in c.execute("PRAGMA table_info(areas)")}:  # 더는 책임지지 않는 영역 (보관 칸으로)
+        c.execute("ALTER TABLE areas ADD COLUMN archived_at TEXT")
+    # 자료: 에이전트가 MCP 로 남긴다 (사용자가 남기라고 할 때 · 프로젝트를 보관할 때 정리 한 장). sid 는 남긴 세션
+    c.execute("CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY, title TEXT, summary TEXT, body TEXT,"
+              " project_id INT, area_id INT, sid TEXT, created_at TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS task_events (id INTEGER PRIMARY KEY, task_id INT, ts TEXT, status TEXT,"
               " note TEXT)")  # 시작·완료·중단·반려·순서 변경 이력 (추가만)
     c.execute("DROP TABLE IF EXISTS session_files")  # 지운 "바뀐 파일" 기능(44f3f93)이 남긴 표
