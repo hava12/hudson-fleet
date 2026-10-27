@@ -10,6 +10,8 @@ import { App as Ctx, grp, isDead, post, tilde, useApp, usePoll } from './lib'
 
 const PAGES = { home: ['현황', Home], para: ['PARA', Para], history: ['세션 기록', History], pushes: ['Push 기록', Pushes], issues: ['이슈·PR', Issues], mcp: ['MCP 서버', Mcp], settings: ['설정', Settings] }
 const page = () => PAGES[location.hash.slice(1)] ? location.hash.slice(1) : 'home'
+// 상단 메뉴: 현황은 로고로 간다. 기록 페이지는 History 아래로 묶는다 (설정은 오른쪽 ⚙)
+const NAV = ['para', ['History', ['history', 'pushes']], 'issues', 'mcp']
 const sideKey = k => k && k.type + ':' + (k.sid || k.id) + (k.agent || '')
 
 // 끝난 세션과 그 서브에이전트, 끝난 서브에이전트, 살아 있는 세션이 없는 프로젝트는 빼고 그린다
@@ -115,6 +117,19 @@ function Handle() {
     onDoubleClick={() => { w.current = 0; sideW(0); save(0) }} />
 }
 
+// 드롭다운 메뉴: 누르면 펼치고, 아무 데나 다시 누르면(항목 포함) 닫는다
+function NavMenu({ label, keys, pg }) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false), t = setTimeout(() => addEventListener('click', close))  // 여는 클릭은 건너뛴다
+    return () => { clearTimeout(t); removeEventListener('click', close) }
+  }, [open])
+  return <div className="dd">
+    <a className={keys.includes(pg) ? 'on' : ''} role="button" aria-expanded={open} onClick={() => setOpen(!open)}>{label} ▾</a>
+    {open && <div className="ddm">{keys.map(k => <a key={k} href={'#' + k} className={pg === k ? 'on' : ''}>{PAGES[k][0]}</a>)}</div>}</div>
+}
+
 function App() {
   const [pg, setPg] = useState(page)
   const [side, setSide] = useState(null)  // 오른쪽 패널에 열린 것 — 같은 것을 다시 누르면 닫는다
@@ -143,8 +158,9 @@ function App() {
   const down = useDown()
   const Page = PAGES[pg][1]
   return <Ctx.Provider value={{ G, side, openSide, setMsg, stopSession, ver, bump }}>
-    <header><h1>Hudson <span>Fleet</span></h1>
-      <nav>{Object.entries(PAGES).filter(([k]) => k !== 'settings').map(([k, [l]]) => <a key={k} href={'#' + k} className={pg === k ? 'on' : ''}>{l}</a>)}</nav>
+    <header><h1><a href="#home" title="현황">Hudson <span>Fleet</span></a></h1>
+      <nav>{NAV.map(n => typeof n === 'string' ? <a key={n} href={'#' + n} className={pg === n ? 'on' : ''}>{PAGES[n][0]}</a>
+        : <NavMenu key={n[0]} label={n[0]} keys={n[1]} pg={pg} />)}</nav>
       <div className="hr"><span className="meta hmsg" title={msg}>{msg}</span>
       <button className="sm" disabled={notiOn() || !window.Notification} title="세션이 입력 대기로 바뀌거나 끝나면 알립니다"
         onClick={() => Notification.requestPermission().then(() => setNoti(n => n + 1))}>{notiOn() ? '알림 켜짐' : '알림 켜기'}</button>
