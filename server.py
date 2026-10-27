@@ -3,9 +3,11 @@
 
 리더 선출: 세션마다 MCP 서버가 하나씩 뜨고, 그중 포트를 먼저 연 하나만 화면과 1분 기록을 맡는다.
 나머지는 1초마다 다시 열어 보다가, 맡던 세션이 끝나 포트가 비면 하나가 이어받는다 (화면은 1~2초 멈췄다 이어진다).
-플러그인을 업데이트하면 새 세션의 대기자가 10초마다 리더 버전을 보고, 리더가 더 옛 버전이면 자리를 넘겨 달라고 한다."""
+플러그인을 업데이트하면 새 세션의 대기자가 10초마다 리더 버전을 보고, 리더가 더 옛 버전이면 자리를 넘겨 달라고 한다.
+화면의 [새 버전으로 바꾸기] 는 설치된 새 버전의 이 파일을 세션과 따로 띄우고 자리를 넘긴다 (아래 __main__)."""
 import json
 import socket
+import sys
 import threading
 import time
 import urllib.request
@@ -77,6 +79,15 @@ def lead():
         time.sleep(5)
 
 
-if __name__ == "__main__":
-    print(f"→ {ORIGIN} (v{VERSION}) · 지표 DB: {DB}")
-    serve(ThreadingHTTPServer(("127.0.0.1", PORT), H))
+if __name__ == "__main__":  # 직접 실행 · [새 버전으로 바꾸기]: 앞 리더가 포트를 놓을 때까지 10초 기다렸다가 맡고, 자리를 넘기면 끝난다
+    for _ in range(10):
+        try:
+            srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
+            break
+        except OSError:
+            time.sleep(1)
+    else:
+        sys.exit(f"{PORT} 포트를 다른 프로그램이 쓰고 있습니다")
+    H.log_message = lambda *a: None  # 요청마다 남는 접근 기록은 버린다 — 세션과 따로 오래 돌아 로그 파일이 끝없이 커지지 않게
+    print(f"→ {ORIGIN} (v{VERSION}) · 지표 DB: {DB}", flush=True)
+    serve(srv)

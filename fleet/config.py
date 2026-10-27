@@ -49,13 +49,16 @@ def ver(v):
     return tuple(int(x) for x in str(v).split(".") if x.isdigit())
 
 
-def installed_version():
-    """~/.claude/plugins/installed_plugins.json 의 hudson-fleet 버전. 못 읽으면 None (직접 실행 등)."""
+def installed():
+    """~/.claude/plugins/installed_plugins.json 의 hudson-fleet 행 {version, installPath, …}. 못 읽으면 {} (직접 실행 등)."""
     try:
-        rows = json.loads((Path.home() / ".claude" / "plugins" / "installed_plugins.json").read_text())["plugins"]
-        return rows["hudson-fleet@hudson-fleet"][0]["version"]
+        return json.loads((Path.home() / ".claude" / "plugins" / "installed_plugins.json").read_text())["plugins"]["hudson-fleet@hudson-fleet"][0]
     except (OSError, ValueError, KeyError, IndexError):
-        return None
+        return {}
+
+
+def installed_version():
+    return installed().get("version")
 
 
 # 대시보드가 내부용으로 돌리는 claude -p 는 MCP 서버·훅을 띄우지 않는다.

@@ -6,7 +6,7 @@ import Mcp from './Mcp'
 import { History, Issues, Pushes, Settings } from './Pages'
 import Projects from './Projects'
 import SidePanel from './SidePanel'
-import { App as Ctx, grp, isDead, post, tilde, usePoll } from './lib'
+import { App as Ctx, grp, isDead, post, tilde, useApp, usePoll } from './lib'
 
 const PAGES = { home: ['현황', Home], projects: ['프로젝트', Projects], history: ['세션 기록', History], pushes: ['Push 기록', Pushes], issues: ['이슈·PR', Issues], mcp: ['MCP 서버', Mcp], settings: ['설정', Settings] }
 const page = () => PAGES[location.hash.slice(1)] ? location.hash.slice(1) : 'home'
@@ -56,17 +56,37 @@ function useNotify(G, openSide) {
 
 // 버전: 화면을 띄운 리더의 버전. 더 새 버전이 설치돼 있으면 알리고, 리더가 바뀌어 버전이 달라지면 새 화면으로 새로 고친다
 const newer = (a, b) => { const x = (a || '').split('.').map(Number), y = (b || '').split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false }
+// [새 버전으로 바꾸기]: 서버가 설치된 새 버전을 세션과 따로 띄우고 자리를 넘긴다. 새 버전이 뜨면 새로 고치고, 세션마다 할 일을 알린다
+const RELOAD = '열린 세션에서 /reload-plugins 를 하면 에이전트 도구도 새 버전이 됩니다'
 function Version() {
+  const { setMsg } = useApp()
   const V = usePoll('/api/version', 10000)
-  const first = useRef(null)
+  const first = useRef(null), [busy, setBusy] = useState(false)
   useEffect(() => {
     if (!V?.version) return
     if (!first.current) first.current = V.version
     else if (first.current !== V.version) location.reload()
   }, [V])
+  useEffect(() => {  // 바꾼 뒤 새로 고친 화면에서 한 번만
+    try { const v = sessionStorage.getItem('upgraded'); if (v) { sessionStorage.removeItem('upgraded'); setMsg(`v${v} 로 바꿨습니다 · ${RELOAD}`) } } catch { /* 저장소 막힘 */ }
+  }, [])
+  const up = async () => {
+    setBusy(true)
+    const r = await post('/api/upgrade', {})
+    if (r.error) { setBusy(false); return setMsg(r.error) }
+    try { sessionStorage.setItem('upgraded', r.version) } catch { /* 저장소 막힘 */ }
+    for (let i = 0; i < 30; i++) {  // 새 서버가 포트를 잡을 때까지 (보통 1~2초)
+      await new Promise(f => setTimeout(f, 500))
+      try { if ((await (await fetch('/api/version')).json()).version === r.version) return location.reload() } catch { /* 바뀌는 중 */ }
+    }
+    setBusy(false)
+    setMsg('새 버전이 뜨지 않았습니다. Claude Code 세션을 새로 열어 보세요')
+  }
   if (!V?.version) return null
   return newer(V.installed, V.version)
-    ? <span className="pill" style={{ color: 'var(--t-todo)' }} title="지금 화면은 옛 버전 세션이 띄우고 있습니다. Claude Code 세션을 새로 열면 10초 안에 새 버전이 넘겨받습니다">v{V.version} → v{V.installed} 설치됨</span>
+    ? <><span className="pill" style={{ color: 'var(--t-todo)' }} title="새 버전이 설치됐지만 지금 화면은 옛 버전이 띄우고 있습니다">v{V.version} → v{V.installed} 설치됨</span>
+      <button className="sm pri" disabled={busy} onClick={up} title={'대시보드를 바로 새 버전으로 바꿉니다. 바꾼 대시보드는 세션을 모두 꺼도 켜져 있습니다. ' + RELOAD}>
+        {busy ? '바꾸는 중…' : '새 버전으로 바꾸기'}</button></>
     : <span className="meta" title="이 화면을 띄운 플러그인 버전">v{V.version}</span>
 }
 

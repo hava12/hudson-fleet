@@ -5,6 +5,8 @@ import os
 import re
 import signal
 import sqlite3
+import subprocess
+import sys
 import threading
 from collections import Counter
 from http.server import BaseHTTPRequestHandler
@@ -13,8 +15,8 @@ from urllib.parse import parse_qs, urlparse
 
 from .agents import find_session, graph, mcp_servers, reopen, session
 from .card import card_svg, tokens_svg
-from .config import CFG, CONFIG, ORIGIN, VERSION, claude, installed_version, ver
-from .db import EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
+from .config import CFG, CONFIG, ORIGIN, VERSION, claude, installed, installed_version, ver
+from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
 from .para import has_project, open_projects, para, project_of_epic, save_area, save_project
 from .pushes import pushes
@@ -191,6 +193,17 @@ class H(BaseHTTPRequestHandler):
         if self.path in ("/api/area", "/api/project"):  # 영역·프로젝트 만들기·고치기·지우기 (fleet/para.py)
             err = (save_area if self.path == "/api/area" else save_project)(body)
             return self.send({"error": err} if err else {"ok": True})
+        if self.path == "/api/upgrade":  # [새 버전으로 바꾸기] — 설치된 새 버전의 server.py 를 세션과 따로 띄우고 자리를 넘긴다
+            row = installed()
+            new = Path(row.get("installPath", "")) / "server.py"
+            if ver(row.get("version")) <= ver(VERSION) or not new.is_file():
+                return self.send({"error": "더 새 버전이 설치돼 있지 않습니다"})
+            # 새 세션(setsid)이라 이 세션이 끝나도 산다. stdout 은 MCP 통신 줄이라 물려주지 않고 로그 파일로
+            with open(DB.parent / "server.log", "ab") as log:
+                subprocess.Popen([sys.executable, str(new)], cwd=new.parent, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                                 start_new_session=True)
+            self.send({"ok": True, "version": row["version"]})
+            return threading.Thread(target=self.server.shutdown, daemon=True).start()  # /api/handover 와 같이 포트를 놓는다
         if self.path == "/api/config":  # {name, value} — EDIT 에 있는 설정만. 빈 값이면 환경 변수·기본값으로
             err = set_setting(body.get("name"), body.get("value"))
             return self.send({"error": err} if err else {"ok": True})
