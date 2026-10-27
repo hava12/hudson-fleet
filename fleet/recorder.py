@@ -21,9 +21,6 @@ def archive(n, status):
     """끝난 세션을 sessions 에 status=closed 로 마감한다.
     기록할 작업(session_tasks)은 summarize 로 채운다 — 저장본이 최신이면 haiku 를 다시 부르지 않는다."""
     sid = n["sessionId"]
-    path = transcript(sid)
-    if not path:
-        return
     if n["kind"] == "background":
         reason = status
     elif not n.get("pid"):  # 리더가 바뀌는 사이에 끝나 DB 에서 찾은 세션 — 끝난 방식을 모른다
@@ -34,6 +31,14 @@ def archive(n, status):
             reason = "switched"  # 프로세스는 살아 있고 세션만 바뀜 (/clear·/resume)
         except OSError:
             reason = "exited"  # 직접 종료·창 닫기·크래시 — 여기서는 구분 못 한다
+    path = transcript(sid)
+    if not path:  # 대화 기록을 남기지 않는 세션(claude -p --no-session-persistence)은 상태만 마감한다
+        c = db()
+        c.execute("UPDATE sessions SET status='closed', status_since=?, ended_at=?, end_reason=? WHERE sid=?",
+                  (now_iso(), now_iso(), reason, sid))
+        c.commit()
+        c.close()
+        return
     ov = overview(path)
     tokens = sum(t for _, t in token_rows([path, *(p for *_, p in subagents(sid))]))
     if CFG["HUDSON_FLEET_AUTO_SUMMARY"] != "0":

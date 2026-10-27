@@ -7,7 +7,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from .config import CFG, SESSIONS, claude
+from .config import CFG, INTERNAL, SESSIONS, claude
 from .db import db
 from .transcripts import model_of, overview, subagents, transcript
 
@@ -30,18 +30,19 @@ def mcp_servers(refresh=False):
 
 
 def agents():
-    """claude agents 목록에서 1회성 `claude -p` 실행(entrypoint=sdk-cli)을 뺀다.
-    대시보드 자신의 /usage·AI 요약 호출도 여기에 해당 — 몇 초 떴다 사라지는 '유령 세션'이 된다."""
-    def headless(s):
+    """claude agents 목록에서 대시보드 자신의 `claude -p` 호출(/usage·AI 요약, 이름 INTERNAL)을 뺀다.
+    몇 초 떴다 사라지는 '유령 세션'이 되기 때문. 다른 도구가 띄운 claude -p(예: 하네스의 역할 호출)는 보인다."""
+    def internal(s):
         if "pid" not in s:  # 백그라운드 작업은 pid 가 없다
             return False
         try:
-            return json.loads((SESSIONS / f"{s['pid']}.json").read_text()).get("entrypoint") == "sdk-cli"
+            info = json.loads((SESSIONS / f"{s['pid']}.json").read_text())
+            return info.get("entrypoint") == "sdk-cli" and info.get("name") == INTERNAL
         except OSError:  # 목록에는 남았는데 파일은 지워짐 = 막 끝난 프로세스
             return True
         except ValueError:
             return False
-    return [s for s in agent_list() if not headless(s)]
+    return [s for s in agent_list() if not internal(s)]
 
 
 _ag = {"at": 0, "data": []}

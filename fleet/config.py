@@ -60,8 +60,10 @@ def installed_version():
 
 # 대시보드가 내부용으로 돌리는 claude -p 는 MCP 서버·훅을 띄우지 않는다.
 # 안 그러면 호출마다 사용자의 MCP 서버(예: Java 서버)와 다른 플러그인의 SessionStart 훅이 전부 실행된다.
+# 세션 이름을 INTERNAL 로 붙여, 세션 목록에서 이 호출만 뺀다 (다른 도구가 띄운 claude -p 는 보인다).
+INTERNAL = "hudson-fleet-internal"
 QUIET = ("--no-session-persistence", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
-         "--settings", '{"disableAllHooks":true}')
+         "--settings", '{"disableAllHooks":true}', "--name", INTERNAL)
 
 
 def claude(*args, cwd=None):
