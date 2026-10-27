@@ -69,6 +69,23 @@ def jira_issues():
             for i in jira("/rest/api/3/search/jql?" + q).get("issues", []) for f in [i["fields"]]]
 
 
+def _adf_text(n):
+    """Jira 본문(ADF: 문서 구조 JSON)을 글로 — 글자만 모으고 문단·제목·코드 끝에서 줄을 바꾼다."""
+    if isinstance(n, list):
+        return "".join(_adf_text(x) for x in n)
+    if not isinstance(n, dict):
+        return ""
+    t = "\n" if n.get("type") == "hardBreak" else n.get("text", "") + _adf_text(n.get("content", []))
+    return t + "\n" if n.get("type") in ("paragraph", "heading", "codeBlock") else t
+
+
+def jira_issue(key):
+    """이슈 하나의 제목·본문 (맡기기 지시문용)."""
+    i = jira(f"/rest/api/3/issue/{urllib.parse.quote(key)}?fields=summary,description")
+    return {"key": i["key"], "title": i["fields"]["summary"], "url": f"https://{CFG['HUDSON_FLEET_JIRA_SITE']}/browse/{i['key']}",
+            "body": _adf_text(i["fields"].get("description")).strip()}
+
+
 def github_prs():
     """열려 있는 내 PR 과 나에게 리뷰 요청된 PR (검색 API, 최근 업데이트 순)."""
     def find(q):

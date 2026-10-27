@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { TaskSum, fmtTok, post, tilde, useApp, usePoll, when } from './lib'
 
 export const REASON = { switched: '세션 전환 (/clear·/resume)', exited: '프로세스 종료', stopped: '중지', failed: '실패', completed: '완료', gone: '사라짐' }
@@ -76,19 +76,44 @@ const PrTable = ({ ps }) => <div className="tw"><table className="tbl"><tbody>
     <td style={{ whiteSpace: 'normal' }}>{p.title}{p.draft && <span className="pill" style={{ marginLeft: 6 }}>초안</span>}</td>
     <td className="meta" style={{ width: 140 }}>{when(p.updated)}</td></tr>)}
   {!ps.length && <tr><td className="meta">없음</td></tr>}</tbody></table></div>
+// 맡기기: 이슈를 고른 폴더의 새 백그라운드 에이전트에게. 폴더는 지난 세션 기록으로 미리 골라 두고, 틀리면 바꾼다
+function Assign({ k }) {
+  const { G, setMsg, bump } = useApp()
+  const g = usePoll('/api/assign?key=' + k, 0)
+  const [cwd, setCwd] = useState(null), [busy, setBusy] = useState(false), [res, setRes] = useState('')
+  if (!g) return <span className="meta">폴더 찾는 중…</span>
+  if (g.error) return <span className="meta">{g.error}</span>
+  const v = cwd ?? g.cwd
+  const go = async () => {
+    setBusy(true)
+    const r = await post('/api/assign', { key: k, cwd: v })
+    setBusy(false)
+    setRes(r.error || r.text)
+    if (!r.error) { setMsg(`${k} 를 에이전트에게 맡겼습니다`); bump() }
+  }
+  return <div className="uadd" style={{ marginTop: 0, alignItems: 'center' }}>
+    <span className="meta">일할 폴더</span>
+    <select value={v} onChange={e => setCwd(e.target.value)}>{g.recent.map(d => <option key={d} value={d}>{tilde(d, G.home)}</option>)}</select>
+    <span className="meta">{v === g.cwd ? g.why : '직접 고름'}</span>
+    <button className="sm pri" disabled={busy || !v || !!res} onClick={go}>{busy ? '띄우는 중…' : '새 에이전트에게 맡기기'}</button>
+    {res && <pre style={{ width: '100%' }}>{res}</pre>}</div>
+}
+
 export function Issues() {
-  const [n, setN] = useState(0)
+  const [n, setN] = useState(0), [open, setOpen] = useState('')  // open: [맡기기] 를 펼친 이슈 키
   const J = usePoll('/api/jira', 0, [n]), GH = usePoll('/api/github', 0, [n])
   const again = <button className="sm" style={{ marginLeft: 'auto' }} onClick={() => setN(n + 1)}>새로 고침</button>
   return <div className="pg">
     <section className="card"><div className="sh"><h2>Jira</h2>
       <span className="meta">{J?.items ? `나에게 할당된, 끝나지 않은 이슈 ${J.items.length}건` : ''}</span>{again}</div>
       {!J ? <div className="meta">불러오는 중…</div> : J.error ? <Off e={J.error} /> : <div className="tw"><table className="tbl"><tbody>
-        <tr><th>키</th><th>제목</th><th>상태</th><th>프로젝트</th><th>업데이트</th></tr>
-        {J.items.map(i => <tr key={i.key}><td><Ext u={i.url} t={i.key} /></td><td style={{ whiteSpace: 'normal' }}>{i.title}</td>
+        <tr><th>키</th><th>제목</th><th>상태</th><th>프로젝트</th><th>업데이트</th><th /></tr>
+        {J.items.map(i => <Fragment key={i.key}><tr><td><Ext u={i.url} t={i.key} /></td><td style={{ whiteSpace: 'normal' }}>{i.title}</td>
           <td><span className="pill" style={{ color: JCAT[i.cat] }}>{i.status}</span></td>
-          <td className="meta">{i.project} · {i.type}</td><td className="meta">{when(i.updated)}</td></tr>)}
-        {!J.items.length && <tr><td colSpan="5" className="meta">할당된 이슈가 없습니다</td></tr>}</tbody></table></div>}
+          <td className="meta">{i.project} · {i.type}</td><td className="meta">{when(i.updated)}</td>
+          <td><button className="sm" onClick={() => setOpen(open === i.key ? '' : i.key)}>{open === i.key ? '닫기' : '맡기기'}</button></td></tr>
+          {open === i.key && <tr><td colSpan="6"><Assign k={i.key} /></td></tr>}</Fragment>)}
+        {!J.items.length && <tr><td colSpan="6" className="meta">할당된 이슈가 없습니다</td></tr>}</tbody></table></div>}
     </section>
     <section className="card"><div className="sh"><h2>GitHub</h2>
       <span className="meta">{GH?.mine ? `열린 내 PR ${GH.mine.length}건 · 리뷰 요청 ${GH.review.length}건` : ''}</span>{again}</div>

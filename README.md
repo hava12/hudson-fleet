@@ -135,6 +135,9 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 **이슈·PR** (설정 ⚙ → 연결에서 GitHub·Jira 를 켜고 토큰을 넣었을 때)
 
 - **Jira**: 나에게 할당되고 아직 끝나지 않은 이슈. 키를 누르면 Jira 로 갑니다.
+- **맡기기**: 이슈 줄의 [맡기기] → 일할 폴더를 고르고 [새 에이전트에게 맡기기] 를 누르면, 그 폴더에서 백그라운드 에이전트(`claude --bg`)가 이슈 제목·본문을 받아 일을 시작합니다. 세션 이름은 `키 제목` 입니다.
+  - 폴더는 지난 세션 기록(이름·제목)으로 미리 골라 둡니다: 같은 이슈를 했던 폴더 → 같은 프로젝트 키(`QA-`) 이슈를 가장 많이 한 폴더 → 최근 폴더. 맡길수록 세션 이름에 키가 남아 더 잘 맞습니다.
+  - 에이전트에게는 커밋·push 를 하지 말라고 지시합니다. 권한을 물으면 현황에 "입력 대기"로 보이고, `claude attach <id>` 로 들어가 답합니다.
 - **GitHub**: 열려 있는 내 PR 과 나에게 리뷰 요청된 PR.
 - API 호출을 아끼려고 자동으로 갱신하지 않습니다. [새로 고침] 을 누릅니다.
 
@@ -232,6 +235,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `GET /api/mcp` | MCP 서버 연결 상태 |
 | `GET /api/version` | 화면을 띄운 리더의 버전과 설치된 플러그인 버전 |
 | `POST /api/handover` | 더 새 버전 대기자가 리더 자리를 넘겨 달라고 함 `{version}`. Origin 이 없는 요청만, 더 새 버전일 때만 물러남 |
+| `GET /api/assign?key=` · `POST /api/assign` | 맡기기: 폴더 추천 `{cwd, why, recent}` · `{key, cwd}` 로 그 폴더에 이슈를 맡긴 백그라운드 에이전트를 띄움 (`claude --bg -n "키 제목"`) |
 | `GET /api/jira` · `GET /api/github` | 이슈·PR 페이지: 나에게 할당된 끝나지 않은 Jira 이슈 `{items}` · 열린 내 PR 과 리뷰 요청 PR `{mine, review}`. 꺼져 있거나 토큰이 없으면 `{error}` |
 | `POST /api/connect` | 연결 확인 `{service: github·jira}` → 저장된 토큰으로 내 계정 이름 `{ok, who}` 또는 `{error}` |
 | `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지, `secret`: 토큰이라 끝 4글자만) · 바꾸기 `{name, value}` |

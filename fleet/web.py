@@ -6,6 +6,7 @@ import re
 import signal
 import sqlite3
 import threading
+from collections import Counter
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -14,7 +15,7 @@ from .agents import find_session, graph, mcp_servers, reopen, session
 from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, ORIGIN, VERSION, claude, installed_version, ver
 from .db import EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
-from .links import LinkError, check as check_link, github_prs, jira_issues
+from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
 from .usage import usage, usage5h_all
@@ -33,6 +34,32 @@ def agent_task(body):
     if op == "list":
         return {"tasks": saved_tasks(sid)[0]}, 200
     return {"error": "op 확인 (start·update·list)"}, 400
+
+
+JIRA_KEY = re.compile(r"[A-Z][A-Z0-9_]+-\d+")
+
+
+def guess_cwd(key):
+    """이슈를 맡길 폴더를 지난 세션 기록(이름·제목)으로 고른다: 같은 이슈 → 같은 프로젝트 키(QA-) 를 가장 많이 한 폴더 → 최근 폴더.
+    맡길 때 세션 이름을 '키 제목' 으로 붙이므로, 맡길수록 잘 맞는다."""
+    c = db()
+    rows = [r for r in c.execute("SELECT name, coalesce(my_title, title), cwd FROM sessions WHERE cwd IS NOT NULL"
+                                 " ORDER BY last_seen DESC") if os.path.isdir(r[2])]
+    c.close()
+    recent = list(dict.fromkeys(r[2] for r in rows))
+    proj = key.split("-")[0]
+    for why, pat in (("같은 이슈를 했던 폴더", rf"\b{key}\b"), (f"{proj} 이슈를 가장 많이 한 폴더", rf"\b{proj}-\d+")):
+        hit = Counter(r[2] for r in rows if re.search(pat, f"{r[0]} {r[1]}"))
+        if hit:
+            cwd = hit.most_common(1)[0][0]
+            return {"cwd": cwd, "why": why, "recent": [cwd] + [d for d in recent if d != cwd][:9]}
+    return {"cwd": recent[0] if recent else "", "why": "기록이 없어 최근 폴더", "recent": recent[:10]}
+
+
+def assign_prompt(i):
+    body = i["body"][:4000] or "(본문 없음)"
+    return (f"{i['key']} 「{i['title']}」 Jira 이슈를 맡아 처리해 줘. {i['url']}\n\n[이슈 본문]\n{body}\n\n"
+            "먼저 코드를 살펴 무엇을 바꿀지 계획을 세우고 진행해. 커밋·push 는 하지 말고, 끝나면 바꾼 것과 확인한 것을 정리해 줘.")
 
 
 DIST = (Path(__file__).parent.parent / "dist").resolve()  # web/ 의 React 빌드 결과
@@ -60,6 +87,8 @@ class H(BaseHTTPRequestHandler):
                 return self.send({"items": jira_issues()} if u.path == "/api/jira" else github_prs())
             except LinkError as e:
                 return self.send({"error": str(e)})
+        if u.path == "/api/assign":  # ?key=QA-3001 — 맡길 폴더 추천과 고를 수 있는 최근 폴더
+            return self.send(guess_cwd(q["key"]) if JIRA_KEY.fullmatch(q.get("key", "")) else {"error": "이슈 키 확인"})
         if u.path == "/api/graph":
             return self.send(graph())
         if u.path == "/api/config":
@@ -139,6 +168,15 @@ class H(BaseHTTPRequestHandler):
                 return self.send({"ok": True, "who": check_link(body.get("service"))})
             except LinkError as e:
                 return self.send({"error": str(e)})
+        if self.path == "/api/assign":  # {key, cwd} — Jira 이슈를 그 폴더의 새 백그라운드 에이전트에게. 세션 이름은 '키 제목'
+            cwd = os.path.expanduser(body.get("cwd", ""))
+            if not JIRA_KEY.fullmatch(body.get("key", "")) or not os.path.isdir(cwd):
+                return self.send({"error": "이슈 키·폴더 확인"}, code=400)
+            try:
+                i = jira_issue(body["key"])
+            except LinkError as e:
+                return self.send({"error": str(e)})
+            return self.send({"text": claude("--bg", "-n", f"{i['key']} {i['title']}"[:60], assign_prompt(i), cwd=cwd)})
         if self.path == "/api/config":  # {name, value} — EDIT 에 있는 설정만. 빈 값이면 환경 변수·기본값으로
             err = set_setting(body.get("name"), body.get("value"))
             return self.send({"error": err} if err else {"ok": True})
