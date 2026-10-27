@@ -5,15 +5,16 @@ import { TaskSum, Tip, post, useApp, usePoll, when } from './lib'
 // ── PARA: 일과 자료를 실행 가능성 순서로 네 칸에 나눈다 (fleet/para.py) ──
 // 프로젝트·영역은 사람이 여기서 만들고, 에이전트는 작업을 기록할 때 프로젝트 번호를 적고 자료를 MCP 로 남긴다.
 // 보관은 따로 만들지 않는다 — 끝난 프로젝트와 보관한 영역이 보관 칸에 모인다
-const PARA = [  // [키, 글자, 이름, 영어, 뜻, 판별 질문]
-  ['p', 'P', '프로젝트', 'Projects', '끝나는 때와 완료 조건이 있는 일', '언제 끝나는지 말할 수 있나?'],
-  ['a', 'A', '영역', 'Areas', '끝나지 않고 계속 지킬 책임', '계속 유지해야 하나?'],
-  ['r', 'R', '자료', 'Resources', '지금 할 일은 아니지만 나중에 다시 쓸 참고', '나중에 다시 꺼내 쓸까?'],
-  ['x', 'A', '보관', 'Archives', '끝났거나 더는 책임지지 않는 것', '끝났거나 관심이 식었나?'],
+// 칸 순서: 프로젝트가 영역 아래에 달리므로 Areas 를 맨 앞에 둔다 (PARA 이름 순서는 P·A·R·A)
+const PARA = [  // [키, 이름, 뜻, 판별 질문]
+  ['a', 'Areas', '끝나지 않고 계속 지킬 책임', '계속 유지해야 하나?'],
+  ['p', 'Projects', '끝나는 때와 완료 조건이 있는 일', '언제 끝나는지 말할 수 있나?'],
+  ['r', 'Resources', '지금 할 일은 아니지만 나중에 다시 쓸 참고', '나중에 다시 꺼내 쓸까?'],
+  ['x', 'Archives', '끝났거나 더는 책임지지 않는 것', '끝났거나 관심이 식었나?'],
 ]
 const ST = { active: ['진행 중', 'var(--acc)'], pending: ['시작 전', 'var(--t-todo)'], done: ['끝남 (보관)', 'var(--t-done)'] }
 const ORDER = ['active', 'pending', 'done']
-const saved = () => { try { return localStorage.getItem('paratab') || 'p' } catch { return 'p' } }
+const saved = () => { try { return localStorage.getItem('paratab') || 'a' } catch { return 'a' } }
 
 // 영역 고르기: 보관한 영역은 고를 수 없다 (이미 붙어 있으면 그대로 보인다)
 const AreaSel = ({ as, v, set }) => <select value={v || ''} onChange={e => set(e.target.value ? +e.target.value : null)}>
@@ -52,7 +53,7 @@ function ProjTable({ ps, as, save }) {
   }
   // 상태별 표가 여럿이라 칸 폭을 고정해 줄을 맞춘다. 좁은 화면에서는 가로로 밀린다
   return <div className="tw"><table className="tbl" style={{ tableLayout: 'fixed', minWidth: 1060 }}><tbody>
-    <tr><th>프로젝트</th><th style={{ width: 170 }}>영역</th><th style={{ width: 130 }}>상태</th><th style={{ width: 200 }}>기간</th>
+    <tr><th>Project</th><th style={{ width: 170 }}>Area</th><th style={{ width: 130 }}>상태</th><th style={{ width: 200 }}>기간</th>
       <th style={{ width: 190 }}>작업</th><th style={{ width: 140 }} /></tr>
     {ps.map(({ tasks, ...p }) => <Fragment key={p.id}><tr>
       <td style={{ whiteSpace: 'normal' }}><a className="lk" onClick={() => setOpen(open === p.id ? 0 : p.id)}>{p.name}</a>
@@ -100,7 +101,7 @@ function Areas({ as, ps, save }) {
   }
   return <>
     <div className="tw"><table className="tbl" style={{ minWidth: 640 }}><tbody>
-      <tr><th>영역</th><th>유지할 상태</th><th>진행 중·시작 전 프로젝트</th><th /></tr>
+      <tr><th>Area</th><th>유지할 상태</th><th>Projects (진행 중·시작 전)</th><th /></tr>
       {live.map(a => <tr key={a.id}><td><b>{a.name}</b></td><td style={{ whiteSpace: 'normal' }}>{a.keep}</td>
         <td style={{ whiteSpace: 'normal' }}>{ps.filter(p => p.area_id === a.id && p.status !== 'done').map(p => <span key={p.id} className="pill" style={{ margin: '0 4px 4px 0' }}>{p.name}</span>)}</td>
         <td className="acts"><button className="sm" onClick={() => edit(a)}>고치기</button>
@@ -133,11 +134,11 @@ function Resources({ rs, del }) {
 function Archives({ ps, as, save, saveA }) {
   const done = ps.filter(p => p.status === 'done'), gone = as.filter(a => a.archived_at)
   return <>
-    <h4>끝난 프로젝트 {done.length}</h4>
+    <h4>Projects {done.length}</h4>
     {done.length ? <ProjTable ps={done} as={as} save={save} /> : <p className="meta">없습니다. 직접 만든 프로젝트는 상태를 끝남으로 바꾸면, Jira 에픽 프로젝트는 에픽이 Done 이 되면 여기로 옵니다</p>}
-    <h4>보관한 영역 {gone.length}</h4>
+    <h4>Areas {gone.length}</h4>
     {gone.length ? <div className="tw"><table className="tbl" style={{ minWidth: 640 }}><tbody>
-      <tr><th>영역</th><th>유지할 상태</th><th>보관한 날</th><th /></tr>
+      <tr><th>Area</th><th>유지할 상태</th><th>보관한 날</th><th /></tr>
       {gone.map(a => <tr key={a.id}><td><b>{a.name}</b></td><td style={{ whiteSpace: 'normal' }}>{a.keep}</td><td className="meta">{when(a.archived_at)}</td>
         <td className="acts"><button className="sm" onClick={() => saveA({ id: a.id, archive: false })}>되살리기</button>
           <button className="sm danger" onClick={() => confirm(`"${a.name}" 영역을 지울까요?`) && saveA({ id: a.id, delete: true })}>삭제</button></td></tr>)}
@@ -161,17 +162,17 @@ export default function Para() {
   const { areas: as, projects: ps, resources: rs } = P
   const n = { p: ps.filter(p => p.status !== 'done').length, a: as.filter(a => !a.archived_at).length, r: rs.length,
     x: ps.filter(p => p.status === 'done').length + as.filter(a => a.archived_at).length }
-  const [, L, ko, en, def, ask] = PARA.find(x => x[0] === tab)
+  const [, name, def, ask] = PARA.find(x => x[0] === tab)
   return <div className="pg"><section className="card">
     <div className="sh"><h2>PARA</h2>
-      <Tip><b>PARA</b> 는 일과 자료를 <b>지금 얼마나 행동할 수 있나</b> 순서로 네 칸에 나누는 방법입니다 (티아고 포르테). 주제가 아니라 실행 가능성으로 나눕니다.
-        <ul>{PARA.map(([k, L, ko, en, def]) => <li key={k}><b>{L} · {ko}</b> ({en}): {def}</li>)}</ul>
-        위 칸일수록 지금 손댈 일입니다. 프로젝트·영역은 사람이 만들고, 에이전트는 작업에 프로젝트 번호를 적고 자료를 남깁니다.</Tip>
-      <div className="ptabs">{PARA.map(([k, L, ko]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>
-        <b>{L}</b>{ko}<span className="cnt">{n[k]}</span></button>)}</div></div>
-    <p className="meta pdef"><b>{L} · {ko}</b> ({en}) — {def}. 판별 질문: {ask}</p>
-    {tab === 'p' && <Projects ps={ps} as={as} save={saveP} />}
+      <Tip><b>PARA</b> 는 일과 자료를 <b>지금 얼마나 행동할 수 있나</b> 순서(Projects → Areas → Resources → Archives)로 네 칸에 나누는 방법입니다 (티아고 포르테). 주제가 아니라 실행 가능성으로 나눕니다.
+        <ul>{PARA.map(([k, name, def]) => <li key={k}><b>{name}</b>: {def}</li>)}</ul>
+        이 화면에서는 프로젝트가 영역 아래에 달리므로 Areas 를 맨 앞에 둡니다. Areas·Projects 는 사람이 만들고, 에이전트는 작업에 프로젝트 번호를 적고 Resources 를 남깁니다.</Tip>
+      <div className="ptabs">{PARA.map(([k, name]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => go(k)}>
+        {name}<span className="cnt">{n[k]}</span></button>)}</div></div>
+    <p className="meta pdef"><b>{name}</b> — {def}. 판별 질문: {ask}</p>
     {tab === 'a' && <Areas as={as} ps={ps} save={saveA} />}
+    {tab === 'p' && <Projects ps={ps} as={as} save={saveP} />}
     {tab === 'r' && <Resources rs={rs} del={delR} />}
     {tab === 'x' && <Archives ps={ps} as={as} save={saveP} saveA={saveA} />}
   </section></div>
