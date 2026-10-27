@@ -9,6 +9,7 @@ from .agents import graph
 from .card import publish
 from .config import CFG, DEAD, now_iso
 from .db import db
+from .para import sync_jira
 from .tasks import summarize
 from .transcripts import overview, subagents, token_rows, transcript
 from .usage import daily_tokens, usage
@@ -108,7 +109,7 @@ def unclosed():
 
 def record(stop):
     """1분마다 지표 한 줄: 상태별 살아 있는 세션 수, 실행 중 서브에이전트 수, 5시간·1주일 사용률.
-    10분마다 날짜별 토큰 합계(잔디), 30분마다 프로필 카드도 갱신한다. 세션 상태는 sessions 에 남기고, 사라진 세션은 closed 로 마감한다."""
+    10분마다 날짜별 토큰 합계(잔디)와 Jira 에픽 프로젝트의 상태, 30분마다 프로필 카드도 갱신한다. 세션 상태는 sessions 에 남기고, 사라진 세션은 closed 로 마감한다."""
     prev = unclosed()  # 앞 리더(끝난 세션의 MCP 서버)가 마감하지 못한 세션도 마감한다
     for i in itertools.count():
         if stop.is_set():  # 리더 자리를 넘겼다 — 새 리더의 기록과 겹치지 않게 멈춘다
@@ -116,6 +117,8 @@ def record(stop):
         try:
             if i % 10 == 0:
                 save_daily()
+            if i % 10 == 5:  # Jira 에픽 프로젝트의 이름·상태 — 화면은 저장된 값만 읽는다
+                threading.Thread(target=sync_jira, daemon=True).start()
             if i % 30 == 0:  # 30분마다 프로필 카드
                 publish()
             if i % 1440 == 0:  # 하루에 한 번

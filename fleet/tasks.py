@@ -41,23 +41,24 @@ def norm_details(d):
     return json.dumps(lines[:MAX_DETAILS], ensure_ascii=False)
 
 
-def add_task(sid, text, source, status="todo", tag=None, details=None):
-    """작업 한 행을 맨 뒤(sort 최댓값 + 1)에 넣고 이력에 'start' 를 남긴다. 새 id 를 돌려준다."""
+def add_task(sid, text, source, status="todo", tag=None, details=None, project=None):
+    """작업 한 행을 맨 뒤(sort 최댓값 + 1)에 넣고 이력에 'start' 를 남긴다. 새 id 를 돌려준다.
+    project: 에이전트가 적은 프로젝트 id (fleet/para.py) — 있는 프로젝트인지는 부르는 쪽(web)이 확인한다."""
     t = now_iso()
     c = db()
     c.execute("INSERT INTO sessions (sid) VALUES (?) ON CONFLICT(sid) DO NOTHING", (sid,))
     sort = (c.execute("SELECT max(sort) FROM session_tasks WHERE sid = ?", (sid,)).fetchone()[0] or 0) + 1
-    tid = c.execute("INSERT INTO session_tasks (sid, sort, status, text, source, created_at, updated_at, tag, details)"
-                    " VALUES (?,?,?,?,?,?,?,?,?)",
-                    (sid, sort, status, text, source, t, t, norm_tag(tag), norm_details(details))).lastrowid
+    tid = c.execute("INSERT INTO session_tasks (sid, sort, status, text, source, created_at, updated_at, tag, details, project_id)"
+                    " VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (sid, sort, status, text, source, t, t, norm_tag(tag), norm_details(details), project or None)).lastrowid
     c.execute("INSERT INTO task_events (task_id, ts, status, note) VALUES (?,?,?,?)", (tid, t, "start", source))
     c.commit()
     c.close()
     return tid
 
 
-def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None, tag=None, details=None):
-    """작업 한 행의 분류·태그·순서·설명 줄을 바꾸거나 지운다. sid 를 주면 그 세션의 작업만 건드린다 (MCP 용).
+def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None, tag=None, details=None, project=None):
+    """작업 한 행의 분류·태그·순서·설명 줄·프로젝트(0 이면 뺀다)를 바꾸거나 지운다. sid 를 주면 그 세션의 작업만 건드린다 (MCP 용).
     사람이 haiku 행을 고치면 source 를 human 으로 바꿔 다음 haiku 정리 때 지워지지 않게 한다."""
     if (status is not None and status not in TASK_STATUS.values()) or (tag is not None and tag not in TAGS):
         return False
@@ -68,11 +69,13 @@ def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None,
     else:
         n = c.execute(f"UPDATE session_tasks SET status = coalesce(?, status), sort = coalesce(?, sort),"
                       f" tag = coalesce(?, tag), details = coalesce(?, details), note = coalesce(?, note), updated_at = ?,"
+                      f" project_id = CASE WHEN ? IS NULL THEN project_id ELSE nullif(?, 0) END,"
                       f" source = CASE WHEN ? = 'human' AND source = 'haiku' THEN 'human' ELSE source END WHERE {where}",
                       (status, sort, tag, norm_details(details), note.strip()[:200] if isinstance(note, str) and note.strip()
-                       else None, now_iso(), by, *key)).rowcount
+                       else None, now_iso(), project, project, by, *key)).rowcount
     if n:
-        what = status or ("tag:" + tag if tag else "details" if details is not None else "moved")
+        what = status or ("tag:" + tag if tag else "details" if details is not None else f"project:{project}" if project is not None
+                          else "moved")
         c.execute("INSERT INTO task_events (task_id, ts, status, note) VALUES (?,?,?,?)",
                   (tid, now_iso(), "deleted" if delete else what, note or by))
     c.commit()
@@ -95,7 +98,7 @@ def move_task(tid, to_sid):
     return n == 1
 
 
-TASKS_SQL = "SELECT id, sort, status, text, source, tag, details, note FROM session_tasks WHERE sid = ? ORDER BY sort, id"
+TASKS_SQL = "SELECT id, sort, status, text, source, tag, details, note, project_id FROM session_tasks WHERE sid = ? ORDER BY sort, id"
 
 
 def saved_tasks(sid):

@@ -56,15 +56,25 @@ def jira(path, body=None, method=None):
     return _json(_req(f"https://{site}{path}", {"Authorization": "Basic " + auth}, body, method), "Jira")
 
 
+def _epic(f):
+    """이슈가 속한 에픽 [키, 제목]. 에픽 밑이 아니면 None (하위 작업의 parent 는 스토리라 뺀다)."""
+    p = f.get("parent")
+    return [p["key"], p["fields"]["summary"]] if p and _is_epic(p["fields"]["issuetype"]) else None
+
+
+def _is_epic(t):
+    return t.get("hierarchyLevel") == 1 or t.get("name") in ("Epic", "에픽")
+
+
 def jira_issues():
     """나에게 할당되고 아직 끝나지 않은 이슈 (최근 업데이트 순, 50건까지)."""
     q = urllib.parse.urlencode({"jql": "assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC",
-                                "fields": "summary,status,priority,project,issuetype,updated", "maxResults": 50})
+                                "fields": "summary,status,priority,project,issuetype,updated,parent", "maxResults": 50})
     site = CFG["HUDSON_FLEET_JIRA_SITE"]
     return [{"key": i["key"], "url": f"https://{site}/browse/{i['key']}", "title": f["summary"],
              "status": f["status"]["name"], "cat": f["status"]["statusCategory"]["key"],  # new · indeterminate · done
              "project": f["project"]["key"], "type": f["issuetype"]["name"],
-             "priority": (f.get("priority") or {}).get("name"),
+             "priority": (f.get("priority") or {}).get("name"), "epic": _epic(f),
              "updated": re.sub(r"([+-]\d\d)(\d\d)$", r"\1:\2", f["updated"])}  # +0900 → +09:00 (Safari 가 읽게)
             for i in jira("/rest/api/3/search/jql?" + q).get("issues", []) for f in [i["fields"]]]
 
@@ -81,9 +91,18 @@ def _adf_text(n):
 
 def jira_issue(key):
     """이슈 하나의 제목·본문 (맡기기 지시문용)."""
-    i = jira(f"/rest/api/3/issue/{urllib.parse.quote(key)}?fields=summary,description")
+    i = jira(f"/rest/api/3/issue/{urllib.parse.quote(key)}?fields=summary,description,parent")
     return {"key": i["key"], "title": i["fields"]["summary"], "url": f"https://{CFG['HUDSON_FLEET_JIRA_SITE']}/browse/{i['key']}",
-            "body": _adf_text(i["fields"].get("description")).strip()}
+            "body": _adf_text(i["fields"].get("description")).strip(), "epic": (_epic(i["fields"]) or [None])[0]}
+
+
+def jira_epic(key):
+    """에픽 하나의 제목·상태 (프로젝트 연결·동기화용). 에픽이 아니면 LinkError."""
+    i = jira(f"/rest/api/3/issue/{urllib.parse.quote(key)}?fields=summary,status,issuetype")
+    f = i["fields"]
+    if not _is_epic(f["issuetype"]):
+        raise LinkError(f"{i['key']} 는 에픽이 아니라 {f['issuetype'].get('name')} 입니다")
+    return {"key": i["key"], "title": f["summary"], "status": f["status"]["name"], "cat": f["status"]["statusCategory"]["key"]}
 
 
 def github_prs():

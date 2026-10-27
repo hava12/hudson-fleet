@@ -16,6 +16,7 @@ from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, ORIGIN, VERSION, claude, installed_version, ver
 from .db import EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
+from .para import has_project, open_projects, para, project_of_epic, save_area, save_project
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
 from .usage import usage, usage5h_all
@@ -26,14 +27,20 @@ def agent_task(body):
     sid, op = body.get("sid") or "", body.get("op")
     if not re.fullmatch(r"[0-9a-f-]{36}", sid):
         return {"error": "세션 ID 확인"}, 400
+    pj = body.get("project")
+    if pj and not has_project(pj):  # 0 은 task_update 에서 "프로젝트 빼기"
+        return {"error": f"없는 프로젝트 id 입니다: {pj}. project_list 로 확인하세요"}, 400
     if op == "start" and isinstance(body.get("text"), str) and body["text"].strip():
-        return {"id": add_task(sid, body["text"][:160], "agent", tag=body.get("tag"), details=body.get("details"))}, 200
+        return {"id": add_task(sid, body["text"][:160], "agent", tag=body.get("tag"), details=body.get("details"), project=pj)}, 200
     if op == "update":
-        ok = set_task(body.get("id"), "agent", body.get("status"), note=body.get("note"), sid=sid, details=body.get("details"))
+        ok = set_task(body.get("id"), "agent", body.get("status"), note=body.get("note"), sid=sid, details=body.get("details"),
+                      project=pj)
         return ({"ok": True}, 200) if ok else ({"error": "이 세션의 작업 id 가 아니거나 분류가 잘못됐습니다"}, 400)
     if op == "list":
         return {"tasks": saved_tasks(sid)[0]}, 200
-    return {"error": "op 확인 (start·update·list)"}, 400
+    if op == "projects":
+        return {"projects": open_projects()}, 200
+    return {"error": "op 확인 (start·update·list·projects)"}, 400
 
 
 JIRA_KEY = re.compile(r"[A-Z][A-Z0-9_]+-\d+")
@@ -58,8 +65,10 @@ def guess_cwd(key):
 
 def assign_prompt(i):
     body = i["body"][:4000] or "(본문 없음)"
+    p = project_of_epic(i["epic"]) or project_of_epic(i["key"])  # 이슈의 에픽(또는 에픽 그 자체)에 연결한 프로젝트
+    pj = f"\n\n이 일은 프로젝트 #{p[0]} 「{p[1]}」 의 일이야. 작업을 기록할 때(task_start) project 값으로 {p[0]} 번을 넣어." if p else ""
     return (f"{i['key']} 「{i['title']}」 Jira 이슈를 맡아 처리해 줘. {i['url']}\n\n[이슈 본문]\n{body}\n\n"
-            "먼저 코드를 살펴 무엇을 바꿀지 계획을 세우고 진행해. 커밋·push 는 하지 말고, 끝나면 바꾼 것과 확인한 것을 정리해 줘.")
+            "먼저 코드를 살펴 무엇을 바꿀지 계획을 세우고 진행해. 커밋·push 는 하지 말고, 끝나면 바꾼 것과 확인한 것을 정리해 줘." + pj)
 
 
 DIST = (Path(__file__).parent.parent / "dist").resolve()  # web/ 의 React 빌드 결과
@@ -91,6 +100,8 @@ class H(BaseHTTPRequestHandler):
             return self.send(guess_cwd(q["key"]) if JIRA_KEY.fullmatch(q.get("key", "")) else {"error": "이슈 키 확인"})
         if u.path == "/api/graph":
             return self.send(graph())
+        if u.path == "/api/para":  # 프로젝트 페이지: 영역·프로젝트와 각 프로젝트에 적힌 작업
+            return self.send(para())
         if u.path == "/api/config":
             saved = saved_settings()  # src: screen 화면에서 바꿈 · env 환경 변수 · default 기본값
             hide = lambda k, v: ("****" + v[-4:] if v else "") if k.endswith("_TOKEN") else v  # 토큰은 끝 4글자만
@@ -177,6 +188,9 @@ class H(BaseHTTPRequestHandler):
             except LinkError as e:
                 return self.send({"error": str(e)})
             return self.send({"text": claude("--bg", "-n", f"{i['key']} {i['title']}"[:60], assign_prompt(i), cwd=cwd)})
+        if self.path in ("/api/area", "/api/project"):  # 영역·프로젝트 만들기·고치기·지우기 (fleet/para.py)
+            err = (save_area if self.path == "/api/area" else save_project)(body)
+            return self.send({"error": err} if err else {"ok": True})
         if self.path == "/api/config":  # {name, value} — EDIT 에 있는 설정만. 빈 값이면 환경 변수·기본값으로
             err = set_setting(body.get("name"), body.get("value"))
             return self.send({"error": err} if err else {"ok": True})

@@ -33,13 +33,17 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
    details 는 text 를 풀어 쓴 설명 1줄씩 최대 3개다. task_start 때는 할 일(계획)을, task_update 때는 실제로 한 일·결과를
    적어 바꾼다 (줄마다 60자 안팎, 동사로 끝냄). 한 줄로 충분한 작은 일은 비워 둔다.
 3. 이 도구들이 지연 로드(deferred) 상태면 먼저 ToolSearch 로
-   "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list" 를 불러온다.
+   "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list,mcp__plugin_hudson-fleet_fleet__project_list" 를 불러온다.
 4. 일하는 도중에 사용자가 덧붙인 요청도 규칙 1 을 따른다. 하던 일의 일부가 아니면 따로 task_start 한다
    (예: 노드 모양을 고치는 중에 "애니메이션도 넣어 줘" → 새 행). 바로 하지 않고 미루는 일도 task_start 만 해 두면 남은 일로 남는다.
    사용자에게 방법을 고르게 하거나 진행 여부를 묻는 제안을 했으면, 답을 기다리는 동안 그 제안도 task_start 로 남긴다
    (예: "제목 변경 방법 A·B 중 골라 구현한다"). 답을 받아 진행하면 그 행을 이어 쓰고, 하지 않기로 하면 "rejected".
 5. 기록하지 않는 것: 질문에 답만 하는 경우, 확인·잡담. 같은 일을 두 번 시작하지 않는다.
-6. 대화가 압축(compact)된 뒤에는 task_list 로 기록을 확인하고 이어서 쓴다."""
+6. 대화가 압축(compact)된 뒤에는 task_list 로 기록을 확인하고 이어서 쓴다.
+7. 프로젝트: 세션에서 처음 task_start 하기 전에 project_list 를 한 번 불러, 이 일이 속한 프로젝트가 있으면 task_start 의
+   project 에 그 id 를 넣는다 (Jira 에픽 프로젝트는 이슈가 그 에픽 밑인지, 직접 만든 프로젝트는 이름·완료 조건으로 판단).
+   지시문에 프로젝트 번호가 적혀 있으면 그것을 쓴다. 맞는 것이 없거나 애매하면 비워 둔다 — 프로젝트는 사용자만 만든다.
+   사용자가 다른 프로젝트라고 알려 주면 task_update 의 project 로 바로잡는다."""
 
 DETAILS = {"type": "array", "items": {"type": "string"}, "maxItems": 3}  # 3-Step-Desc (fleet/tasks.py MAX_DETAILS)
 
@@ -49,15 +53,20 @@ TOOLS = [
          "text": {"type": "string", "description": "120자 이내 한 문장"},
          "tag": {"type": "string", "enum": list(TAGS),
                  "description": "일의 종류 — " + " · ".join(f"{k}: {v}" for k, v in TAGS.items())},
-         "details": {**DETAILS, "description": "선택. 할 일(계획)을 풀어 쓴 설명 1줄씩 최대 3개"}},
+         "details": {**DETAILS, "description": "선택. 할 일(계획)을 풀어 쓴 설명 1줄씩 최대 3개"},
+         "project": {"type": "integer", "description": "선택. 이 일이 속한 프로젝트 id (project_list 에서 고른다). 맞는 것이 없으면 비운다"}},
                      "required": ["text", "tag"]}},
     {"name": "task_update", "description": "작업의 결과를 기록한다: done 완료 · stopped 중단 · rejected 반려 · todo 남은 일.",
      "inputSchema": {"type": "object", "properties": {
          "id": {"type": "integer"}, "status": {"type": "string", "enum": ["done", "stopped", "rejected", "todo"]},
          "note": {"type": "string", "description": "비고 한 줄 (done·stopped·rejected 때 꼭): 완료면 결과, 중단이면 멈춘 이유, 반려면 반려 이유"},
-         "details": {**DETAILS, "description": "선택. 실제로 한 일·결과 1줄씩 최대 3개. 주면 기존 설명을 바꾼다"}},
+         "details": {**DETAILS, "description": "선택. 실제로 한 일·결과 1줄씩 최대 3개. 주면 기존 설명을 바꾼다"},
+         "project": {"type": "integer", "description": "선택. 프로젝트를 바로잡을 때만. 0 이면 프로젝트에서 뺀다"}},
                      "required": ["id", "status"]}},
     {"name": "task_list", "description": "이 세션에 기록된 작업 목록 (순서대로).",
+     "inputSchema": {"type": "object", "properties": {}}},
+    {"name": "project_list", "description": "끝나지 않은 프로젝트 목록 (id, 이름, 종류 own 직접·jira 에픽, 에픽 키, 완료 조건, 영역)."
+                                            " task_start 의 project 를 고를 때 쓴다.",
      "inputSchema": {"type": "object", "properties": {}}},
 ]
 
@@ -103,15 +112,19 @@ def call(name, args):
     if not sid:
         return "Claude Code 세션을 찾지 못했습니다", True
     if name == "task_start":
-        r = api({"op": "start", "sid": sid, "text": args.get("text"), "tag": args.get("tag"), "details": args.get("details")})
+        r = api({"op": "start", "sid": sid, "text": args.get("text"), "tag": args.get("tag"), "details": args.get("details"),
+                 "project": args.get("project")})
         return (r["error"], True) if "error" in r else (json.dumps({"id": r["id"]}), False)
     if name == "task_update":
         r = api({"op": "update", "sid": sid, "id": args.get("id"), "status": args.get("status"), "note": args.get("note"),
-                 "details": args.get("details")})
+                 "details": args.get("details"), "project": args.get("project")})
         return (r["error"], True) if "error" in r else ("기록했습니다", False)
     if name == "task_list":
         r = api({"op": "list", "sid": sid})
         return (r["error"], True) if "error" in r else (json.dumps(r["tasks"], ensure_ascii=False), False)
+    if name == "project_list":
+        r = api({"op": "projects", "sid": sid})
+        return (r["error"], True) if "error" in r else (json.dumps(r["projects"], ensure_ascii=False), False)
     return f"없는 도구: {name}", True
 
 

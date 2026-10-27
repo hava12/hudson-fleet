@@ -37,6 +37,13 @@ def db():
         c.execute("ALTER TABLE session_tasks ADD COLUMN details TEXT")
     if "note" not in {r[1] for r in c.execute("PRAGMA table_info(session_tasks)")}:  # 완료·중단·반려 때의 비고 한 줄
         c.execute("ALTER TABLE session_tasks ADD COLUMN note TEXT")
+    if "project_id" not in {r[1] for r in c.execute("PRAGMA table_info(session_tasks)")}:  # 에이전트가 기록할 때 적은 프로젝트
+        c.execute("ALTER TABLE session_tasks ADD COLUMN project_id INT")
+    # PARA (fleet/para.py): 영역 1 : 프로젝트 N 1 : 작업 N. 영역·프로젝트는 사람이 만든다
+    c.execute("CREATE TABLE IF NOT EXISTS areas (id INTEGER PRIMARY KEY, name TEXT UNIQUE, keep TEXT, created_at TEXT)")
+    # kind: own 직접 만듦 · jira 에픽 / status: pending 시작 전 · active 진행 중 · done 끝남 (jira 는 에픽 상태를 받아 적기만)
+    c.execute("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY, kind TEXT, name TEXT, epic TEXT UNIQUE,"
+              " area_id INT, done_when TEXT, status TEXT, jira_status TEXT, start TEXT, end TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS task_events (id INTEGER PRIMARY KEY, task_id INT, ts TEXT, status TEXT,"
               " note TEXT)")  # 시작·완료·중단·반려·순서 변경 이력 (추가만)
     c.execute("DROP TABLE IF EXISTS session_files")  # 지운 "바뀐 파일" 기능(44f3f93)이 남긴 표
