@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { TaskSum, fmtTok, post, tilde, useApp, usePoll, when } from './lib'
+import { TaskSum, fmtTok, post, press, tilde, useApp, usePoll, when } from './lib'
 
 export const REASON = { switched: '세션 전환 (/clear·/resume)', exited: '프로세스 종료', stopped: '중지', failed: '실패', completed: '완료', gone: '사라짐' }
 
@@ -23,7 +23,7 @@ export function History() {
       <tr><th>끝난 시각</th><th>세션</th><th>종료 이유</th><th>작업</th><th>토큰</th><th /></tr>
       {H?.map(s => <tr key={s.sid}>
         <td className="meta">{when(s.ended_at)}</td>
-        <td><a className="lk" onClick={() => openSide({ type: 'history', sid: s.sid })}>{s.title || s.name || s.sid.slice(0, 8)}</a>
+        <td><a className="lk" {...press(() => openSide({ type: 'history', sid: s.sid }))}>{s.title || s.name || s.sid.slice(0, 8)}</a>
           <div className="meta" title={s.cwd}>{tilde(s.cwd, G.home)} · {s.kind === 'background' ? '백그라운드' : s.app || '대화형'}</div></td>
         <td><span className="pill">{REASON[s.end_reason] || s.end_reason}</span></td>
         <td><TaskSum ts={s.tasks} /></td><td className="meta">{fmtTok(s.tokens)}</td>

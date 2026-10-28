@@ -6,7 +6,7 @@ import Mcp from './Mcp'
 import { History, Issues, Pushes, Settings } from './Pages'
 import Para from './Para'
 import SidePanel from './SidePanel'
-import { App as Ctx, grp, isDead, post, tilde, useApp, usePoll } from './lib'
+import { App as Ctx, grp, isDead, post, press, tilde, useApp, usePoll } from './lib'
 
 const PAGES = { home: ['현황', Home], para: ['PARA', Para], history: ['세션 기록', History], pushes: ['Push 기록', Pushes], issues: ['이슈·PR', Issues], mcp: ['MCP 서버', Mcp], settings: ['설정', Settings] }
 const page = () => PAGES[location.hash.slice(1)] ? location.hash.slice(1) : 'home'
@@ -108,12 +108,12 @@ function useDown() {
 const sideW = w => w ? document.documentElement.style.setProperty('--sidew', w + 'px') : document.documentElement.style.removeProperty('--sidew')
 try { sideW(+localStorage.getItem('sidew') || 0) } catch { /* 저장소 막힘 */ }
 function Handle() {
-  const [on, setOn] = useState(false), w = useRef(0)
+  const [on, setOn] = useState(false), w = useRef(0)  // 이번에 끈 폭. 끌지 않고 누르기만 하면 0 이라 저장하지 않는다
   const save = v => { try { v ? localStorage.setItem('sidew', v) : localStorage.removeItem('sidew') } catch { /* 저장소 막힘 */ } }
   return <div id="sideH" className={on ? 'on' : ''} title="끌어서 폭 조절 · 두 번 누르면 기본 폭"
-    onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setOn(true); document.body.style.userSelect = 'none' }}
+    onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setOn(true); w.current = 0; document.body.style.userSelect = 'none' }}
     onPointerMove={e => { if (!e.currentTarget.hasPointerCapture(e.pointerId)) return; w.current = Math.round(Math.min(Math.max(innerWidth - e.clientX, 300), innerWidth * .8)); sideW(w.current) }}
-    onPointerUp={() => { setOn(false); document.body.style.userSelect = ''; save(w.current) }}
+    onPointerUp={() => { setOn(false); document.body.style.userSelect = ''; if (w.current) save(w.current) }}
     onDoubleClick={() => { w.current = 0; sideW(0); save(0) }} />
 }
 
@@ -126,14 +126,20 @@ function NavMenu({ label, keys, pg }) {
     return () => { clearTimeout(t); removeEventListener('click', close) }
   }, [open])
   return <div className="dd">
-    <a className={keys.includes(pg) ? 'on' : ''} role="button" aria-expanded={open} onClick={() => setOpen(!open)}>{label} ▾</a>
+    <a className={keys.includes(pg) ? 'on' : ''} {...press(() => setOpen(!open))} aria-expanded={open}>{label} ▾</a>
     {open && <div className="ddm">{keys.map(k => <a key={k} href={'#' + k} className={pg === k ? 'on' : ''}>{PAGES[k][0]}</a>)}</div>}</div>
 }
 
 function App() {
   const [pg, setPg] = useState(page)
   const [side, setSide] = useState(null)  // 오른쪽 패널에 열린 것 — 같은 것을 다시 누르면 닫는다
-  const [msg, setMsg] = useState('')
+  const [msg, setMsgS] = useState({ t: '', n: 0 })  // n: 받은 횟수 — 바뀌면 메시지 칸을 새로 그려 깜빡임을 다시 튼다
+  const setMsg = useCallback(t => setMsgS(m => ({ t: t || '', n: m.n + 1 })), [])
+  useEffect(() => {  // 10초 뒤 지운다
+    if (!msg.t) return
+    const x = setTimeout(() => setMsgS(m => ({ ...m, t: '' })), 10000)
+    return () => clearTimeout(x)
+  }, [msg])
   const [ver, setVer] = useState(0)  // 작업·제목을 고치면 올려서 목록을 다시 받는다
   const P = usePoll('/api/projects', 60000, [ver])  // 작업 줄의 프로젝트 고르기 칸 (fleet/para.py names)
   const [, setNoti] = useState(0)
@@ -162,7 +168,7 @@ function App() {
     <header><h1><a href="#home" title="현황">Hudson <span>Fleet</span></a></h1>
       <nav>{NAV.map(n => typeof n === 'string' ? <a key={n} href={'#' + n} className={pg === n ? 'on' : ''}>{PAGES[n][0]}</a>
         : <NavMenu key={n[0]} label={n[0]} keys={n[1]} pg={pg} />)}</nav>
-      <div className="hr"><span className="meta hmsg" title={msg}>{msg}</span>
+      <div className="hr"><span key={msg.n} className="meta hmsg" title={msg.t}>{msg.t}</span>
       <button className="sm" disabled={notiOn() || !window.Notification} title="세션이 입력 대기로 바뀌거나 끝나면 알립니다"
         onClick={() => Notification.requestPermission().then(() => setNoti(n => n + 1))}>{notiOn() ? '알림 켜짐' : '알림 켜기'}</button>
       <Usage />

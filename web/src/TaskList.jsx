@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { TAGS, TASK, post, useApp } from './lib'
+import { TAGS, TASK, post, press, useApp } from './lib'
 
 const SRC = { agent: '에이전트가 직접 기록', haiku: 'haiku 가 대화에서 정리', human: '사람이 고침' }
 const ORDER = ['todo', 'stopped', 'done', 'rejected']  // 묶음 순서: 아직 할 일이 위로
@@ -43,7 +43,7 @@ export function TaskRow({ t, edit, lead }) {
       {' '}{lead}
       <div className="tbody">{/* 문장과 설명을 한 칸에 — 넘치는 줄·설명 줄이 문장 시작점에 맞춰 들어간다 */}
         <span className={'tx' + (has ? ' has' : '') + (open ? ' open' : '')} title={has ? '눌러서 설명 보기' : undefined}
-          onClick={has ? e => { e.stopPropagation(); setOpen(!open) } : undefined}>{t.text}</span>
+          {...has && { ...press(e => { e.stopPropagation(); setOpen(!open) }), 'aria-expanded': open }}>{t.text}</span>
         <span className="tid" title="작업 번호 — 에이전트와 같은 번호로 부를 때">#{t.id}</span>
         {edit === 'all' && <button className="tdel" title="이 기록 삭제" onClick={del}>✕</button>}
         {has && open && <div className="dbox">

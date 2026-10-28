@@ -5,7 +5,8 @@
    오른쪽 묶음(.hr: 알림·사용량·버전·설정)은 함께 움직이고, 그래도 좁으면 묶음 안에서 줄을 바꾼다 */
 header{min-height:56px;padding:0 20px;border-bottom:1px solid var(--line);background:var(--card);display:flex;flex-wrap:wrap;gap:0 8px;align-items:center}
 header .sm{white-space:nowrap}.hr{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:4px 8px;min-width:0}
-.hmsg{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hmsg{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:6px;padding:0 6px;animation:hl 1.5s}
+@keyframes hl{from{background:color-mix(in srgb,var(--t-todo) 40%,transparent);color:var(--fg)}}.hmsg:empty{display:none}  /* 새 메시지가 오면 잠깐 노랗게 */
 @media (max-width:1000px){header{padding:4px 20px}nav{order:9;flex-basis:100%;height:44px}}
 /* 휴대폰: 1줄 이름·알림·버전·설정, 2줄 사용량, (메시지가 있으면 그 줄), 마지막 줄 메뉴 */
 @media (max-width:600px){.todo>li{flex-wrap:wrap}.todo .tbody{flex-basis:100%}.hr{display:contents}.hr>button{margin-left:auto}.hu{order:7;flex-basis:100%}.hmsg{order:8;flex-basis:100%;max-width:none}.hmsg:empty{display:none}}
@@ -33,7 +34,8 @@ h2{font-size:14px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02e
 .ncard{position:absolute;transform-origin:0 0;pointer-events:none;z-index:5;box-sizing:border-box;background:var(--card);border:1px solid var(--line);
   border-top:3px solid var(--c);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:10px 12px;font-size:13px}
 .ncard b{display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px;white-space:nowrap}
-.ncard b .dot{flex-shrink:0}.ncard .mdl{margin-left:auto;font-size:11px;font-weight:400;color:var(--mute)}
+.ncard b .dot,.ncard .mdl{flex-shrink:0}.ncard .mdl{margin-left:auto;font-size:11px;font-weight:400;color:var(--mute)}
+.ncard .nm{min-width:0;overflow:hidden;text-overflow:ellipsis}  /* 긴 세션 이름(맡기기의 '키 제목')은 카드 안에서 … 으로 자른다 */
 .ncard dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0}.ncard dt{color:var(--mute)}
 .ncard dd{min-width:0;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ncard .bar{display:inline-block;width:60px;height:5px;border-radius:3px;background:var(--soft);vertical-align:middle;margin-right:6px;overflow:hidden}

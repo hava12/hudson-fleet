@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { TaskList } from './TaskList'
-import { TaskSum, Tip, post, useApp, usePoll, when } from './lib'
+import { TaskSum, Tip, post, press, useApp, usePoll, when } from './lib'
 
 // ── PARA: 일과 자료를 실행 가능성 순서로 네 칸에 나눈다 (fleet/para.py) ──
 // 프로젝트·영역은 사람이 여기서 만들고, 에이전트는 작업을 기록할 때 프로젝트 번호를 적고 자료를 MCP 로 남긴다.
@@ -46,7 +46,7 @@ function ProjTable({ ps, as, save }) {
     <tr><th>Project</th><th style={{ width: 170 }}>Area</th><th style={{ width: 130 }}>상태</th><th style={{ width: 200 }}>기간</th>
       <th style={{ width: 190 }}>작업</th><th style={{ width: 140 }} /></tr>
     {ps.map(({ tasks, ...p }) => <Fragment key={p.id}><tr>
-      <td style={{ whiteSpace: 'normal' }}><a className="lk" onClick={() => setOpen(open === p.id ? 0 : p.id)}>{p.name}</a>
+      <td style={{ whiteSpace: 'normal' }}><a className="lk" {...press(() => setOpen(open === p.id ? 0 : p.id))} aria-expanded={open === p.id}>{p.name}</a>
         <span className="tid" title="에이전트가 작업을 기록할 때 적는 번호"> #{p.id}</span>
         <div className="meta">완료 조건: {p.done_when}</div></td>
       <td><AreaSel as={as} v={p.area_id} set={v => save({ ...p, area_id: v })} /></td>

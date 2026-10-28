@@ -44,12 +44,15 @@ function SessionPushes({ sid }) {
 
 let sumOpen = true, taskOpen = true  // 세션을 바꿔 열어도 접힘 상태를 이어 간다
 function SessionPanel({ sid, agent }) {
-  const { G, ver, stopSession, setMsg, bump } = useApp()
-  const r = usePoll('/api/session?sid=' + encodeURIComponent(sid), 0, [ver])
+  const { G, ver, stopSession, setMsg, bump, openSide } = useApp()
+  const r = usePoll('/api/session?sid=' + encodeURIComponent(sid), 10000, [ver])  // 에이전트가 작업을 기록하면 10초 안에 보인다
   const [log, setLog] = useState(null)
   const [ai, setAi] = useState({ busy: false, err: '', label: '' })
   const s = G.nodes.find(n => n.sessionId === sid)
-  if (!s) return null
+  // 보던 세션이 끝났다 (현황 그래프에서 빠짐) — 빈 칸 대신 세션 기록으로 가는 길을 보인다
+  if (!s) return <><h3>{r?.overview?.title || '끝난 세션'}</h3>
+    <div className="meta">이 세션은 끝났습니다. 끝난 세션은 1분 안에 세션 기록에 저장됩니다.</div>
+    <button className="sm" style={{ marginTop: 8 }} onClick={() => openSide({ type: 'history', sid }, true)}>세션 기록에서 보기</button></>
   const head = <h3>{agent ? '🔷 ' + agent : s.label}</h3>
   if (!r) return <>{head}<div className="meta">불러오는 중…</div></>
   const ov = r.overview || {}, proc = r.proc || [], ts = r.tasks || []
@@ -83,11 +86,12 @@ function SessionPanel({ sid, agent }) {
 
 // 끝난 세션. 다시 열기: 터미널 새 창에서 claude --resume (HUDSON_FLEET_TERMINAL)
 function HistoryPanel({ sid }) {
-  const { G, ver, setMsg } = useApp()
+  const { G, ver, setMsg, bump } = useApp()
   const H = usePoll('/api/sessions?status=closed&limit=200', 0, [ver])
   const [busy, setBusy] = useState(false)
   const s = H?.find(x => x.sid === sid)
-  if (!s) return <div className="meta">불러오는 중…</div>
+  if (!H) return <div className="meta">불러오는 중…</div>
+  if (!s) return <div className="meta">세션 기록에 아직 없습니다. 끝난 세션은 1분 안에 저장됩니다 <button className="sm" onClick={bump}>새로 고침</button></div>
   const reopen = async fork => {
     setBusy(true)
     const r = await post('/api/reopen', { sid, fork })

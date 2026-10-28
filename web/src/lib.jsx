@@ -26,17 +26,22 @@ export const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Typ
   .then(r => r.json()).catch(() => ({ error: '서버에 닿지 않습니다' }))
 
 // ms 마다 다시 받는다. 실패하면 1초 뒤 다시 (리더가 바뀌는 1~2초 동안은 마지막 값을 그대로 보여 준다). deps 가 바뀌면 바로 다시 (ms 가 없으면 deps 가 바뀔 때만)
+// 주소가 바뀌면 새 값이 올 때까지 null — 앞 주소의 값(다른 세션의 push 등)을 잠깐 보여 주지 않는다
 export function usePoll(url, ms, deps = []) {
-  const [data, setData] = useState(null)
+  const [[at, data], setData] = useState([null, null])
   useEffect(() => {
     let t, live = true
-    const run = () => get(url).then(d => { if (live) { setData(d); if (ms) t = setTimeout(run, ms) } },
+    const run = () => get(url).then(d => { if (live) { setData([url, d]); if (ms) t = setTimeout(run, ms) } },
       () => { if (live) t = setTimeout(run, 1000) })
     run()
     return () => { live = false; clearTimeout(t) }
   }, [url, ms, ...deps])
-  return data
+  return at === url ? data : null
 }
+
+// 누르는 것(링크 모양 a·span·div)을 키보드로도: Tab 으로 가서 Enter·Space 로 누른다
+export const press = f => ({ role: 'button', tabIndex: 0, onClick: f,
+  onKeyDown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); f(e) } } })
 
 // 앱 전체가 함께 쓰는 것: 그래프(G), 메시지, 오른쪽 패널, 다시 받기(ver), 프로젝트 이름(P)
 export const App = createContext(null)

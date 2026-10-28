@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { fitBox, textW, useCy } from './Graph'
 import { TaskList } from './TaskList'
-import { Dot, FILL, GINFO, LIVE, dark, fmtTok, grp, modelName, post, tilde, useApp, usePoll } from './lib'
+import { Dot, FILL, GINFO, LIVE, dark, fmtTok, grp, modelName, post, press, tilde, useApp, usePoll } from './lib'
 
 // 세션 노드는 자리만 카드 크기로 잡고, 그 위에 카드(SessionCard)를 겹친다 (노드 이름표로는 줄마다 모양을 줄 수 없다)
 const NW = 300, NH = 148  // NH 는 .ncard 글자 크기·줄 간격(13px × 1.6, 제목 + 4줄)에 맞춘다. 글자를 키우면 같이 키운다
@@ -24,7 +24,7 @@ function SessionCard({ e, n, u = {}, on, home }) {
   return (
     <div className={`ncard ${grp(n.status)}${on ? ' on' : ''}${e.hasClass('faded') ? ' faded' : ''}`}
       style={{ '--c': col, left: b.x1, top: b.y1, width: NW, height: NH, transform: `scale(${e.cy().zoom()})` }}>
-      <b><Dot c={col} />{n.label}{n.model && <span className="mdl">{modelName(n.model)}{n.effort ? ' · ' + n.effort : ''}</span>}</b>
+      <b><Dot c={col} /><span className="nm">{n.label}</span>{n.model && <span className="mdl">{modelName(n.model)}{n.effort ? ' · ' + n.effort : ''}</span>}</b>
       <dl>
         <dt>실행 앱</dt><dd>{n.kind === 'background' ? '백그라운드' : n.app || '?'}</dd>
         <dt>실행 위치</dt><dd title={n.cwd}>{tilde(n.cwd, home)}</dd>
@@ -38,7 +38,7 @@ function SessionCard({ e, n, u = {}, on, home }) {
 
 export default function Home() {
   const { G, side, openSide, stopSession, ver } = useApp()
-  const ref = useRef(), sig = useRef('')
+  const ref = useRef(), sig = useRef(''), moved = useRef(false)  // moved: 사람이 옮기거나 확대했다 — 세션·서브에이전트가 늘고 줄어도 그 화면을 지킨다
   const cy = useCy(ref, { style: STYLE, autoungrabify: true })  // 노드는 끌어 옮기지 않는다 (카드가 영역 밖으로 나가지 않게)
   const [, redraw] = useReducer(x => x + 1, 0)  // 이동·확대 때 카드 자리만 다시
   const [statF, setStatF] = useState('')  // 숫자 타일로 고른 상태 ('' = 전체)
@@ -57,7 +57,8 @@ export default function Home() {
     })
     cy.on('cxttap', 'node[type="session"]', e => setMenu({ x: e.originalEvent.clientX, y: e.originalEvent.clientY, n: e.target.data() }))
     cy.on('tap cxttap', e => { if (e.target === cy) setMenu(null) })
-    cy.on('dbltap', e => { if (e.target === cy) fitBox(cy) })  // 옮기거나 확대한 뒤 빈 곳을 두 번 누르면 전체 보기
+    cy.on('dragpan scrollzoom pinchzoom', () => { moved.current = true })
+    cy.on('dbltap', e => { if (e.target === cy) { moved.current = false; fitBox(cy) } })  // 옮기거나 확대한 뒤 빈 곳을 두 번 누르면 전체 보기
     const hide = () => setMenu(null)
     document.addEventListener('click', hide)
     // 작업 중 세션으로 들어가는 선이 오른쪽으로 흐른다. 초당 12번만, 화면에 보이고 흐를 선이 있을 때만
@@ -83,8 +84,8 @@ export default function Home() {
       sig.current = s
       cy.elements().remove()
       cy.add([...nodes.map(d => ({ data: d })), ...G.edges.map(e => ({ data: { id: e.source + '>' + e.target, ...e } }))])
-      cy.layout({ name: 'dagre', rankDir: 'LR', nodeSep: 14, rankSep: 60 }).run()
-      fitBox(cy)
+      cy.layout({ name: 'dagre', rankDir: 'LR', nodeSep: 14, rankSep: 60, fit: false }).run()
+      if (!moved.current) fitBox(cy)
     }
     cy.edges().forEach(e => e.toggleClass('flow', e.target().data('type') === 'session' && grp(e.target().data('status')) === 'work'))
     redraw()
@@ -111,7 +112,7 @@ export default function Home() {
   const live = new Map(ss.map(n => [n.sessionId, n]))
   const todo = (TODO || []).filter(t => !statF || (live.has(t.sid) && pick(live.get(t.sid))))
   const setStat = k => { setStatF(statF === k ? '' : k); if (k !== statF) document.getElementById('tblh').scrollIntoView({ behavior: 'smooth', block: 'center' }) }
-  const Tile = ({ k, n, l, c }) => <div className={'stat' + (statF === k ? ' on' : '')} onClick={() => setStat(k)}>
+  const Tile = ({ k, n, l, c }) => <div className={'stat' + (statF === k ? ' on' : '')} {...press(() => setStat(k))} aria-pressed={statF === k}>
     <b style={{ color: n ? c : 'var(--mute)' }}>{n || 0}</b><span><Dot c={c} />{l}</span></div>
 
   return <div className="pg">
@@ -134,7 +135,7 @@ export default function Home() {
       {!TODO ? <div className="meta">불러오는 중…</div>
         : todo.length ? <TaskList ts={todo} className="todo" edit="status" lead={t => {
           const nm = t.name || t.sid.slice(0, 8)
-          return <>{live.has(t.sid) ? <a className="lk" onClick={() => openSide({ type: 'session', sid: t.sid })}>[{nm}]</a>
+          return <>{live.has(t.sid) ? <a className="lk" {...press(() => openSide({ type: 'session', sid: t.sid }))}>[{nm}]</a>
             : <><span className="meta" title={'끝난 세션 · ' + (t.title || '')}>[{nm}]</span><MoveTo t={t} to={ss} /></>} - </>
         }} />
         : <div className="meta">{statF ? '해당하는 세션의 남은 일이 없습니다' : '남은 일이 없습니다'}</div>}
