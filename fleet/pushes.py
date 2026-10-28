@@ -52,12 +52,16 @@ def pushes_in(path):
     return out
 
 
+_tried = set()  # 이 프로세스에서 이미 읽어 본 push — 커밋 목록이 빈 행(폴더가 없거나 커밋을 못 찾음)을 요청마다 다시 읽지 않는다
+
+
 def pushes(limit=200, sid=None):
-    """새 push 를 DB 에 넣고(커밋 메시지는 그때 git log 로 읽어 둔다) 최근 것부터 돌려준다. sid 를 주면 그 세션 것만."""
+    """새 push 를 DB 에 넣고(커밋 메시지는 그때 git log 로 읽어 둔다) 최근 것부터 돌려준다. sid 를 주면 그 세션 것만.
+    git 은 DB 를 열기 전에 다 부른다 — 쓰기 잠금을 쥔 채 부르면 그동안 작업 기록이 database is locked 로 실패한다."""
     c = db()
-    c.row_factory = sqlite3.Row
-    # 커밋 목록이 빈 행은 다시 읽는다 (폴더를 못 찾았던 옛 기록 — 폴더가 지금도 없으면 또 빈다)
-    have = {r[0] for r in c.execute("SELECT id FROM pushes WHERE commits != '[]'")}
+    have = {r[0] for r in c.execute("SELECT id FROM pushes WHERE commits != '[]'")} | _tried
+    c.close()
+    rows = []
     for p in [*PROJECTS.glob("*/*.jsonl"), *PROJECTS.glob("*/*/subagents/agent-*.jsonl")]:
         try:
             found = pushes_in(p)
@@ -69,10 +73,13 @@ def pushes(limit=200, sid=None):
             git = lambda *a: subprocess.run(["git", "-C", e["cwd"], *a], capture_output=True, text=True).stdout.strip()
             log = git("log", "--format=%h%x09%s", f"{e['old']}..{e['new']}") if os.path.isdir(e["cwd"]) else ""
             remote = e["remote"] or (git("remote", "get-url", "origin") if os.path.isdir(e["cwd"]) else "")
-            c.execute("INSERT OR REPLACE INTO pushes VALUES (?,?,?,?,?,?,?,?,?)",
-                      (e["id"], e["ts"], e["sid"], e["cwd"], remote, e["ref"], e["old"], e["new"],
-                       json.dumps([ln.split("\t", 1) for ln in log.splitlines()], ensure_ascii=False)))
+            rows.append((e["id"], e["ts"], e["sid"], e["cwd"], remote, e["ref"], e["old"], e["new"],
+                         json.dumps([ln.split("\t", 1) for ln in log.splitlines()], ensure_ascii=False)))
             have.add(e["id"])
+            _tried.add(e["id"])
+    c = db()
+    c.row_factory = sqlite3.Row
+    c.executemany("INSERT OR REPLACE INTO pushes VALUES (?,?,?,?,?,?,?,?,?)", rows)
     c.commit()
     out = [dict(r) for r in c.execute(
         "SELECT p.*, coalesce(s.my_title, s.title, s.name) AS session FROM pushes p LEFT JOIN sessions s USING (sid)"

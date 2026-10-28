@@ -8,9 +8,11 @@ from .config import PROJECTS
 
 
 def transcript(sid):
+    if not re.fullmatch(r"[0-9a-f-]{36}", sid or ""):  # 세션 id 만 — ../ 로 기록 폴더 밖 파일을 읽지 못하게
+        return None
     # ponytail: glob over all projects per request, index by sid if project count grows large
-    hits = glob.glob(str(PROJECTS / "*" / f"{glob.escape(sid)}.jsonl"))
-    return Path(hits[0]) if sid and hits else None
+    hits = glob.glob(str(PROJECTS / "*" / f"{sid}.jsonl"))
+    return Path(hits[0]) if hits else None
 
 
 def model_of(sid):

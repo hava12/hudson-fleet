@@ -42,7 +42,10 @@ def archive(n, status):
     ov = overview(path)
     tokens = sum(t for _, t in token_rows([path, *(p for *_, p in subagents(sid))]))
     if CFG["HUDSON_FLEET_AUTO_SUMMARY"] != "0":
-        summarize(sid)
+        try:
+            summarize(sid)
+        except Exception as e:  # haiku 실패·3분 초과여도 세션은 마감한다 (안 그러면 끝남으로 안 바뀌고 세션 기록에도 안 나온다)
+            print("작업 정리 실패:", sid, e)
     c = db()
     # summarize 가 sid 만 있는 행을 먼저 만들 수 있다 — 비어 있는 칸만 채운다
     c.execute("INSERT INTO sessions (sid, name, cwd, kind, app, started_at) VALUES (?,?,?,?,?,?)"
@@ -108,18 +111,18 @@ def unclosed():
 
 def record(stop):
     """1분마다 지표 한 줄: 상태별 살아 있는 세션 수, 실행 중 서브에이전트 수, 5시간·1주일 사용률.
-    10분마다 날짜별 토큰 합계(잔디)와 Jira 에픽 프로젝트의 상태, 30분마다 프로필 카드도 갱신한다. 세션 상태는 sessions 에 남기고, 사라진 세션은 closed 로 마감한다."""
+    10분마다 날짜별 토큰 합계(잔디), 30분마다 프로필 카드도 갱신한다. 세션 상태는 sessions 에 남기고, 사라진 세션은 closed 로 마감한다."""
     prev = unclosed()  # 앞 리더(끝난 세션의 MCP 서버)가 마감하지 못한 세션도 마감한다
     for i in itertools.count():
         if stop.is_set():  # 리더 자리를 넘겼다 — 새 리더의 기록과 겹치지 않게 멈춘다
             return
+        for every, job in ((10, save_daily), (30, publish), (1440, prune)):  # 10분마다 잔디 · 30분마다 프로필 카드 · 하루에 한 번
+            if i % every == 0:
+                try:
+                    job()
+                except Exception as e:  # 부가 작업이 실패해도 이번 분의 세션 기록은 한다
+                    print(job.__name__, "실패:", e)
         try:
-            if i % 10 == 0:
-                save_daily()
-            if i % 30 == 0:  # 30분마다 프로필 카드
-                publish()
-            if i % 1440 == 0:  # 하루에 한 번
-                prune()
             nodes = graph()["nodes"]
             alive = {n["sessionId"]: n for n in nodes if n["type"] == "session" and n["status"] not in DEAD}
             now = {n["sessionId"]: n["status"] for n in nodes if n["type"] == "session"}

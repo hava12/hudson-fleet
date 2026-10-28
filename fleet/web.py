@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 from .agents import find_session, graph, mcp_servers, reopen, session
 from .card import card_svg, tokens_svg
-from .config import CFG, CONFIG, ORIGIN, VERSION, claude, installed, installed_version, ver
+from .config import CFG, CONFIG, PORT, VERSION, claude, installed, installed_version, ver
 from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
 from .para import (agent_view, archive_project, delete_resource, has_project, names, para, save_area, save_project, save_resource,
@@ -85,6 +85,9 @@ def assign_prompt(i):
 
 
 DIST = (Path(__file__).parent.parent / "dist").resolve()  # web/ 의 React 빌드 결과
+# Host 가 다른 이름이면 거절한다 — DNS 리바인딩(악성 사이트가 자기 도메인을 127.0.0.1 로 바꿔치기)으로 화면·API 를 읽지 못하게
+HOSTS = ("127.0.0.1", "localhost")
+ORIGINS = {f"http://{h}:{PORT}" for h in HOSTS}
 
 
 class H(BaseHTTPRequestHandler):
@@ -96,6 +99,28 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_GET(self):
+        self.safe(self.get)
+
+    def do_POST(self):
+        self.safe(self.post)
+
+    def safe(self, fn):
+        """요청 하나를 처리한다. 처리 중 예외에도 JSON 으로 답한다 — 연결만 끊으면 화면은 서버가 꺼진 줄 알고,
+        에이전트(MCP)는 같은 기록을 다시 보낼 수 있다."""
+        # 다른 웹사이트가 img·fetch 로 부르는 API(명령 실행·내 기록 읽기)도 막는다. 주소창·즐겨찾기로 여는 것은 된다
+        if (self.headers.get("Host") or "").rsplit(":", 1)[0] not in HOSTS or (
+                self.path.startswith("/api/") and self.headers.get("Sec-Fetch-Site") in ("cross-site", "same-site")):
+            return self.send({"error": "bad host"}, code=403)
+        try:
+            fn()
+        except Exception as e:
+            print("요청 처리 실패:", self.command, self.path, repr(e))
+            try:
+                self.send({"error": f"서버 오류: {e}"}, code=500)
+            except OSError:  # 브라우저가 이미 연결을 끊었다
+                pass
+
+    def get(self):
         u = urlparse(self.path)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         if u.path == "/" or u.path.startswith("/assets/"):
@@ -175,8 +200,13 @@ class H(BaseHTTPRequestHandler):
             return self.send({"text": claude("logs", q.get("id", ""))})
         self.send({"error": "not found"}, code=404)
 
-    def do_POST(self):
-        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
+    def post(self):
+        try:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or "{}")
+        except ValueError:
+            body = None
+        if not isinstance(body, dict):
+            return self.send({"error": "본문은 JSON 객체여야 합니다"}, code=400)
         # MCP 서버의 작업 기록. 브라우저는 POST 에 Origin 을 꼭 붙이므로, Origin 이 없으면 브라우저(다른 웹사이트)가 아니다
         # 새 버전 대기자(다른 세션의 MCP 서버)가 자리를 넘겨 달라고 한다 {version}. 더 새 버전일 때만 물러난다
         if self.path == "/api/handover" and "Origin" not in self.headers:
@@ -188,7 +218,7 @@ class H(BaseHTTPRequestHandler):
             out, code = agent_task(body)
             return self.send(out, code=code)
         # 다른 웹사이트가 localhost 로 실행 요청을 보내는 것(CSRF) 차단
-        if self.headers.get("Origin") != ORIGIN:
+        if self.headers.get("Origin") not in ORIGINS:
             return self.send({"error": "bad origin"}, code=403)
         if self.path == "/api/connect":  # {service: github|jira} — 저장된 토큰으로 내 계정 이름을 받아 와 연결을 확인한다
             try:
@@ -223,11 +253,6 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/api/config":  # {name, value} — EDIT 에 있는 설정만. 빈 값이면 환경 변수·기본값으로
             err = set_setting(body.get("name"), body.get("value"))
             return self.send({"error": err} if err else {"ok": True})
-        if self.path == "/api/run":
-            cwd = os.path.expanduser(body.get("cwd", ""))
-            if not os.path.isdir(cwd) or not body.get("prompt"):
-                return self.send({"error": "cwd/prompt 확인"}, code=400)
-            return self.send({"text": claude("--bg", body["prompt"], cwd=cwd)})
         if self.path == "/api/reopen":  # {sid, fork?} — 끝난 세션을 새 터미널 창에서 claude --resume 으로 연다
             out, code = reopen(body.get("sid", ""), bool(body.get("fork")))
             return self.send(out, code=code)

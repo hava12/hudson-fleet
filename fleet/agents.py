@@ -51,7 +51,10 @@ _ag = {"at": 0, "data": []}
 def agent_list():
     """claude agents --json --all. 부를 때마다 node 를 띄워 ~0.2초 걸리므로 5초 동안 재사용한다."""
     if time.time() - _ag["at"] >= 5:
-        _ag.update(at=time.time(), data=json.loads(claude("agents", "--json", "--all") or "[]"))
+        try:
+            _ag.update(at=time.time(), data=json.loads(claude("agents", "--json", "--all")))
+        except ValueError:  # 빈 출력·오류 문장은 지난 목록을 쓴다 — 빈 목록이면 1분 기록이 살아 있는 세션을 모두 끝남으로 마감한다
+            pass
     return _ag["data"]
 
 

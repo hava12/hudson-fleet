@@ -84,7 +84,7 @@ npm run build   # → ../dist
 ```
 
 - `dist/` 는 커밋합니다. 플러그인 설치가 저장소를 그대로 받기 때문입니다.
-- `web/` 이 바뀐 커밋이 main 에 들어오면 GitHub Actions(`.github/workflows/web.yml`)가 빌드해 `dist/` 를 커밋하고 플러그인 패치 버전을 1 올립니다. 그래서 `web/` 만 고칠 때는 버전을 손으로 올리지 않습니다.
+- 플러그인 코드(`web/`·`fleet/`·`server.py`·`mcp_server.py`)가 바뀐 커밋이 main 에 들어오면 GitHub Actions(`.github/workflows/web.yml`)가 화면을 빌드해 `dist/` 를 커밋하고 플러그인 패치 버전을 1 올립니다. 그래서 버전을 손으로 올리지 않습니다. 버전이 올라야 `claude plugin update` 가 새 코드를 받으므로 서버만 고쳐도 올립니다.
 
 | 파일 | 하는 일 |
 |---|---|
@@ -273,7 +273,11 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 ## 보안
 
 - 서버는 `127.0.0.1`에서만 열립니다.
-- 다른 출처(Origin)에서 오는 POST 요청은 거부합니다.
+- 요청의 Host 가 `127.0.0.1`·`localhost` 가 아니면 거부합니다. 악성 사이트가 자기 도메인을 127.0.0.1 로 바꿔치는 수법(DNS 리바인딩)으로 화면과 API 를 읽지 못하게 합니다.
+- 다른 웹사이트가 보낸 API 요청(`Sec-Fetch-Site` 가 cross-site·same-site)은 GET 도 거부합니다. 이미지 태그 하나로 명령(`claude mcp list` 등)을 실행시키지 못하게 합니다.
+- 다른 출처(Origin)에서 오는 POST 요청은 거부합니다. `http://127.0.0.1:8765` 와 `http://localhost:8765` 는 받습니다.
+- 세션 ID 자리에는 세션 ID 형식만 받습니다. `../` 로 Claude 기록 폴더 밖 파일을 읽지 못하게 합니다.
+- DB 파일은 나만 읽고 쓸 수 있게(600), DB 폴더는 나만 열 수 있게(700) 권한을 바꿉니다. 토큰과 프롬프트가 들어 있기 때문입니다.
 - `POST /api/agent/task` 만 Origin 이 **없는** 요청을 받습니다. 브라우저는 POST 에 Origin 을 꼭 붙이므로 다른 웹사이트는 이 길로 들어올 수 없습니다. 세션 ID 형식도 검사합니다.
 - 종료는 `claude agents` 목록에 있는 세션만 할 수 있습니다.
 

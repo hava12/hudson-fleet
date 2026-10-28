@@ -147,7 +147,7 @@ function SettingValue({ c, done, w }) {  // w: 입력 칸 폭 — 연결 칸은 
 const LINKS = [['github', 'GitHub', 'HUDSON_FLEET_GITHUB_ON', ['HUDSON_FLEET_GITHUB_TOKEN']],
   ['jira', 'Jira', 'HUDSON_FLEET_JIRA_ON', ['HUDSON_FLEET_JIRA_SITE', 'HUDSON_FLEET_JIRA_EMAIL', 'HUDSON_FLEET_JIRA_TOKEN']]]
 const LINK_NAMES = new Set(LINKS.flatMap(l => [l[2], ...l[3]]))
-function Links({ cs, n, done }) {
+function Links({ cs, done }) {
   const { setMsg } = useApp()
   const [res, setRes] = useState({})  // 서비스 → 확인 결과 문장
   const toggle = async (name, on) => {
@@ -169,7 +169,7 @@ function Links({ cs, n, done }) {
         {on && <> <button className="sm" onClick={() => test(k)}>연결 확인</button> <span className="meta" style={{ fontWeight: 400 }}>{res[k]}</span></>}</h4>
       {on && <div className="tw"><table className="tbl"><tbody>{names.map(nm => {
         const c = cs.find(x => x.name === nm)
-        return c && <tr key={nm}><td className="meta" style={{ whiteSpace: 'normal', width: '45%', verticalAlign: 'middle' }}>{c.desc}</td><td><SettingValue key={n} c={c} done={done} w={280} /></td></tr>
+        return c && <tr key={nm}><td className="meta" style={{ whiteSpace: 'normal', width: '45%', verticalAlign: 'middle' }}>{c.desc}</td><td><SettingValue key={c.src + c.value} c={c} done={done} w={280} /></td></tr>
       })}</tbody></table></div>}</div>
     })}
   </section>
@@ -178,14 +178,14 @@ function Links({ cs, n, done }) {
 export function Settings() {
   const [n, setN] = useState(0)
   const cs = usePoll('/api/config', 0, [n]) || []
-  return <div className="pg"><Links cs={cs} n={n} done={() => setN(n + 1)} /><section className="card">
+  return <div className="pg"><Links cs={cs} done={() => setN(n + 1)} /><section className="card">
     <div className="sh"><h2>설정</h2><span className="meta">입력 칸이 있는 값은 여기서 바꾸면 바로 적용됩니다 (비우고 저장하면 원래대로) · 나머지는 환경 변수로만</span></div>
     {/* 칸 폭을 고정한다 — 긴 값(DB 경로)이 칸을 넓혀 설명 칸이 좁아지면 설명이 글자마다 꺾여 줄 높이가 들쭉날쭉해진다 */}
     <div className="tw"><table className="tbl" style={{ tableLayout: 'fixed', minWidth: 900 }}><tbody>
       <tr><th style={{ width: 360 }}>이름</th><th style={{ width: 320 }}>지금 값</th><th>설명</th></tr>
       {cs.filter(c => !LINK_NAMES.has(c.name)).map(c => <tr key={c.name}>
         <td><code>{c.name}</code> <span className="pill" style={{ fontSize: 12, color: SRC[c.src]?.[1] }}>{SRC[c.src]?.[0]}</span></td>
-        <td style={{ whiteSpace: 'normal', wordBreak: 'break-all' }}><SettingValue key={n} c={c} done={() => setN(n + 1)} /></td>
+        <td style={{ whiteSpace: 'normal', wordBreak: 'break-all' }}><SettingValue key={c.src + c.value} c={c} done={() => setN(n + 1)} /></td>
         <td className="meta" style={{ whiteSpace: 'normal' }}>{c.desc}</td></tr>)}
     </tbody></table></div>
     <h4>환경 변수로 바꾸는 방법 (포트·DB 경로)</h4>

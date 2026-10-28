@@ -21,7 +21,9 @@ const reach = ok => { if (down === ok) { down = !ok; dispatchEvent(new Event(ok 
 export const get = async p => {
   try { const r = await fetch(p); reach(true); return r.json() } catch (e) { reach(false); throw e }
 }
-export const post = async (p, b) => (await fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })).json()
+// 서버에 닿지 않아도 {error} 로 돌려준다 — 부르는 쪽이 오류 문장을 띄우고 버튼('요약 중…' 등)을 되돌리게
+export const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) })
+  .then(r => r.json()).catch(() => ({ error: '서버에 닿지 않습니다' }))
 
 // ms 마다 다시 받는다. 실패하면 1초 뒤 다시 (리더가 바뀌는 1~2초 동안은 마지막 값을 그대로 보여 준다). deps 가 바뀌면 바로 다시 (ms 가 없으면 deps 가 바뀔 때만)
 export function usePoll(url, ms, deps = []) {

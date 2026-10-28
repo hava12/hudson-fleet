@@ -122,7 +122,7 @@ def publish():
         return
     env = None
     if user := CFG["HUDSON_FLEET_GIST_USER"]:
-        tok = subprocess.run(["gh", "auth", "token", "--user", user], capture_output=True, text=True).stdout.strip()
+        tok = subprocess.run(["gh", "auth", "token", "--user", user], capture_output=True, text=True, timeout=30).stdout.strip()
         env = {**os.environ, "GH_TOKEN": tok}
     body = json.dumps({"files": {FILE: {"content": card_svg()}, TOKENS_FILE: {"content": tokens_svg()}}})
     r = subprocess.run(["gh", "api", "-X", "PATCH", f"gists/{gist}", "--input", "-"], input=body, env=env,

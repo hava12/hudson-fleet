@@ -1,6 +1,7 @@
 """SQLite 저장소: 표 만들기와 단순 조회."""
 import re
 import sqlite3
+import threading
 import time
 from pathlib import Path
 
@@ -12,9 +13,26 @@ from .config import CFG, now_iso
 DB = Path(CFG["HUDSON_FLEET_DB"]).expanduser()
 
 
+_lock, _ready = threading.Lock(), False
+
+
 def db():
-    DB.parent.mkdir(parents=True, exist_ok=True)
-    c = sqlite3.connect(DB)
+    """DB 연결. 표 만들기·칸 추가는 프로세스마다 처음 한 번만 한다 — 연결마다 하면 새 버전 직후 동시 요청이 같은 칸을 두 번 추가하다 실패한다."""
+    global _ready
+    with _lock:
+        if not _ready:
+            DB.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            schema(sqlite3.connect(DB)).close()
+            DB.chmod(0o600)  # 토큰(설정)·프롬프트가 들어 있다 — 같은 Mac 의 다른 계정이 못 읽게
+            try:
+                DB.parent.chmod(0o700)  # 옆의 .env·server.log 도. 남의 폴더(/tmp 등)에 둔 DB 면 못 바꾼다
+            except OSError:
+                pass
+            _ready = True
+    return sqlite3.connect(DB)
+
+
+def schema(c):
     c.execute("CREATE TABLE IF NOT EXISTS samples (ts INTEGER PRIMARY KEY, work INT, wait INT, idle INT,"
               " agents INT, pct5h INT, pct1w INT)")
     c.execute("CREATE TABLE IF NOT EXISTS daily (day TEXT PRIMARY KEY, tokens INT)")
@@ -59,6 +77,7 @@ def db():
     c.execute("CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT)")  # 화면에서 바꾼 설정 (EDIT 에 있는 것만)
     c.execute("DROP TABLE IF EXISTS users")  # 지운 로그인 계정·API 키 기능(개인용으로 되돌림)이 남긴 표
     c.execute("DROP TABLE IF EXISTS api_keys")
+    c.commit()
     return c
 
 
