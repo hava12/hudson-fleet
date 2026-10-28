@@ -7,8 +7,9 @@ const OPEN = { todo: true, stopped: true }  // 끝난 묶음(완료·반려)은 
 
 // 작업 한 줄. 설명 줄·비고는 접어 두고 문장을 누르면 펼친다 — key=작업 id 라 5초 갱신에도 펼침이 남는다
 // edit: false 읽기만 · 'status' 분류만 · 'all' 분류·태그·삭제. lead: 문장 앞에 붙일 것 (남은 작업의 [세션])
+// 고칠 수 있는 줄에는 프로젝트가 하나라도 있으면 프로젝트 칸도 붙는다 (끝난 프로젝트는 이미 붙은 줄에만 보인다)
 export function TaskRow({ t, edit, lead }) {
-  const { setMsg, bump } = useApp()
+  const { setMsg, bump, P } = useApp()
   const [open, setOpen] = useState(false)
   let d = []
   try { d = JSON.parse(t.details || '[]') } catch { /* 옛 기록 */ }
@@ -34,6 +35,11 @@ export function TaskRow({ t, edit, lead }) {
             {TAGS.map(k => <option key={k}>{k}</option>)}
           </select>
         : edit !== 'status' && t.tag && <span className="pill">{t.tag}</span>}
+      {edit && P?.length > 0 && <select className="pill psel" value={t.project_id || ''} title="프로젝트 바꾸기 (PARA)"
+        onChange={e => save({ project: +e.target.value || 0 })}>
+        <option value="">프로젝트 없음</option>
+        {P.filter(p => p.status !== 'done' || p.id === t.project_id).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>}
       {' '}{lead}
       <div className="tbody">{/* 문장과 설명을 한 칸에 — 넘치는 줄·설명 줄이 문장 시작점에 맞춰 들어간다 */}
         <span className={'tx' + (has ? ' has' : '') + (open ? ' open' : '')} title={has ? '눌러서 설명 보기' : undefined}

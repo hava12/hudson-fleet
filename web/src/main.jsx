@@ -135,6 +135,7 @@ function App() {
   const [side, setSide] = useState(null)  // 오른쪽 패널에 열린 것 — 같은 것을 다시 누르면 닫는다
   const [msg, setMsg] = useState('')
   const [ver, setVer] = useState(0)  // 작업·제목을 고치면 올려서 목록을 다시 받는다
+  const P = usePoll('/api/projects', 60000, [ver])  // 작업 줄의 프로젝트 고르기 칸 (fleet/para.py names)
   const [, setNoti] = useState(0)
   const raw = usePoll('/api/graph', 5000)
   const G = useMemo(() => raw ? live(raw) : { nodes: [], edges: [], home: '' }, [raw])
@@ -157,7 +158,7 @@ function App() {
   useNotify(G, openSide)
   const down = useDown()
   const Page = PAGES[pg][1]
-  return <Ctx.Provider value={{ G, side, openSide, setMsg, stopSession, ver, bump }}>
+  return <Ctx.Provider value={{ G, side, openSide, setMsg, stopSession, ver, bump, P }}>
     <header><h1><a href="#home" title="현황">Hudson <span>Fleet</span></a></h1>
       <nav>{NAV.map(n => typeof n === 'string' ? <a key={n} href={'#' + n} className={pg === n ? 'on' : ''}>{PAGES[n][0]}</a>
         : <NavMenu key={n[0]} label={n[0]} keys={n[1]} pg={pg} />)}</nav>

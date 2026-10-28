@@ -9,7 +9,6 @@ from .agents import graph
 from .card import publish
 from .config import CFG, DEAD, now_iso
 from .db import db
-from .para import sync_jira
 from .tasks import summarize
 from .transcripts import overview, subagents, token_rows, transcript
 from .usage import daily_tokens, usage
@@ -117,8 +116,6 @@ def record(stop):
         try:
             if i % 10 == 0:
                 save_daily()
-            if i % 10 == 5:  # Jira 에픽 프로젝트의 이름·상태 — 화면은 저장된 값만 읽는다
-                threading.Thread(target=sync_jira, daemon=True).start()
             if i % 30 == 0:  # 30분마다 프로필 카드
                 publish()
             if i % 1440 == 0:  # 하루에 한 번

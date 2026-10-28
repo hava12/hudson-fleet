@@ -18,8 +18,8 @@ from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, ORIGIN, VERSION, claude, installed, installed_version, ver
 from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
-from .para import (agent_view, archive_project, delete_resource, has_project, para, project_of_epic, resources_for, save_area,
-                   save_project, save_resource, search_resources)
+from .para import (agent_view, archive_project, delete_resource, has_project, names, para, save_area, save_project, save_resource,
+                   search_resources)
 from .pushes import pushes
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
 from .usage import usage, usage5h_all
@@ -34,7 +34,11 @@ def agent_task(body):
     if pj and not has_project(pj):  # 0 은 task_update 에서 "프로젝트 빼기"
         return {"error": f"없는 프로젝트 id 입니다: {pj}. project_list 로 확인하세요"}, 400
     if op == "start" and isinstance(body.get("text"), str) and body["text"].strip():
-        return {"id": add_task(sid, body["text"][:160], "agent", tag=body.get("tag"), details=body.get("details"), project=pj)}, 200
+        tid = add_task(sid, body["text"][:160], "agent", tag=body.get("tag"), details=body.get("details"), project=pj)
+        # 프로젝트 없이 적었으면 진행 중인 프로젝트를 돌려준다 — 세션이 열린 뒤 만든 프로젝트도 에이전트가 알게
+        ps = not pj and agent_view()["projects"]
+        return ({"id": tid, "projects": ps, "hint": f'이 일이 이 중 한 프로젝트의 일이면 task_update(id={tid}, status="todo",'
+                 ' project=번호) 로 적으세요. 없으면 그대로 둡니다'} if ps else {"id": tid}), 200
     if op == "update":
         ok = set_task(body.get("id"), "agent", body.get("status"), note=body.get("note"), sid=sid, details=body.get("details"),
                       project=pj)
@@ -76,12 +80,8 @@ def guess_cwd(key):
 
 def assign_prompt(i):
     body = i["body"][:4000] or "(본문 없음)"
-    p = project_of_epic(i["epic"]) or project_of_epic(i["key"])  # 이슈의 에픽(또는 에픽 그 자체)에 연결한 프로젝트
-    pj = f"\n\n이 일은 프로젝트 #{p[0]} 「{p[1]}」 의 일이야. 작업을 기록할 때(task_start) project 값으로 {p[0]} 번을 넣어." if p else ""
-    if rs := p and resources_for(p[0], p[2]):  # 같은 프로젝트·영역의 자료 — 필요하면 resource_search 로 본문을 본다
-        pj += "\n\n[관련 자료 (resource_search 로 본문을 볼 수 있어)]\n" + "\n".join(f"- {t}: {m}" for t, m in rs)
     return (f"{i['key']} 「{i['title']}」 Jira 이슈를 맡아 처리해 줘. {i['url']}\n\n[이슈 본문]\n{body}\n\n"
-            "먼저 코드를 살펴 무엇을 바꿀지 계획을 세우고 진행해. 커밋·push 는 하지 말고, 끝나면 바꾼 것과 확인한 것을 정리해 줘." + pj)
+            "먼저 코드를 살펴 무엇을 바꿀지 계획을 세우고 진행해. 커밋·push 는 하지 말고, 끝나면 바꾼 것과 확인한 것을 정리해 줘.")
 
 
 DIST = (Path(__file__).parent.parent / "dist").resolve()  # web/ 의 React 빌드 결과
@@ -115,6 +115,8 @@ class H(BaseHTTPRequestHandler):
             return self.send(graph())
         if u.path == "/api/para":  # 프로젝트 페이지: 영역·프로젝트와 각 프로젝트에 적힌 작업
             return self.send(para())
+        if u.path == "/api/projects":  # 작업 줄의 프로젝트 고르기 칸
+            return self.send(names())
         if u.path == "/api/config":
             saved = saved_settings()  # src: screen 화면에서 바꿈 · env 환경 변수 · default 기본값
             hide = lambda k, v: ("****" + v[-4:] if v else "") if k.endswith("_TOKEN") else v  # 토큰은 끝 4글자만
@@ -139,7 +141,8 @@ class H(BaseHTTPRequestHandler):
             c = db()
             c.row_factory = sqlite3.Row
             out = [dict(r) for r in c.execute(
-                "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, t.details, coalesce(s.my_title, s.title) AS title, s.name, s.cwd, s.status AS sst"
+                "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, t.details, t.project_id, coalesce(s.my_title, s.title) AS title, s.name,"
+                " s.cwd, s.status AS sst"
                 " FROM session_tasks t JOIN sessions s USING (sid) WHERE t.status = 'todo' AND s.deleted_at IS NULL"
                 " ORDER BY coalesce(s.ended_at, s.last_seen) DESC, t.sort, t.id")]
             c.close()
@@ -232,9 +235,11 @@ class H(BaseHTTPRequestHandler):
             if not find_session(body["to"] or ""):
                 return self.send({"error": "살아 있는 세션으로만 옮길 수 있습니다"})
             return self.send({"ok": True} if move_task(body.get("id"), body["to"]) else {"error": "남은 일만 옮길 수 있습니다"})
-        if self.path == "/api/task":  # {id, status?, tag?, sort?, delete?} — 사람이 웹에서 고친다
+        if self.path == "/api/task":  # {id, status?, tag?, sort?, project?(0 이면 빼기), delete?} — 사람이 웹에서 고친다
+            if body.get("project") and not has_project(body["project"]):
+                return self.send({"error": "없는 프로젝트입니다"})
             ok = set_task(body.get("id"), "human", body.get("status"), sort=body.get("sort"), delete=bool(body.get("delete")),
-                          tag=body.get("tag"))
+                          tag=body.get("tag"), project=body.get("project"))
             return self.send({"ok": ok} if ok else {"error": "작업 또는 분류 확인"})
         if self.path == "/api/session/delete":  # {sid} — 끝난 세션을 세션 기록에서 지운다 (soft delete)
             return self.send({"ok": True} if delete_session(body.get("sid")) else {"error": "끝난 세션만 지울 수 있습니다"})

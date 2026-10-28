@@ -8,7 +8,7 @@ header .sm{white-space:nowrap}.hr{margin-left:auto;display:flex;flex-wrap:wrap;j
 .hmsg{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:1000px){header{padding:4px 20px}nav{order:9;flex-basis:100%;height:44px}}
 /* 휴대폰: 1줄 이름·알림·버전·설정, 2줄 사용량, (메시지가 있으면 그 줄), 마지막 줄 메뉴 */
-@media (max-width:600px){.hr{display:contents}.hr>button{margin-left:auto}.hu{order:7;flex-basis:100%}.hmsg{order:8;flex-basis:100%;max-width:none}.hmsg:empty{display:none}}
+@media (max-width:600px){.todo>li{flex-wrap:wrap}.todo .tbody{flex-basis:100%}.hr{display:contents}.hr>button{margin-left:auto}.hu{order:7;flex-basis:100%}.hmsg{order:8;flex-basis:100%;max-width:none}.hmsg:empty{display:none}}
 header h1{font-size:16px;margin:0 16px 0 0;letter-spacing:-.01em;white-space:nowrap}header h1 span{color:var(--acc)}
 input,button,select{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg)}
 button{cursor:pointer}button:hover{background:var(--soft)}button.pri{background:var(--acc);color:#fff;border:0}button.sm{padding:2px 8px;font-size:13px}
@@ -80,7 +80,7 @@ nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bott
 .dots::after{content:'...';font-family:ui-monospace,monospace;display:inline-block;overflow:hidden;vertical-align:bottom;width:0;animation:dots 1.2s steps(4,end) infinite}
 @keyframes dots{to{width:4ch}}
 /* 기록한 작업: 1. 2. 3. 순서 + 분류(완료·중단·남은 일) */
-.tasks{margin:0;padding-left:22px;font-size:14px;line-height:1.6}.dets{margin:2px 0 0;padding-left:16px;font-size:13px;line-height:1.5;color:var(--mute);list-style:'└ '}.tnote{margin-top:2px;font-size:13px;color:var(--mute)}.tx.has{cursor:pointer}.tx.has::after{content:' ▸';color:var(--mute);font-size:12px}.tx.has.open::after{content:' ▾'}.tasks li{margin-bottom:6px}.tasks li::marker{color:var(--mute)}.tasks .pill{font-size:12px;margin-right:4px}.tsel,.tgsel{border:1px solid var(--line);background:var(--soft);cursor:pointer;padding:1px 4px}
+.tasks{margin:0;padding-left:22px;font-size:14px;line-height:1.6}.dets{margin:2px 0 0;padding-left:16px;font-size:13px;line-height:1.5;color:var(--mute);list-style:'└ '}.tnote{margin-top:2px;font-size:13px;color:var(--mute)}.tx.has{cursor:pointer}.tx.has::after{content:' ▸';color:var(--mute);font-size:12px}.tx.has.open::after{content:' ▾'}.tasks li{margin-bottom:6px}.tasks li::marker{color:var(--mute)}.tasks .pill{font-size:12px;margin-right:4px}.tsel,.tgsel,.psel{border:1px solid var(--line);background:var(--soft);cursor:pointer;padding:1px 4px}.psel{max-width:160px;text-overflow:ellipsis}
 /* 삭제 단추는 줄 흐름에서 빼 오른쪽 끝에 띄운다 — 투명해도 자리를 차지해 혼자 다음 줄로 넘어가 빈 줄이 생겼다 */
 .tasks>li{position:relative}.tdel{position:absolute;right:0;top:0;border:0;background:var(--card);color:var(--mute);cursor:pointer;font-size:12px;padding:0 4px;opacity:0}.tasks li:hover .tdel{opacity:1}.tdel:hover{color:var(--del)}
 .tasks li.t-rejected .tx{color:var(--mute);text-decoration:line-through}

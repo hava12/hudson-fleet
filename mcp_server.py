@@ -41,13 +41,15 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
 5. 기록하지 않는 것: 질문에 답만 하는 경우, 확인·잡담. 같은 일을 두 번 시작하지 않는다.
 6. 대화가 압축(compact)된 뒤에는 task_list 로 기록을 확인하고 이어서 쓴다.
 7. 프로젝트: 세션에서 처음 task_start 하기 전에 project_list 를 한 번 불러, 이 일이 속한 프로젝트가 있으면 task_start 의
-   project 에 그 id 를 넣는다 (Jira 에픽 프로젝트는 이슈가 그 에픽 밑인지, 직접 만든 프로젝트는 이름·완료 조건으로 판단).
-   지시문에 프로젝트 번호가 적혀 있으면 그것을 쓴다. 맞는 것이 없거나 애매하면 비워 둔다 — 프로젝트는 사용자만 만든다.
+   project 에 그 id 를 넣는다 (이름·완료 조건으로 판단, 이름에 Jira 키가 있으면 그 이슈·에픽의 일인지로).
+   맞는 것이 없거나 애매하면 비워 둔다 — 프로젝트는 사용자만 만든다. project 없이 기록하면 task_start 응답에
+   진행 중인 프로젝트 목록이 오니, 그중 맞는 것이 있으면 task_update 의 project 로 적는다.
    사용자가 다른 프로젝트라고 알려 주면 task_update 의 project 로 바로잡는다.
 8. 자료(Resources)·보관(Archives) — PARA 의 R·A. resource_save 는 두 경우에만 부른다: 사용자가 남기라고 했을 때,
    프로젝트를 보관할 때 남기는 정리 한 장(무엇을 정했고 왜, 다음에 알아야 할 것). 스스로 판단해 수시로 남기지 않는다.
-   직접 만든 프로젝트(kind own)의 완료 조건을 채운 것 같으면, 보관할지와 정리 한 장을 남길지 사용자에게 한 번에 묻고
-   동의하면 project_archive 와 resource_save 를 부른다. Jira 에픽 프로젝트는 에픽이 Done 이 되면 저절로 보관된다.
+   프로젝트의 완료 조건을 채운 것 같으면, 보관할지와 정리 한 장을 남길지 사용자에게 한 번에 묻고 동의하면
+   project_archive 와 resource_save 를 부른다. 보관하면 그 프로젝트의 남은 일은 반려로 정리되므로, 남은 일이 있으면
+   물을 때 함께 알린다.
    일을 시작할 때 같은 주제의 자료가 있을 법하면 resource_search 로 먼저 찾아본다."""
 
 DETAILS = {"type": "array", "items": {"type": "string"}, "maxItems": 3}  # 3-Step-Desc (fleet/tasks.py MAX_DETAILS)
@@ -70,10 +72,11 @@ TOOLS = [
                      "required": ["id", "status"]}},
     {"name": "task_list", "description": "이 세션에 기록된 작업 목록 (순서대로).",
      "inputSchema": {"type": "object", "properties": {}}},
-    {"name": "project_list", "description": "끝나지 않은 프로젝트(id, 이름, 종류 own 직접·jira 에픽, 에픽 키, 완료 조건, 영역)와"
+    {"name": "project_list", "description": "끝나지 않은 프로젝트(id, 이름, 완료 조건, 상태, 영역)와"
                                             " 보관하지 않은 영역(id, 이름, 유지할 상태). task_start 의 project, resource_save 의 project·area 를 고를 때 쓴다.",
      "inputSchema": {"type": "object", "properties": {}}},
-    {"name": "project_archive", "description": "직접 만든 프로젝트(kind own)를 끝남으로 바꿔 보관한다. 사용자가 대화에서 동의했을 때만 부른다.",
+    {"name": "project_archive", "description": "프로젝트를 끝남으로 바꿔 보관한다. 그 프로젝트의 남은 일은 반려로 정리된다."
+                                               " 사용자가 대화에서 동의했을 때만 부른다.",
      "inputSchema": {"type": "object", "properties": {"id": {"type": "integer"}}, "required": ["id"]}},
     {"name": "resource_save", "description": "자료(Resources) 한 건을 남긴다. 사용자가 남기라고 했을 때와, 프로젝트를 보관할 때 정리 한 장만.",
      "inputSchema": {"type": "object", "properties": {
@@ -131,7 +134,7 @@ def call(name, args):
     if name == "task_start":
         r = api({"op": "start", "sid": sid, "text": args.get("text"), "tag": args.get("tag"), "details": args.get("details"),
                  "project": args.get("project")})
-        return (r["error"], True) if "error" in r else (json.dumps({"id": r["id"]}), False)
+        return (r["error"], True) if "error" in r else (json.dumps(r, ensure_ascii=False), False)  # {id, projects?, hint?}
     if name == "task_update":
         r = api({"op": "update", "sid": sid, "id": args.get("id"), "status": args.get("status"), "note": args.get("note"),
                  "details": args.get("details"), "project": args.get("project")})

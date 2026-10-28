@@ -36,7 +36,7 @@ export function usePoll(url, ms, deps = []) {
   return data
 }
 
-// 앱 전체가 함께 쓰는 것: 그래프(G), 메시지, 오른쪽 패널, 다시 받기(ver)
+// 앱 전체가 함께 쓰는 것: 그래프(G), 메시지, 오른쪽 패널, 다시 받기(ver), 프로젝트 이름(P)
 export const App = createContext(null)
 export const useApp = () => useContext(App)
 export const tilde = (p, home) => p && home && p.startsWith(home) ? '~' + p.slice(home.length) : p

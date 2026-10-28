@@ -41,9 +41,10 @@ def db():
         c.execute("ALTER TABLE session_tasks ADD COLUMN project_id INT")
     # PARA (fleet/para.py): 영역 1 : 프로젝트 N 1 : 작업 N. 영역·프로젝트는 사람이 만든다
     c.execute("CREATE TABLE IF NOT EXISTS areas (id INTEGER PRIMARY KEY, name TEXT UNIQUE, keep TEXT, created_at TEXT)")
-    # kind: own 직접 만듦 · jira 에픽 / status: pending 시작 전 · active 진행 중 · done 끝남 (jira 는 에픽 상태를 받아 적기만)
-    c.execute("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY, kind TEXT, name TEXT, epic TEXT UNIQUE,"
-              " area_id INT, done_when TEXT, status TEXT, jira_status TEXT, start TEXT, end TEXT)")
+    # status: pending 시작 전 · active 진행 중 · done 끝남(보관)
+    # 0.5.27 까지 만든 DB 에는 지운 Jira 에픽 연결의 kind·epic·jira_status 칸이 남아 있다 (쓰지 않음, epic 은 UNIQUE 라 못 지운다)
+    c.execute("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY, name TEXT, area_id INT, done_when TEXT, status TEXT,"
+              " start TEXT, end TEXT)")
     if "archived_at" not in {r[1] for r in c.execute("PRAGMA table_info(areas)")}:  # 더는 책임지지 않는 영역 (보관 칸으로)
         c.execute("ALTER TABLE areas ADD COLUMN archived_at TEXT")
     # 자료: 에이전트가 MCP 로 남긴다 (사용자가 남기라고 할 때 · 프로젝트를 보관할 때 정리 한 장). sid 는 남긴 세션
