@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { post, tilde, useApp, usePoll, when } from './lib'
 
 // cron 5칸 → 쉬운 말. 자주 쓰는 모양만 바꾸고 나머지는 그대로 보인다
@@ -57,8 +57,16 @@ const OnOff = ({ r }) => <span className="pill" style={{ color: r.enabled ? 'var
 
 // 예약 작업 상세 (#sched/<id>): 설정 한눈에 → Flow(접고 펴기, 다른 루틴을 열어도 접힘 상태를 이어 간다) → 지시문 전문
 let flowOpen = true
-function Detail({ r, loaded, m, done }) {
+function Detail({ r, loaded, m, done, pull }) {
   const { G } = useApp()
+  // 지시문은 claude.ai 예약 작업 페이지에서 고친다 (수정 API 는 110KB 실행 설정을 통째로 바꿔야 해 여기서 고치지 않는다).
+  // 고치러 갔다가 이 창으로 돌아오면 목록을 새로 받는다 — 지시문이 바뀌었으면 서버가 Flow 를 다시 만든다
+  const armed = useRef(false)
+  useEffect(() => {
+    const back = () => { if (armed.current && document.visibilityState === 'visible') { armed.current = false; pull() } }
+    addEventListener('focus', back); document.addEventListener('visibilitychange', back)
+    return () => { removeEventListener('focus', back); document.removeEventListener('visibilitychange', back) }
+  }, [pull])
   const back = <div className="sh"><a className="lk" href="#sched">← 예약 작업 목록</a></div>
   if (!r) return <div className="pg"><section className="card">{back}
     <div className="meta">{loaded ? '이 예약 작업을 찾지 못했습니다. 목록에서 [새로 받기] 를 눌러 보세요' : '불러오는 중…'}</div></section></div>
@@ -67,7 +75,9 @@ function Detail({ r, loaded, m, done }) {
     ['모델', r.model.replace(/^claude-/, '') || '—'], ['권한 모드', r.mode || '—'], ...r.stopped ? [['멈춘 이유', STOP[r.stopped] || r.stopped]] : []]
   return <div className="pg">
     <section className="card">{back}
-      <h3 className="dtitle">{r.name || '(이름 없음)'} <OnOff r={r} /></h3>
+      <h3 className="dtitle">{r.name || '(이름 없음)'} <OnOff r={r} />
+        <a className="lk" href={'https://claude.ai/code/routines/' + encodeURIComponent(r.id)} target="_blank" rel="noopener" onClick={() => { armed.current = true }}
+          style={{ marginLeft: 'auto', fontSize: 13 }} title="claude.ai 의 예약 작업 페이지에서 지시문·일정을 고칩니다. 고치고 이 창으로 돌아오면 새로 받아 Flow 를 다시 만듭니다">claude.ai 에서 고치기 ↗</a></h3>
       <dl className="kv">{kv.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl></section>
     <section className="card"><details open={flowOpen} onToggle={e => { flowOpen = e.target.open }}>
       <summary><h2 style={{ display: 'inline-block' }}>Flow</h2> <span className="meta">AI 가 지시문을 정리한 흐름</span></summary>
@@ -91,7 +101,7 @@ export default function Sched({ sub }) {
     setN(x => x + 1)
   }
   useEffect(() => { if (R && (!R.at || Date.now() - new Date(R.at) > STALE)) pull() }, [!!R])  // 처음 열 때 저장본이 없거나 오래됐으면
-  if (sub) return <Detail r={R?.items.find(x => x.id === sub)} loaded={!!R?.at && !busy} m={S?.maps?.[sub]} done={() => setN(x => x + 1)} />
+  if (sub) return <Detail r={R?.items.find(x => x.id === sub)} loaded={!!R?.at && !busy} m={S?.maps?.[sub]} done={() => setN(x => x + 1)} pull={pull} />
   const rs = [...(R?.items || [])].sort((a, b) => b.enabled - a.enabled || (a.next || '9').localeCompare(b.next || '9'))
   return <div className="pg">
     <section className="card"><div className="sh"><h2>Claude 예약 작업</h2>
