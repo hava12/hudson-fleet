@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 import { fitBox, textW, useCy } from './Graph'
 import { TaskList } from './TaskList'
 import { Dot, FILL, GINFO, LIVE, dark, fmtTok, grp, modelName, post, press, tilde, useApp, usePoll } from './lib'
+import { TodaySched } from './Sched'
 
 // 세션 노드는 자리만 카드 크기로 잡고, 그 위에 카드(SessionCard)를 겹친다 (노드 이름표로는 줄마다 모양을 줄 수 없다)
 const NW = 300, NH = 148  // NH 는 .ncard 글자 크기·줄 간격(13px × 1.6, 제목 + 4줄)에 맞춘다. 글자를 키우면 같이 키운다
@@ -148,6 +149,8 @@ export default function Home() {
         }} />
         : <div className="meta">{statF ? '해당하는 세션의 남은 일이 없습니다' : '남은 일이 없습니다'}</div>}
     </section>
+
+    <TodaySched />
 
     {menu && <div id="menu" style={{ display: 'block', left: menu.x, top: menu.y }}>
       <div className="danger" onClick={() => stopSession(menu.n)}>세션 종료하기</div></div>}

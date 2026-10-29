@@ -110,6 +110,9 @@ header .gear{font-size:20px;line-height:1;color:var(--mute);text-decoration:none
 .ptabs{display:flex;gap:6px;flex-wrap:wrap}.ptabs button{display:flex;align-items:center;gap:6px}
 .ptabs button.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc);font-weight:600}.ptabs .cnt{font-size:12px;color:var(--mute);min-width:14px}
 .pdef{margin:0 0 12px}.res{border-bottom:1px solid var(--line);padding:8px 0}.res>summary{cursor:pointer}
+/* 현황 맨 아래 오늘 예약 작업 (Sched.jsx TodaySched): 작게 한 줄씩 — 시각 · 상태 · 이름 */
+.tsl{list-style:none;margin:0;padding:0;font-size:13px;display:grid;gap:4px}.tsl li{display:flex;gap:8px;align-items:baseline;min-width:0}
+.tsl li>:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.tsl time,.tsl .pill{flex-shrink:0;white-space:nowrap}.tsl time{color:var(--mute);font-variant-numeric:tabular-nums;min-width:62px}.tsl .pill{font-size:12px}
 /* 예약 작업 상세 (Sched.jsx Detail): 제목과 설정 한눈에 */
 .dtitle{font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 16px;margin:0;font-size:14px}.kv dt{color:var(--mute)}.kv dd{margin:0;word-break:break-all}

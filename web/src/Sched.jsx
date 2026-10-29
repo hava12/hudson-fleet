@@ -88,6 +88,31 @@ function Detail({ r, loaded, m, done, pull }) {
 }
 
 // ── 예약 작업: Claude 예약 작업(루틴 — claude.ai 에 저장, 데스크톱 앱·클라우드에서 실행)과 살아 있는 세션의 예약. sub 가 있으면 그 루틴의 상세 ──
+// ── 현황 맨 아래: 오늘 도는 예약 작업. 예약 작업 페이지가 받아 둔 목록만 쓰고 여기서는 새로 받지 않는다 (AI 비용) ──
+const isToday = ts => !!ts && new Date(ts).toDateString() === new Date().toDateString()
+const hm = ts => new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+export function TodaySched() {
+  const S = usePoll('/api/schedules', 60000)
+  if (!S) return null
+  const now = Date.now()
+  // 루틴 한 건 = 한 줄: 오늘 이미 돌았으면 결과, 아니면 오늘 예정 시각 (받은 목록이 오래돼 예정 시각이 지났으면 '지남')
+  const rows = S.routines.items.flatMap(r => {
+    const ran = isToday(r.last) && !(r.enabled && isToday(r.next) && r.next > r.last)
+    if (ran) return [{ t: r.last, name: r.name, href: '#sched/' + r.id, st: RESULT[r.result] || [r.result, ''] }]
+    if (!r.enabled || !isToday(r.next)) return []
+    return [{ t: r.next, name: r.name, href: '#sched/' + r.id, st: new Date(r.next) > now ? ['예정', 'var(--acc)'] : ['지남', 'var(--mute)'] }]
+  }).concat(S.sessions.filter(j => isToday(j.next) && j.next > now).map(j => ({ t: j.next, name: `${j.session} · ${j.prompt}`, href: '', st: ['세션 예약', 'var(--mute)'] })))
+    .sort((a, b) => new Date(a.t) - new Date(b.t))
+  return <section className="card"><div className="sh"><h2>오늘 예약 작업</h2>
+    <a className="lk meta" href="#sched" style={{ fontWeight: 400 }}>예약 작업 전체 보기 →</a>
+    {S.routines.at && <span className="meta" title="예약 작업 페이지에서 새로 받으면 바뀝니다">{when(S.routines.at)} 에 받은 목록 기준</span>}</div>
+    {rows.length ? <ul className="tsl">{rows.map((x, i) => <li key={i}><time>{hm(x.t)}</time>
+      <span className="pill" style={{ color: x.st[1] }} title={x.st[0] === '지남' ? '예정 시각이 지났습니다. 예약 작업 페이지에서 새로 받으면 결과가 보입니다' : undefined}>{x.st[0]}</span>
+      {x.href ? <a className="lk" href={x.href}>{x.name}</a> : <span>{x.name}</span>}</li>)}</ul>
+      : <div className="meta">{S.routines.at ? '오늘 도는 예약 작업이 없습니다' : '예약 작업 목록을 아직 받지 않았습니다 — 예약 작업 페이지를 열면 받습니다'}</div>}
+  </section>
+}
+
 export default function Sched({ sub }) {
   const { G, setMsg } = useApp()
   const [n, setN] = useState(0), [busy, setBusy] = useState(false)
