@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import { post, press, tilde, useApp, usePoll, when } from './lib'
+import { post, tilde, useApp, usePoll, when } from './lib'
 
 // cron 5칸 → 쉬운 말. 자주 쓰는 모양만 바꾸고 나머지는 그대로 보인다
 const DOW = '일월화수목금토'
@@ -19,10 +19,64 @@ const RESULT = { SUCCEEDED: ['성공', 'var(--t-done)'], FAILED: ['실패', '#dc
 const STOP = { device_absent: '실행할 기기가 연결돼 있지 않아 멈춤' }  // 루틴이 멈춘 이유 (suspension_reason)
 const STALE = 3600e3  // 저장본이 이보다 오래됐으면 페이지를 열 때 새로 받는다
 
-// ── 예약 작업: Claude 예약 작업(루틴 — claude.ai 에 저장, 데스크톱 앱·클라우드에서 실행)과 살아 있는 세션의 예약 ──
-export default function Sched() {
+// AI 가 지시문을 정리한 흐름도: 시작 → 단계(조건 분기는 ⤷) → 결과, 옆에 지키는 규칙. 저장본이 없으면 상세 페이지에 들어올 때 한 번 만든다
+function RoutineMap({ r, m, done }) {
+  const { setMsg } = useApp()
+  const [busy, setBusy] = useState(false)
+  const make = async () => {
+    setBusy(true)
+    const x = await post('/api/routine-map', { id: r.id })
+    setBusy(false)
+    if (x.error) setMsg(x.error)
+    done()
+  }
+  useEffect(() => { if (!m && r.prompt) make() }, [])
+  if (!m) return <div className="meta">{busy ? 'AI(haiku)가 지시문을 읽고 흐름을 정리하는 중… (10~30초)' : r.prompt ? '흐름도를 만들지 못했습니다 ' : '지시문이 없습니다'}
+    {!busy && r.prompt && <button className="sm" onClick={make}>다시 시도</button>}</div>
+  const d = m.data
+  const box = (k, body, cls = '') => <div className={'fbox ' + cls}><span className="fk">{k}</span><div>{body}</div></div>
+  const list = l => l.length > 0 && <ul>{l.map((x, i) => <li key={i}>{x}</li>)}</ul>
+  return <div className="rmap">
+    <p className="rsum">{d.summary}</p>
+    <div className="rcols"><div className="flow">
+      {box('시작', <>{d.trigger}{list(d.inputs)}</>, 'fstart')}
+      {d.steps.map((s, i) => <Fragment key={i}><i className="farrow" aria-hidden>↓</i>
+        {box(i + 1, <><b>{s.title}</b> <span className="meta">{s.detail}</span>{s.branch && <div className="fbr">⤷ {s.branch}</div>}</>)}</Fragment>)}
+      {d.outputs.length > 0 && <><i className="farrow" aria-hidden>↓</i>{box('결과', list(d.outputs), 'fend')}</>}
+    </div>
+    {d.rules.length > 0 && <div className="frules"><b>지키는 규칙</b>{list(d.rules)}</div>}</div>
+    <div className="meta" style={{ marginTop: 8 }}>{when(m.at)} 에 AI(haiku)가 정리했습니다{m.stale && <b style={{ color: 'var(--t-todo)' }}> · 그 뒤 지시문이 바뀌었습니다</b>}{' '}
+      <button className="sm" disabled={busy} onClick={make} title="AI 로 다시 만듭니다 (haiku 사용)">{busy ? '만드는 중…' : '새로 만들기'}</button></div>
+  </div>
+}
+
+const nextRun = r => r.enabled && r.cron ? when(r.next) : '—'
+const lastRun = r => r.last ? <>{when(r.last)} <span style={{ color: RESULT[r.result]?.[1] }}>{RESULT[r.result]?.[0] || r.result}</span>{r.why && ` · ${r.why}`}</> : '—'
+const OnOff = ({ r }) => <span className="pill" style={{ color: r.enabled ? 'var(--t-done)' : 'var(--mute)' }}>{r.enabled ? '켜짐' : '꺼짐'}</span>
+
+// 예약 작업 상세 (#sched/<id>): 설정 한눈에 → AI 가 정리한 흐름도 → 지시문 전문
+function Detail({ r, loaded, m, done }) {
+  const { G } = useApp()
+  const back = <div className="sh"><a className="lk" href="#sched">← 예약 작업 목록</a></div>
+  if (!r) return <div className="pg"><section className="card">{back}
+    <div className="meta">{loaded ? '이 예약 작업을 찾지 못했습니다. 목록에서 [새로 받기] 를 눌러 보세요' : '불러오는 중…'}</div></section></div>
+  const kv = [['일정', <>{cronText(r.cron)}{r.cron && <span className="meta"> ({r.cron}{r.tz ? ' · ' + r.tz : ''})</span>}</>], ['다음 실행', nextRun(r)],
+    ['마지막 실행', lastRun(r)], ['실행 기기', r.device], ['작업 폴더', r.folders.map(f => <div key={f} title={f}>{tilde(f, G.home)}</div>)],
+    ['모델', r.model.replace(/^claude-/, '') || '—'], ['권한 모드', r.mode || '—'], ...r.stopped ? [['멈춘 이유', STOP[r.stopped] || r.stopped]] : []]
+  return <div className="pg">
+    <section className="card">{back}
+      <h3 className="dtitle">{r.name || '(이름 없음)'} <OnOff r={r} /></h3>
+      <dl className="kv">{kv.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl></section>
+    <section className="card"><div className="sh"><h2>AI 가 정리한 흐름</h2></div><RoutineMap key={r.id} r={r} m={m} done={done} /></section>
+    <section className="card"><details><summary><h2 style={{ display: 'inline-block' }}>지시문 전문</h2></summary>
+      <pre style={{ marginTop: 10 }}>{r.prompt || '(지시문 없음)'}</pre></details></section>
+  </div>
+}
+
+// ── 예약 작업: Claude 예약 작업(루틴 — claude.ai 에 저장, 데스크톱 앱·클라우드에서 실행)과 살아 있는 세션의 예약. sub 가 있으면 그 루틴의 상세 ──
+export default function Sched({ sub }) {
   const { G, setMsg } = useApp()
-  const [n, setN] = useState(0), [busy, setBusy] = useState(false), [open, setOpen] = useState('')  // open: 지시문을 펼친 루틴
+  const [n, setN] = useState(0), [busy, setBusy] = useState(false)
   const S = usePoll('/api/schedules', 30000, [n])
   const R = S?.routines
   const pull = async () => {
@@ -33,6 +87,7 @@ export default function Sched() {
     setN(x => x + 1)
   }
   useEffect(() => { if (R && (!R.at || Date.now() - new Date(R.at) > STALE)) pull() }, [!!R])  // 처음 열 때 저장본이 없거나 오래됐으면
+  if (sub) return <Detail r={R?.items.find(x => x.id === sub)} loaded={!!R?.at && !busy} m={S?.maps?.[sub]} done={() => setN(x => x + 1)} />
   const rs = [...(R?.items || [])].sort((a, b) => b.enabled - a.enabled || (a.next || '9').localeCompare(b.next || '9'))
   return <div className="pg">
     <section className="card"><div className="sh"><h2>Claude 예약 작업</h2>
@@ -42,20 +97,17 @@ export default function Sched() {
       {!R ? <div className="meta">불러오는 중…</div> : !R.at ? <div className="meta">{busy ? '처음 받는 중입니다…' : '아직 받지 않았습니다'}</div>
         : <div className="tw"><table className="tbl"><tbody>
           <tr><th>이름</th><th>일정</th><th>다음 실행</th><th>마지막 실행</th><th>실행 위치</th><th>모델 · 권한</th></tr>
-          {rs.map(r => <Fragment key={r.id}><tr style={{ opacity: r.enabled ? 1 : .55 }}>
-            <td><a className="lk" {...press(() => setOpen(open === r.id ? '' : r.id))} aria-expanded={open === r.id} title="눌러서 지시문 보기">{r.name || '(이름 없음)'}</a>
-              {' '}<span className="pill" style={{ color: r.enabled ? 'var(--t-done)' : 'var(--mute)' }}>{r.enabled ? '켜짐' : '꺼짐'}</span>
+          {rs.map(r => <tr key={r.id} style={{ opacity: r.enabled ? 1 : .55 }}>
+            <td><a className="lk" href={'#sched/' + encodeURIComponent(r.id)} title="상세 페이지: AI 가 정리한 흐름도와 지시문">{r.name || '(이름 없음)'}</a> <OnOff r={r} />
               {r.stopped && <div className="meta">{STOP[r.stopped] || r.stopped}</div>}</td>
             <td title={r.cron ? `${r.cron}${r.tz ? ' · ' + r.tz : ''}` : ''}>{cronText(r.cron)}</td>
-            <td className="meta">{r.enabled && r.cron ? when(r.next) : '—'}</td>
-            <td className="meta">{r.last ? <>{when(r.last)} <span style={{ color: RESULT[r.result]?.[1] }}>{RESULT[r.result]?.[0] || r.result}</span>{r.why && ` · ${r.why}`}</> : '—'}</td>
+            <td className="meta">{nextRun(r)}</td>
+            <td className="meta">{lastRun(r)}</td>
             <td className="meta">{r.device}{r.folders.map(f => <div key={f} title={f}>{tilde(f, G.home)}</div>)}</td>
-            <td className="meta">{r.model.replace(/^claude-/, '')}{r.mode && <div>{r.mode}</div>}</td></tr>
-            {/* 표가 화면보다 넓으면(휴대폰) 지시문은 화면 폭에 맞추고 왼쪽에 붙여 둔다 — 옆으로 밀지 않고 읽게 */}
-            {open === r.id && <tr><td colSpan="6"><pre style={{ position: 'sticky', left: 0, maxWidth: 'calc(100vw - 72px)' }}>{r.prompt || '(지시문 없음)'}</pre></td></tr>}</Fragment>)}
+            <td className="meta">{r.model.replace(/^claude-/, '')}{r.mode && <div>{r.mode}</div>}</td></tr>)}
           {!rs.length && <tr><td colSpan="6" className="meta">예약 작업이 없습니다</td></tr>}
         </tbody></table></div>}
-      <p className="meta" style={{ margin: '10px 0 0' }}>예약 작업은 claude.ai 에 저장되고 Claude 데스크톱 앱이나 클라우드에서 실행됩니다. 로그인 토큰을 읽지 않으려고, [새로 받기] 는 Claude Code 의 예약 작업 조회 도구를 haiku 로 한 번 불러 받아 옵니다. 페이지를 열 때 저장본이 1시간보다 오래됐으면 저절로 다시 받습니다.</p>
+      <p className="meta" style={{ margin: '10px 0 0' }}>이름을 누르면 상세 페이지에서 AI 가 정리한 흐름도를 봅니다 (처음 한 번 만들고 저장해 둡니다). 예약 작업은 claude.ai 에 저장되고 Claude 데스크톱 앱이나 클라우드에서 실행됩니다. 로그인 토큰을 읽지 않으려고, [새로 받기] 는 Claude Code 의 예약 작업 조회 도구를 haiku 로 한 번 불러 받아 옵니다. 페이지를 열 때 저장본이 1시간보다 오래됐으면 저절로 다시 받습니다.</p>
     </section>
 
     <section className="card"><div className="sh"><h2>세션 안 예약</h2><span className="meta">살아 있는 세션이 /loop·예약 도구로 걸어 둔 것 — 세션이 끝나면 사라집니다</span></div>

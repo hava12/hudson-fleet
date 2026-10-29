@@ -10,7 +10,8 @@ import SidePanel from './SidePanel'
 import { App as Ctx, grp, isDead, post, press, tilde, useApp, usePoll } from './lib'
 
 const PAGES = { home: ['현황', Home], para: ['PARA', Para], history: ['세션 기록', History], pushes: ['Push 기록', Pushes], sched: ['예약 작업', Sched], issues: ['이슈·PR', Issues], mcp: ['MCP 서버', Mcp], settings: ['설정', Settings] }
-const page = () => PAGES[location.hash.slice(1)] ? location.hash.slice(1) : 'home'
+// #페이지 또는 #페이지/하위 (예: #sched/trig_… 예약 작업 상세). 하위는 페이지에 sub 로 넘긴다
+const route = () => { const [p, ...sub] = location.hash.slice(1).split('/'); return PAGES[p] ? [p, decodeURIComponent(sub.join('/'))] : ['home', ''] }
 // 상단 메뉴: 현황은 로고로 간다. 기록 페이지는 History 아래로 묶는다 (설정은 오른쪽 ⚙)
 const NAV = ['para', ['History', ['history', 'pushes']], 'sched', 'issues', 'mcp']
 const sideKey = k => k && k.type + ':' + (k.sid || k.id) + (k.agent || '')
@@ -132,7 +133,7 @@ function NavMenu({ label, keys, pg }) {
 }
 
 function App() {
-  const [pg, setPg] = useState(page)
+  const [[pg, sub], setRoute] = useState(route)
   const [side, setSide] = useState(null)  // 오른쪽 패널에 열린 것 — 같은 것을 다시 누르면 닫는다
   const [msg, setMsgS] = useState({ t: '', n: 0 })  // n: 받은 횟수 — 바뀌면 메시지 칸을 새로 그려 깜빡임을 다시 튼다
   const setMsg = useCallback(t => setMsgS(m => ({ t: t || '', n: m.n + 1 })), [])
@@ -158,7 +159,7 @@ function App() {
     setMsg(r.text || r.error)
   }
   useEffect(() => {
-    const f = () => { setPg(page()); setSide(null) }
+    const f = () => { setRoute(route()); setSide(null); document.getElementById('dash').scrollTop = 0 }  // 새 페이지는 맨 위부터
     addEventListener('hashchange', f)
     return () => removeEventListener('hashchange', f)
   }, [])
@@ -177,7 +178,7 @@ function App() {
       <a href="#settings" className={'gear' + (pg === 'settings' ? ' on' : '')} title="설정" aria-label="설정">⚙</a></div></header>
     {down && <div className="down">대시보드 서버에 닿지 않습니다. 대시보드는 Claude Code 세션(MCP 서버)이 띄우므로, 세션이 모두 꺼졌거나 옛 버전 세션만 남았을 수 있습니다. 세션을 하나 열면 1~2초 안에 다시 이어집니다.</div>}
     <main className={side ? '' : 'noside'}>
-      <div id="dash"><Page /></div>
+      <div id="dash"><Page sub={sub} /></div>
       <div id="side"><Handle /><button className="sm" id="sideX" title="패널 닫기" onClick={() => setSide(null)}>✕</button>
         <div id="sidec">{side && <SidePanel />}</div></div>
     </main>

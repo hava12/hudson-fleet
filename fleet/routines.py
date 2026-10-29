@@ -1,4 +1,5 @@
 """예약 작업: Claude 예약 작업(루틴 — 데스크톱 앱·클라우드)과, 살아 있는 세션이 걸어 둔 예약(/loop·CronCreate)."""
+import hashlib
 import json
 import re
 import shutil
@@ -10,6 +11,7 @@ from datetime import datetime
 from .agents import agents
 from .config import DEAD, PROJECTS, QUIET, now_iso
 from .db import DB, db
+from .tasks import ask_haiku
 from .transcripts import by_mtime, transcript
 
 
@@ -75,6 +77,62 @@ def refresh():
     finally:
         _busy.release()
     return saved()
+
+
+# ── 흐름도: 루틴 지시문을 AI(haiku)가 시작 → 단계 → 결과로 정리한다. 한 번 만들면 [새로 만들기] 전까지 DB 저장본을 쓴다 ──
+MAP_ASK = """다음은 Claude 예약 작업의 지시문이다. 이 작업이 무엇을 하는지 흐름도로 그릴 수 있게 정리해 JSON 하나만 출력하라. 코드 블록·설명은 붙이지 않는다.
+{"summary": "이 작업이 하는 일 한 문장", "trigger": "언제·무엇으로 시작하는지 한 줄", "inputs": ["읽거나 받는 것"],
+ "steps": [{"title": "단계 이름 12자 이내", "detail": "그 단계에서 하는 일 한 줄", "branch": "조건에 따라 달라지면 '조건 → 처리' 한 줄, 없으면 빈 문자열"}],
+ "outputs": ["만들거나 보내는 것"], "rules": ["꼭 지키는 규칙, 최대 3개"]}
+steps 는 지시문의 실제 순서대로 3~8개. 모든 문장은 쉬운 한국어로 60자 이내. 지시문에 없는 내용은 지어내지 않는다."""
+_making = set()
+
+
+def _hash(s):
+    return hashlib.sha1((s or "").encode()).hexdigest()
+
+
+def maps():
+    """저장된 흐름도 {루틴 id: {data, at, stale}}. stale: 만든 뒤 지시문이 바뀌었다."""
+    now = {r["id"]: _hash(r["prompt"]) for r in saved()["items"]}
+    c = db()
+    rows = c.execute("SELECT id, hash, at, data FROM routine_maps").fetchall()
+    c.close()
+    return {i: {"data": json.loads(d), "at": at, "stale": i in now and now[i] != h} for i, h, at, d in rows}
+
+
+def _clean(text):
+    """haiku 답 → 흐름도 칸. 형식이 틀리면 ValueError."""
+    m = re.search(r"\{.*\}", text or "", re.S)
+    d = json.loads(m[0]) if m else None
+    lines = lambda v, n: [str(x).strip()[:120] for x in (v if isinstance(v, list) else []) if str(x).strip()][:n]
+    steps = [{"title": str(s.get("title", "")).strip()[:40], "detail": str(s.get("detail", "")).strip()[:160],
+              "branch": str(s.get("branch") or "").strip()[:160]} for s in (d or {}).get("steps") or [] if isinstance(s, dict)][:10]
+    if not d or not steps:
+        raise ValueError("AI 가 흐름을 정리하지 못했습니다. [새로 만들기] 를 다시 눌러 주세요")
+    return {"summary": str(d.get("summary", "")).strip()[:200], "trigger": str(d.get("trigger", "")).strip()[:160],
+            "inputs": lines(d.get("inputs"), 6), "steps": steps, "outputs": lines(d.get("outputs"), 6), "rules": lines(d.get("rules"), 3)}
+
+
+def make_map(rid):
+    """루틴 하나의 흐름도를 (다시) 만들어 저장한다. 지시문은 저장된 루틴 목록에서만 읽는다 — 화면이 보낸 글을 AI 에 넘기지 않는다."""
+    r = next((x for x in saved()["items"] if x["id"] == rid), None)
+    if not r or not r["prompt"]:
+        return {"error": "지시문이 있는 예약 작업이 아닙니다. [새로 받기] 를 눌러 주세요"}
+    if rid in _making:
+        return {"error": "이미 만드는 중입니다"}
+    _making.add(rid)
+    try:
+        data = _clean(ask_haiku(MAP_ASK, r["prompt"]))
+    except (ValueError, OSError, subprocess.TimeoutExpired) as e:
+        return {"error": str(e) if isinstance(e, ValueError) else "AI 를 부르지 못했습니다: " + str(e)}
+    finally:
+        _making.discard(rid)
+    c = db()
+    c.execute("INSERT OR REPLACE INTO routine_maps VALUES (?,?,?,?)", (rid, _hash(r["prompt"]), now_iso(), json.dumps(data, ensure_ascii=False)))
+    c.commit()
+    c.close()
+    return {"ok": True}
 
 
 @by_mtime
@@ -156,4 +214,12 @@ if __name__ == "__main__":  # 확인: python3 -m fleet.routines (대화 기록 �
               "bound_device": {"display_name": "Claude Desktop (macOS)"}, "derived_state": {"prompt": "p", "folders": ["/x"]}})
     assert (t["cron"], t["tz"], t["result"], t["why"], t["device"]) == ("30 9 * * *", "Asia/Seoul", "SUCCEEDED", "", "Claude Desktop (macOS)")
     assert trim({"name": "m"})["cron"] == "" and trim({"name": "m"})["device"] == "클라우드"
+    d = _clean('설명 {"summary": "s", "steps": [{"title": "t", "detail": "d"}, "x"], "inputs": "아님", "rules": ["a", "b", "c", "d"]} 끝')
+    assert d["steps"] == [{"title": "t", "detail": "d", "branch": ""}] and d["inputs"] == [] and len(d["rules"]) == 3
+    for bad in ("JSON 없음", '{"summary": "s", "steps": []}'):
+        try:
+            _clean(bad)
+            raise AssertionError(bad)
+        except ValueError:
+            pass
     print("ok")

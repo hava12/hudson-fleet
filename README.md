@@ -88,12 +88,12 @@ npm run build   # → ../dist
 
 | 파일 | 하는 일 |
 |---|---|
-| `src/main.jsx` | 상단 메뉴·사용량·알림, 페이지 전환(#home 등), 오른쪽 패널 틀, 함께 쓰는 상태(`App` 컨텍스트) |
+| `src/main.jsx` | 상단 메뉴·사용량·알림, 페이지 전환(#home 등, #sched/<id> 처럼 하위 경로도), 오른쪽 패널 틀, 함께 쓰는 상태(`App` 컨텍스트) |
 | `src/Home.jsx` | 현황: 숫자 타일, 상태별 노드(그래프 + `SessionCard`), 남은 작업 |
 | `src/Pages.jsx` | 세션 기록 · Push 기록 · 이슈·PR · 설정 |
 | `src/Para.jsx` | PARA: 프로젝트·영역·자료·보관 네 칸 탭, PARA 설명 툴팁(`lib.jsx` 의 `Tip`) |
 | `src/Mcp.jsx` | MCP 서버 그래프 |
-| `src/Sched.jsx` | 예약 작업 (Claude 루틴 · 세션 안 예약) |
+| `src/Sched.jsx` | 예약 작업 (Claude 루틴 · 세션 안 예약) · 루틴 상세(흐름도) |
 | `src/SidePanel.jsx` | 오른쪽 패널: 프로젝트 · 세션 · MCP 서버 · 끝난 세션 |
 | `src/TaskList.jsx` | 작업 목록 `TaskList` → `TaskRow` (key=작업 id, 펼침은 줄마다 `useState`). 상태가 섞이면 남은 일을 위로 묶고 완료·반려는 접는다. 남은 작업·세션 패널(기록할 작업·세션 기록) 3곳이 함께 씀 |
 | `src/Graph.jsx` | cytoscape 띄우기(`useCy`)와 높이 맞추기 |
@@ -164,7 +164,9 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 
 **예약 작업**
 
-- **Claude 예약 작업**(루틴): claude.ai 에 저장되고 Claude 데스크톱 앱이나 클라우드에서 정해진 시각에 도는 작업. 이름과 켜짐·꺼짐(멈춘 이유), 일정("매일 오전 9:30"), 다음 실행, 마지막 실행 시각과 성공·실패, 실행 기기·폴더, 모델·권한 모드를 보이고, 이름을 누르면 지시문이 펼쳐집니다.
+- **Claude 예약 작업**(루틴): claude.ai 에 저장되고 Claude 데스크톱 앱이나 클라우드에서 정해진 시각에 도는 작업. 이름과 켜짐·꺼짐(멈춘 이유), 일정("매일 오전 9:30"), 다음 실행, 마지막 실행 시각과 성공·실패, 실행 기기·폴더, 모델·권한 모드를 보입니다.
+  - 이름을 누르면 상세 페이지(`#sched/<루틴 id>`)로 들어갑니다. 설정을 한눈에 보이고, AI(haiku)가 지시문을 읽고 정리한 흐름도(시작 → 단계 → 결과, 조건 분기는 ⤷, 옆에 지키는 규칙)와 지시문 전문을 보입니다.
+  - 흐름도는 처음 들어갈 때 한 번 만들어 DB 에 저장하고, [새로 만들기] 를 누르기 전까지 저장본을 씁니다. 만든 뒤 지시문이 바뀌면 그렇다고 알립니다. AI 에는 화면이 보낸 글이 아니라 저장된 루틴 목록의 지시문만 넘깁니다.
   - 루틴은 이 PC 에 남지 않아 claude.ai 에서 받아 옵니다. 로그인 토큰을 읽지 않으려고, Claude Code 의 예약 작업 조회 도구(RemoteTrigger)를 haiku 로 한 번 불러 받습니다(한 번에 약 10초 · 0.5센트). 받은 목록은 DB 에 저장해 두고, 페이지를 열 때 저장본이 1시간보다 오래됐거나 [새로 받기] 를 누를 때만 다시 받습니다.
 - **세션 안 예약**: 살아 있는 세션이 `/loop` 이나 예약 도구(CronCreate)로 걸어 둔 것. Claude Code 는 이 예약을 디스크에 남기지 않으므로 대화 기록에서 찾습니다(만들기·지우기·목록 결과). 반복 예약은 7일 뒤, 한 번짜리는 실행되면 사라지고, 세션이 끝나도 사라집니다.
 
@@ -216,6 +218,7 @@ SQLite 파일 하나에 저장합니다 (`HUDSON_FLEET_DB`).
 | `samples` | 1분마다 상태별 세션 수, 서브에이전트 수, 5시간·1주일 사용률 |
 | `daily` | 날짜별 토큰 합계 (캐시 읽기 제외) |
 | `routines` | Claude 예약 작업(루틴) 저장본 한 행: 받은 시각과 화면에 보일 칸만 추린 JSON 목록 |
+| `routine_maps` | 루틴마다 AI 가 정리한 흐름도(JSON), 만든 시각, 그때 지시문의 해시(바뀌었는지 알리려고) |
 
 ## 의존성
 
@@ -240,7 +243,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `fleet/usage.py` | `/usage` 사용률, 세션별 5시간 몫, 날짜별 토큰 |
 | `fleet/links.py` | GitHub·Jira REST 연결 (토큰 인증은 이 파일의 `github()`·`jira()` 두 곳만, 표준 라이브러리만) |
 | `fleet/pushes.py` | 세션에서 실행한 git push 기록 (Claude 의 Bash 와 사용자의 `!` 명령) |
-| `fleet/routines.py` | 예약 작업: Claude 루틴(haiku 로 RemoteTrigger 를 불러 받음)과 살아 있는 세션의 /loop·CronCreate 예약(대화 기록에서 찾음) |
+| `fleet/routines.py` | 예약 작업: Claude 루틴(haiku 로 RemoteTrigger 를 불러 받음)과 그 흐름도(AI 정리, DB 저장), 살아 있는 세션의 /loop·CronCreate 예약(대화 기록에서 찾음) |
 | `fleet/card.py` | 프로필 카드 SVG 그리기와 Gist 덮어쓰기 |
 | `fleet/recorder.py` | 1분 주기 기록 스레드: 지표, 세션 상태, 끝난 세션 마감, 30분마다 프로필 카드 |
 | `fleet/web.py` | HTTP API 와 화면 (`dist/`) |
@@ -260,7 +263,8 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 |---|---|
 | `GET /api/sessions?status=closed\|work\|wait\|idle&limit=50` | 세션과 작업 목록 (지운 기록은 빠짐) |
 | `POST /api/session/delete` | 끝난 세션 기록 지우기 `{sid}` (soft delete). 끝난 세션이 아니거나 이미 지웠으면 `{error}` |
-| `GET /api/schedules` · `POST /api/schedules/refresh` | 예약 작업: 루틴 저장본 `{routines: {at, items}, sessions}` · 루틴을 claude.ai 에서 새로 받아 저장 (haiku 사용, 못 받으면 저장본에 `error`) |
+| `POST /api/routine-map` | 루틴 하나의 흐름도를 AI 로 (다시) 만들어 저장 `{id}` → `{ok}` 또는 `{error}` (haiku 사용) |
+| `GET /api/schedules` · `POST /api/schedules/refresh` | 예약 작업: 루틴 저장본 `{routines: {at, items}, sessions, maps}` (maps: 루틴 id → 저장된 흐름도) · 루틴을 claude.ai 에서 새로 받아 저장 (haiku 사용, 못 받으면 저장본에 `error`) |
 | `GET /api/pushes?limit=200&sid=` | 세션에서 실행한 git push — Claude 의 Bash 와 사용자의 `!` 명령, 세션 밖 터미널은 빠짐 (시각·레포·브랜치·커밋 메시지·세션). `sid` 를 주면 그 세션 것만. 대화 기록이 지워져도 DB 에 남습니다 |
 | `GET /api/metrics?hours=24` | 1분 단위 지표 |
 | `GET /api/daily` | 날짜별 토큰 (최근 1년) |

@@ -75,6 +75,8 @@ def schema(c):
               " ref TEXT, old TEXT, new TEXT, commits TEXT)")  # id = tool_use id + ref, commits = JSON [[hash, 제목]]
     # Claude 예약 작업(루틴) 저장본 한 줄 (fleet/routines.py). at = 받은 시각, data = JSON 목록
     c.execute("CREATE TABLE IF NOT EXISTS routines (id INTEGER PRIMARY KEY CHECK (id = 1), at TEXT, data TEXT)")
+    # 루틴마다 AI 가 지시문을 정리한 흐름도 (id = 루틴 id). [새로 만들기] 전까지 그대로 쓴다. hash = 그때 지시문 — 바뀌면 화면이 알린다
+    c.execute("CREATE TABLE IF NOT EXISTS routine_maps (id TEXT PRIMARY KEY, hash TEXT, at TEXT, data TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT)")  # 화면에서 바꾼 설정 (EDIT 에 있는 것만)
     c.execute("DROP TABLE IF EXISTS users")  # 지운 로그인 계정·API 키 기능(개인용으로 되돌림)이 남긴 표
     c.execute("DROP TABLE IF EXISTS api_keys")

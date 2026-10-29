@@ -110,4 +110,14 @@ header .gear{font-size:20px;line-height:1;color:var(--mute);text-decoration:none
 .ptabs{display:flex;gap:6px;flex-wrap:wrap}.ptabs button{display:flex;align-items:center;gap:6px}
 .ptabs button.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc);font-weight:600}.ptabs .cnt{font-size:12px;color:var(--mute);min-width:14px}
 .pdef{margin:0 0 12px}.res{border-bottom:1px solid var(--line);padding:8px 0}.res>summary{cursor:pointer}
+/* 예약 작업 상세 (Sched.jsx Detail): 제목과 설정 한눈에 */
+.dtitle{font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.kv{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 16px;margin:0;font-size:14px}.kv dt{color:var(--mute)}.kv dd{margin:0;word-break:break-all}
+/* 예약 작업 흐름도 (Sched.jsx RoutineMap): 세로 흐름 + 오른쪽 규칙. 좁으면 규칙이 아래로 */
+.rmap{padding:4px 0}.rsum{margin:0 0 10px;font-weight:600}.rcols{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-start}
+.flow{display:flex;flex-direction:column;align-items:stretch;flex:1 1 360px;max-width:640px}.farrow{text-align:center;color:var(--mute);font-style:normal;line-height:1.4}
+.fbox{display:flex;gap:10px;align-items:baseline;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:var(--soft);font-size:14px}
+.fbox ul{margin:4px 0 0;padding-left:18px;font-size:13px;color:var(--mute)}.fbox.fstart,.fbox.fend{border-color:var(--acc)}
+.fk{flex-shrink:0;min-width:22px;padding:0 6px;border-radius:99px;background:var(--acc);color:#fff;font-size:12px;font-weight:600;text-align:center}
+.fbr{margin-top:4px;font-size:13px;color:var(--t-stop)}.frules{flex:1 1 220px;max-width:360px;font-size:14px}.frules ul{margin:6px 0 0;padding-left:18px;color:var(--mute);font-size:13px}
 .rbody{white-space:pre-wrap;word-break:break-word;font:inherit;font-size:14px;margin:6px 0 0;padding:10px;background:var(--soft);border-radius:8px}
