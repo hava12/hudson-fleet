@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react'
+import { FlowMaker } from './Flow'
 import { TaskList } from './TaskList'
 import { TaskSum, Tip, post, press, useApp, usePoll, when } from './lib'
 
@@ -32,7 +33,9 @@ function NewForm({ as, save }) {
     <button className="sm pri" disabled={!f.name.trim() || !f.done_when.trim()}>만들기</button></form>
 }
 
+let flowOpen = true  // 프로젝트 Flow 칸의 접힘 — 다른 프로젝트를 펼쳐도 이어 간다
 function ProjTable({ ps, as, save }) {
+  const { bump } = useApp()
   const [open, setOpen] = useState(0)  // 작업 목록을 펼친 프로젝트 id
   const edit = p => {
     const name = prompt('프로젝트 이름', p.name), done_when = name && prompt('완료 조건 (한 줄)', p.done_when)
@@ -57,7 +60,10 @@ function ProjTable({ ps, as, save }) {
       <td><TaskSum ts={tasks} />{tasks.length > 0 && <span className="meta"> · 세션 {new Set(tasks.map(t => t.sid)).size}개</span>}</td>
       <td className="acts"><button className="sm" onClick={() => edit(p)}>고치기</button>
         <button className="sm danger" onClick={() => confirm(`"${p.name}" 프로젝트를 지울까요?\n적힌 작업·자료는 프로젝트 없음으로 남습니다.`) && save({ id: p.id, delete: true })}>삭제</button></td></tr>
-      {open === p.id && <tr><td colSpan="6">{tasks.length
+      {open === p.id && <tr><td colSpan="6" style={{ whiteSpace: 'normal' }}>{tasks.length > 0 && <details className="sec" open={flowOpen} onToggle={e => { flowOpen = e.target.open }}
+          style={{ marginBottom: 10 }}><summary><h4 style={{ display: 'inline-block', margin: '4px 0' }}>Flow</h4> <span className="meta">AI 가 이 프로젝트의 작업 기록을 정리한 흐름 — 무엇을 만들고 어떻게 동작하나</span></summary>
+          <FlowMaker key={p.id} m={p.flow} url="/api/project-flow" body={{ id: p.id }} ok done={bump} what="작업 기록" /></details>}
+        {tasks.length
         ? <TaskList ts={tasks} edit="status" lead={t => <span className="meta">[{t.session || t.sid.slice(0, 8)}]</span>} />
         : <span className="meta">아직 이 프로젝트로 기록된 작업이 없습니다. 에이전트가 작업을 기록할 때 #{p.id} 를 적으면 여기에 모입니다</span>}</td></tr>}
     </Fragment>)}</tbody></table></div>

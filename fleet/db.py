@@ -55,6 +55,8 @@ def schema(c):
         c.execute("ALTER TABLE session_tasks ADD COLUMN details TEXT")
     if "note" not in {r[1] for r in c.execute("PRAGMA table_info(session_tasks)")}:  # 완료·중단·반려 때의 비고 한 줄
         c.execute("ALTER TABLE session_tasks ADD COLUMN note TEXT")
+    if "flow" not in {r[1] for r in c.execute("PRAGMA table_info(session_tasks)")}:  # 에이전트가 코드를 바꾼 일을 끝낼 때 남긴 흐름도 (JSON, tasks.norm_flow)
+        c.execute("ALTER TABLE session_tasks ADD COLUMN flow TEXT")
     if "project_id" not in {r[1] for r in c.execute("PRAGMA table_info(session_tasks)")}:  # 에이전트가 기록할 때 적은 프로젝트
         c.execute("ALTER TABLE session_tasks ADD COLUMN project_id INT")
     # PARA (fleet/para.py): 영역 1 : 프로젝트 N 1 : 작업 N. 영역·프로젝트는 사람이 만든다
@@ -77,6 +79,8 @@ def schema(c):
     c.execute("CREATE TABLE IF NOT EXISTS routines (id INTEGER PRIMARY KEY CHECK (id = 1), at TEXT, data TEXT)")
     # 루틴마다 AI 가 지시문을 정리한 흐름도 (id = 루틴 id). [새로 만들기] 전까지 그대로 쓴다. hash = 그때 지시문 — 바뀌면 화면이 알린다
     c.execute("CREATE TABLE IF NOT EXISTS routine_maps (id TEXT PRIMARY KEY, hash TEXT, at TEXT, data TEXT)")
+    # 프로젝트마다 AI 가 작업 기록을 정리한 Flow. hash = 그때 넘긴 작업 기록 — 작업이 늘거나 바뀌면 다시 만든다
+    c.execute("CREATE TABLE IF NOT EXISTS project_maps (id INTEGER PRIMARY KEY, hash TEXT, at TEXT, data TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT)")  # 화면에서 바꾼 설정 (EDIT 에 있는 것만)
     c.execute("DROP TABLE IF EXISTS users")  # 지운 로그인 계정·API 키 기능(개인용으로 되돌림)이 남긴 표
     c.execute("DROP TABLE IF EXISTS api_keys")

@@ -18,11 +18,11 @@ from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, PORT, VERSION, claude, installed, installed_version, ver
 from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
-from .para import (agent_view, archive_project, delete_resource, has_project, names, para, save_area, save_project, save_resource,
-                   search_resources)
+from .para import (agent_view, archive_project, delete_resource, has_project, make_project_flow, names, para, save_area, save_project,
+                   save_resource, search_resources)
 from .pushes import pushes
 from .routines import make_map, maps, refresh as refresh_routines, saved as saved_routines, session_schedules
-from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
+from .tasks import TASKS_SQL, add_task, move_task, norm_flow, saved_tasks, set_task, summarize
 from .usage import usage, usage5h_all
 
 
@@ -41,8 +41,12 @@ def agent_task(body):
         return ({"id": tid, "projects": ps, "hint": f'이 일이 이 중 한 프로젝트의 일이면 task_update(id={tid}, status="todo",'
                  ' project=번호) 로 적으세요. 없으면 그대로 둡니다'} if ps else {"id": tid}), 200
     if op == "update":
+        try:  # 코드를 바꾼 일을 끝낼 때 남기는 흐름도 — 형식이 틀리면 에이전트가 고쳐 다시 보내게 알린다
+            flow = norm_flow(body["flow"]) if body.get("flow") else None
+        except ValueError as e:
+            return {"error": f"{e}. flow 는 {{trigger, steps: [{{title, detail, branch?}}], outputs}} 모양입니다"}, 400
         ok = set_task(body.get("id"), "agent", body.get("status"), note=body.get("note"), sid=sid, details=body.get("details"),
-                      project=pj)
+                      project=pj, flow=flow)
         return ({"ok": True}, 200) if ok else ({"error": "이 세션의 작업 id 가 아니거나 분류가 잘못됐습니다"}, 400)
     if op == "list":
         return {"tasks": saved_tasks(sid)[0]}, 200
@@ -167,7 +171,7 @@ class H(BaseHTTPRequestHandler):
             c = db()
             c.row_factory = sqlite3.Row
             out = [dict(r) for r in c.execute(
-                "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, t.details, t.project_id, coalesce(s.my_title, s.title) AS title, s.name,"
+                "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, t.details, t.project_id, t.flow, coalesce(s.my_title, s.title) AS title, s.name,"
                 " s.cwd, s.status AS sst"
                 " FROM session_tasks t JOIN sessions s USING (sid) WHERE t.status = 'todo' AND s.deleted_at IS NULL"
                 " ORDER BY coalesce(s.ended_at, s.last_seen) DESC, t.sort, t.id")]
@@ -240,6 +244,8 @@ class H(BaseHTTPRequestHandler):
         if self.path in ("/api/area", "/api/project"):  # 영역·프로젝트 만들기·고치기·보관·지우기 (fleet/para.py)
             err = (save_area if self.path == "/api/area" else save_project)(body)
             return self.send({"error": err} if err else {"ok": True})
+        if self.path == "/api/project-flow":  # {id} — 그 프로젝트의 Flow 를 AI 로 (다시) 만든다 (haiku 사용)
+            return self.send(make_project_flow(body.get("id")))
         if self.path == "/api/resource":  # {id} — 자료 지우기 (자료는 에이전트가 MCP 로 남긴다)
             return self.send({"ok": True} if delete_resource(body.get("id")) else {"error": "자료를 찾지 못했습니다"})
         if self.path == "/api/upgrade":  # [새 버전으로 바꾸기] — 설치된 새 버전의 server.py 를 세션과 따로 띄우고 자리를 넘긴다

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FlowView } from './Flow'
 import { TAGS, TASK, post, press, useApp } from './lib'
 
 const SRC = { agent: '에이전트가 직접 기록', haiku: 'haiku 가 대화에서 정리', human: '사람이 고침' }
@@ -11,10 +12,10 @@ const OPEN = { todo: true, stopped: true }  // 끝난 묶음(완료·반려)은 
 export function TaskRow({ t, edit, lead }) {
   const { setMsg, bump, P } = useApp()
   const [open, setOpen] = useState(false)
-  let d = []
-  try { d = JSON.parse(t.details || '[]') } catch { /* 옛 기록 */ }
+  let d = [], flow = null
+  try { d = JSON.parse(t.details || '[]'); flow = t.flow && JSON.parse(t.flow) } catch { /* 옛 기록 */ }
   const note = t.note && t.status !== 'todo'
-  const has = d.length || note
+  const has = d.length || note || flow
   const save = async b => {
     const r = await post('/api/task', { id: t.id, ...b })
     if (!r.ok) return setMsg(r.error || '저장 실패')
@@ -42,13 +43,15 @@ export function TaskRow({ t, edit, lead }) {
       </select>}
       {' '}{lead}
       <div className="tbody">{/* 문장과 설명을 한 칸에 — 넘치는 줄·설명 줄이 문장 시작점에 맞춰 들어간다 */}
-        <span className={'tx' + (has ? ' has' : '') + (open ? ' open' : '')} title={has ? '눌러서 설명 보기' : undefined}
+        <span className={'tx' + (has ? ' has' : '') + (open ? ' open' : '')} title={has ? '눌러서 설명' + (flow ? '·Flow' : '') + ' 보기' : undefined}
           {...has && { ...press(e => { e.stopPropagation(); setOpen(!open) }), 'aria-expanded': open }}>{t.text}</span>
         <span className="tid" title="작업 번호 — 에이전트와 같은 번호로 부를 때">#{t.id}</span>
+        {flow && <span className="tid" title="문장을 누르면 에이전트가 남긴 흐름도(Flow)가 펼쳐집니다">· Flow</span>}
         {edit === 'all' && <button className="tdel" title="이 기록 삭제" onClick={del}>✕</button>}
         {has && open && <div className="dbox">
           {d.length > 0 && <ul className="dets">{d.map((x, i) => <li key={i}>{x}</li>)}</ul>}
           {note && <div className="tnote">결과 : {t.note}</div>}
+          {flow && <div className="tflow"><div className="meta">Flow — 에이전트가 남긴 바뀐 동작</div><FlowView d={flow} /></div>}
         </div>}
       </div>
     </li>

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
+import { FlowMaker } from './Flow'
 import { post, tilde, useApp, usePoll, when } from './lib'
 
 // cron 5칸 → 쉬운 말. 자주 쓰는 모양만 바꾸고 나머지는 그대로 보인다
@@ -18,38 +19,6 @@ function cronText(c) {
 const RESULT = { SUCCEEDED: ['성공', 'var(--t-done)'], FAILED: ['실패', '#dc2626'] }
 const STOP = { device_absent: '실행할 기기가 연결돼 있지 않아 멈춤' }  // 루틴이 멈춘 이유 (suspension_reason)
 const STALE = 3600e3  // 저장본이 이보다 오래됐으면 페이지를 열 때 새로 받는다
-
-// Flow: AI 가 지시문을 정리한 흐름도 — 시작 → 단계(조건 분기는 ⤷) → 결과, 옆에 지키는 규칙.
-// 저장본이 없거나 지시문이 바뀌었으면(stale) 상세 페이지에 들어올 때 만든다. 서버가 이미 다시 만드는 중(making)이면 기다린다
-function RoutineMap({ r, m, done }) {
-  const { setMsg } = useApp()
-  const [busy, setBusy] = useState(false)
-  const make = async () => {
-    setBusy(true)
-    const x = await post('/api/routine-map', { id: r.id })
-    setBusy(false)
-    if (x.error) setMsg(x.error)
-    done()
-  }
-  useEffect(() => { if ((!m || (m.stale && !m.making)) && r.prompt) make() }, [])
-  if (!m) return <div className="meta">{busy ? 'AI(haiku)가 지시문을 읽고 흐름을 정리하는 중… (10~30초)' : r.prompt ? '흐름도를 만들지 못했습니다 ' : '지시문이 없습니다'}
-    {!busy && r.prompt && <button className="sm" onClick={make}>다시 시도</button>}</div>
-  const d = m.data
-  const box = (k, body, cls = '') => <div className={'fbox ' + cls}><span className="fk">{k}</span><div>{body}</div></div>
-  const list = l => l.length > 0 && <ul>{l.map((x, i) => <li key={i}>{x}</li>)}</ul>
-  return <div className="rmap">
-    <p className="rsum">{d.summary}</p>
-    <div className="rcols"><div className="flow">
-      {box('시작', <>{d.trigger}{list(d.inputs)}</>, 'fstart')}
-      {d.steps.map((s, i) => <Fragment key={i}><i className="farrow" aria-hidden>↓</i>
-        {box(i + 1, <><b>{s.title}</b> <span className="meta">{s.detail}</span>{s.branch && <div className="fbr">⤷ {s.branch}</div>}</>)}</Fragment>)}
-      {d.outputs.length > 0 && <><i className="farrow" aria-hidden>↓</i>{box('결과', list(d.outputs), 'fend')}</>}
-    </div>
-    {d.rules.length > 0 && <div className="frules"><b>지키는 규칙</b>{list(d.rules)}</div>}</div>
-    <div className="meta" style={{ marginTop: 8 }}>{when(m.at)} 에 AI(haiku)가 정리했습니다{m.stale && <b style={{ color: 'var(--t-todo)' }}> · 지시문이 바뀌어 {busy || m.making ? '다시 만드는 중…' : '다시 만들어야 합니다'}</b>}{' '}
-      <button className="sm" disabled={busy || m.making} onClick={make} title="AI 로 다시 만듭니다 (haiku 사용)">{busy || m.making ? '만드는 중…' : '새로 만들기'}</button></div>
-  </div>
-}
 
 const nextRun = r => r.enabled && r.cron ? when(r.next) : '—'
 const lastRun = r => r.last ? <>{when(r.last)} <span style={{ color: RESULT[r.result]?.[1] }}>{RESULT[r.result]?.[0] || r.result}</span>{r.why && ` · ${r.why}`}</> : '—'
@@ -81,7 +50,7 @@ function Detail({ r, loaded, m, done, pull }) {
       <dl className="kv">{kv.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl></section>
     <section className="card"><details open={flowOpen} onToggle={e => { flowOpen = e.target.open }}>
       <summary><h2 style={{ display: 'inline-block' }}>Flow</h2> <span className="meta">AI 가 지시문을 정리한 흐름</span></summary>
-      <div style={{ marginTop: 10 }}><RoutineMap key={r.id} r={r} m={m} done={done} /></div></details></section>
+      <div style={{ marginTop: 10 }}><FlowMaker key={r.id} m={m} url="/api/routine-map" body={{ id: r.id }} ok={!!r.prompt} done={done} what="지시문" /></div></details></section>
     <section className="card"><details><summary><h2 style={{ display: 'inline-block' }}>지시문 전문</h2></summary>
       <pre style={{ marginTop: 10 }}>{r.prompt || '(지시문 없음)'}</pre></details></section>
   </div>

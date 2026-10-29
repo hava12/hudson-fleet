@@ -11,7 +11,7 @@ from datetime import datetime
 from .agents import agents
 from .config import DEAD, PROJECTS, QUIET, now_iso
 from .db import DB, db
-from .tasks import ask_haiku
+from .tasks import ask_flow
 from .transcripts import by_mtime, transcript
 
 
@@ -111,19 +111,6 @@ def maps():
             for i, h, at, d in rows}
 
 
-def _clean(text):
-    """haiku 답 → 흐름도 칸. 형식이 틀리면 ValueError."""
-    m = re.search(r"\{.*\}", text or "", re.S)
-    d = json.loads(m[0]) if m else None
-    lines = lambda v, n: [str(x).strip()[:120] for x in (v if isinstance(v, list) else []) if str(x).strip()][:n]
-    steps = [{"title": str(s.get("title", "")).strip()[:40], "detail": str(s.get("detail", "")).strip()[:160],
-              "branch": str(s.get("branch") or "").strip()[:160]} for s in (d or {}).get("steps") or [] if isinstance(s, dict)][:10]
-    if not d or not steps:
-        raise ValueError("AI 가 흐름을 정리하지 못했습니다. [새로 만들기] 를 다시 눌러 주세요")
-    return {"summary": str(d.get("summary", "")).strip()[:200], "trigger": str(d.get("trigger", "")).strip()[:160],
-            "inputs": lines(d.get("inputs"), 6), "steps": steps, "outputs": lines(d.get("outputs"), 6), "rules": lines(d.get("rules"), 3)}
-
-
 def make_map(rid):
     """루틴 하나의 흐름도를 (다시) 만들어 저장한다. 지시문은 저장된 루틴 목록에서만 읽는다 — 화면이 보낸 글을 AI 에 넘기지 않는다."""
     r = next((x for x in saved()["items"] if x["id"] == rid), None)
@@ -133,7 +120,7 @@ def make_map(rid):
         return {"error": "이미 만드는 중입니다"}
     _making.add(rid)
     try:
-        data = _clean(ask_haiku(MAP_ASK, r["prompt"]))
+        data = ask_flow(MAP_ASK, r["prompt"])
     except (ValueError, OSError, subprocess.TimeoutExpired) as e:
         return {"error": str(e) if isinstance(e, ValueError) else "AI 를 부르지 못했습니다: " + str(e)}
     finally:
@@ -224,12 +211,13 @@ if __name__ == "__main__":  # 확인: python3 -m fleet.routines (대화 기록 �
               "bound_device": {"display_name": "Claude Desktop (macOS)"}, "derived_state": {"prompt": "p", "folders": ["/x"]}})
     assert (t["cron"], t["tz"], t["result"], t["why"], t["device"]) == ("30 9 * * *", "Asia/Seoul", "SUCCEEDED", "", "Claude Desktop (macOS)")
     assert trim({"name": "m"})["cron"] == "" and trim({"name": "m"})["device"] == "클라우드"
-    d = _clean('설명 {"summary": "s", "steps": [{"title": "t", "detail": "d"}, "x"], "inputs": "아님", "rules": ["a", "b", "c", "d"]} 끝')
-    assert d["steps"] == [{"title": "t", "detail": "d", "branch": ""}] and d["inputs"] == [] and len(d["rules"]) == 3
-    for bad in ("JSON 없음", '{"summary": "s", "steps": []}'):
+    import fleet.tasks as T
+    for said, ok in (('설명 {"summary": "s", "steps": [{"title": "t", "detail": "d"}, "x"], "inputs": "아님", "rules": ["a", "b", "c", "d"]} 끝', True),
+                     ("JSON 없음", False), ('{"summary": "s", "steps": []}', False)):
+        T.ask_haiku = lambda *a: said
         try:
-            _clean(bad)
-            raise AssertionError(bad)
+            d = T.ask_flow("", "")
+            assert ok and d["steps"] == [{"title": "t", "detail": "d", "branch": ""}] and d["inputs"] == [] and len(d["rules"]) == 3
         except ValueError:
-            pass
+            assert not ok
     print("ok")

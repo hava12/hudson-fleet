@@ -41,6 +41,28 @@ def norm_details(d):
     return json.dumps(lines[:MAX_DETAILS], ensure_ascii=False)
 
 
+def norm_flow(d):
+    """흐름도(Flow) 한 장 → 화면에 그릴 칸만 다듬는다 (작업·프로젝트·예약 작업이 같은 모양). 단계가 없으면 ValueError.
+    {summary, trigger, inputs[], steps[{title, detail, branch}], outputs[], rules[]} — 시작 → 단계 → 결과, 조건 분기는 branch"""
+    d = d if isinstance(d, dict) else {}
+    lines = lambda v, n: [str(x).strip()[:120] for x in (v if isinstance(v, list) else []) if str(x).strip()][:n]
+    steps = [{"title": str(s.get("title", "")).strip()[:40], "detail": str(s.get("detail", "")).strip()[:160],
+              "branch": str(s.get("branch") or "").strip()[:160]} for s in d.get("steps") or [] if isinstance(s, dict)][:10]
+    if not steps:
+        raise ValueError("flow 에 steps(단계)가 없습니다")
+    return {"summary": str(d.get("summary", "")).strip()[:200], "trigger": str(d.get("trigger", "")).strip()[:160],
+            "inputs": lines(d.get("inputs"), 6), "steps": steps, "outputs": lines(d.get("outputs"), 6), "rules": lines(d.get("rules"), 3)}
+
+
+def ask_flow(instr, body):
+    """haiku 에게 흐름도 JSON 을 받아 다듬는다. 못 받으면 ValueError."""
+    m = re.search(r"\{.*\}", ask_haiku(instr, body) or "", re.S)
+    try:
+        return norm_flow(json.loads(m[0]) if m else None)
+    except ValueError:
+        raise ValueError("AI 가 흐름을 정리하지 못했습니다. [새로 만들기] 를 다시 눌러 주세요") from None
+
+
 def add_task(sid, text, source, status="todo", tag=None, details=None, project=None):
     """작업 한 행을 맨 뒤(sort 최댓값 + 1)에 넣는다. 새 id 를 돌려준다.
     project: 에이전트가 적은 프로젝트 id (fleet/para.py) — 있는 프로젝트인지는 부르는 쪽(web)이 확인한다."""
@@ -56,8 +78,9 @@ def add_task(sid, text, source, status="todo", tag=None, details=None, project=N
     return tid
 
 
-def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None, tag=None, details=None, project=None):
-    """작업 한 행의 분류·태그·순서·설명 줄·프로젝트(0 이면 뺀다)를 바꾸거나 지운다. sid 를 주면 그 세션의 작업만 건드린다 (MCP 용).
+def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None, tag=None, details=None, project=None, flow=None):
+    """작업 한 행의 분류·태그·순서·설명 줄·프로젝트(0 이면 뺀다)·흐름도(flow, norm_flow 로 다듬은 것)를 바꾸거나 지운다.
+    sid 를 주면 그 세션의 작업만 건드린다 (MCP 용).
     사람이 haiku 행을 고치면 source 를 human 으로 바꿔 다음 haiku 정리 때 지워지지 않게 한다."""
     if (status is not None and status not in TASK_STATUS.values()) or (tag is not None and tag not in TAGS):
         return False
@@ -67,11 +90,11 @@ def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None,
         n = c.execute(f"DELETE FROM session_tasks WHERE {where}", key).rowcount
     else:
         n = c.execute(f"UPDATE session_tasks SET status = coalesce(?, status), sort = coalesce(?, sort),"
-                      f" tag = coalesce(?, tag), details = coalesce(?, details), note = coalesce(?, note), updated_at = ?,"
+                      f" tag = coalesce(?, tag), details = coalesce(?, details), note = coalesce(?, note), flow = coalesce(?, flow), updated_at = ?,"
                       f" project_id = CASE WHEN ? IS NULL THEN project_id ELSE nullif(?, 0) END,"
                       f" source = CASE WHEN ? = 'human' AND source = 'haiku' THEN 'human' ELSE source END WHERE {where}",
                       (status, sort, tag, norm_details(details), note.strip()[:200] if isinstance(note, str) and note.strip()
-                       else None, now_iso(), project, project, by, *key)).rowcount
+                       else None, json.dumps(flow, ensure_ascii=False) if flow else None, now_iso(), project, project, by, *key)).rowcount
     c.commit()
     c.close()
     return n == 1
@@ -90,7 +113,7 @@ def move_task(tid, to_sid):
     return n == 1
 
 
-TASKS_SQL = "SELECT id, sort, status, text, source, tag, details, note, project_id FROM session_tasks WHERE sid = ? ORDER BY sort, id"
+TASKS_SQL = "SELECT id, sort, status, text, source, tag, details, note, project_id, flow FROM session_tasks WHERE sid = ? ORDER BY sort, id"
 
 
 def saved_tasks(sid):

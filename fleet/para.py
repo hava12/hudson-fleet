@@ -4,11 +4,15 @@
   Resources 자료: 나중에 쓸 참고. 에이전트가 MCP 로 남긴다 (사용자가 남기라고 할 때 · 프로젝트를 보관할 때 정리 한 장)
   Archives  보관: 끝난 프로젝트와 보관한 영역. 따로 표가 없다 — 프로젝트 status=done, 영역 archived_at 이 곧 보관이다
 에이전트는 작업을 기록할 때 프로젝트 번호를 적는다 (session_tasks.project_id). 사람은 작업 줄의 프로젝트 칸에서 고친다."""
+import hashlib
+import json
 import sqlite3
+import subprocess
 from datetime import date
 
 from .config import now_iso
 from .db import db
+from .tasks import ask_flow
 
 STATUS = ("pending", "active", "done")  # 시작 전 · 진행 중 · 끝남(보관)
 
@@ -24,14 +28,69 @@ def para():
     areas = _rows(c, "SELECT * FROM areas ORDER BY name")
     projects = _rows(c, "SELECT * FROM projects ORDER BY start DESC, id DESC")
     for p in projects:
-        p["tasks"] = _rows(c, "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, t.details, t.note, t.project_id,"
+        p["tasks"] = _rows(c, "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, t.details, t.note, t.project_id, t.flow,"
                               " coalesce(s.my_title, s.title, s.name) AS session FROM session_tasks t LEFT JOIN sessions s USING (sid)"
                               " WHERE t.project_id = ? ORDER BY t.created_at", (p["id"],))
+        row = c.execute("SELECT hash, at, data FROM project_maps WHERE id = ?", (p["id"],)).fetchone()
+        p["flow"] = row and {"data": json.loads(row[2]), "at": row[1], "stale": row[0] != _hash(flow_input(p, p["tasks"])),
+                             "making": p["id"] in _making}
     resources = _rows(c, "SELECT r.*, p.name AS project, a.name AS area, coalesce(s.my_title, s.title, s.name) AS session"
                          " FROM resources r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN areas a ON a.id = r.area_id"
                          " LEFT JOIN sessions s ON s.sid = r.sid ORDER BY r.id DESC")
     c.close()
     return {"areas": areas, "projects": projects, "resources": resources}
+
+
+# ── 프로젝트 Flow: AI(haiku)가 프로젝트의 작업 기록을 "무엇을 만들고 어떻게 동작하나" 흐름도 한 장으로 정리한다.
+# 한 번 만들면 저장본을 쓰고, 작업이 늘거나 바뀌면(넘길 기록의 hash 가 달라지면) 화면이 펼칠 때 다시 만든다 ──
+PROJ_ASK = """다음은 한 소프트웨어 프로젝트와 그 작업 기록이다. 코드를 읽지 않는 사람이 이 프로젝트가 만드는 기능이 어떻게 동작하는지
+한눈에 보도록 흐름도로 정리해 JSON 하나만 출력하라. 코드 블록·설명은 붙이지 않는다.
+{"summary": "이 프로젝트가 만드는 것 한 문장", "trigger": "사용자가 무엇을 하면(또는 언제) 이 기능이 시작되는지 한 줄",
+ "inputs": ["쓰는 데이터·설정"], "steps": [{"title": "단계 이름 12자 이내", "detail": "그 단계에서 일어나는 일 한 줄",
+ "branch": "조건에 따라 달라지면 '조건 → 처리' 한 줄, 없으면 빈 문자열"}], "outputs": ["사용자가 보게 되는 결과"],
+ "rules": ["완료 조건·꼭 지킬 것, 최대 3개"]}
+steps 는 작업을 한 순서가 아니라 기능이 동작하는 순서로 3~8개. 아직 끝나지 않은 단계는 detail 끝에 '(남은 일)' 을 붙인다.
+작업 기록에 흐름이 있으면 그것을 우선 쓴다. 모든 문장은 쉬운 한국어로 60자 이내. 기록에 없는 내용은 지어내지 않는다."""
+_making = set()
+KO = {"todo": "남은 일", "done": "완료", "stopped": "중단", "rejected": "반려"}
+
+
+def _hash(s):
+    return hashlib.sha1(s.encode()).hexdigest()
+
+
+def flow_input(p, tasks):
+    """AI 에 넘길 프로젝트 기록 (오래된 작업부터, 1만 2천 자 이내). 이 글의 hash 로 Flow 가 낡았는지 본다."""
+    out = [f"프로젝트: {p['name']}", f"완료 조건: {p['done_when']}", "작업 기록 (오래된 것부터):"]
+    for t in tasks:
+        out.append(f"- [{KO.get(t['status'], t['status'])}·{t.get('tag') or ''}] {t['text']}" + (f" — {t['note']}" if t.get("note") else ""))
+        out += [f"  · {x}" for x in json.loads(t.get("details") or "[]")]
+        if t.get("flow"):
+            f = json.loads(t["flow"])
+            out.append("  흐름: " + " → ".join([f.get("trigger") or "시작", *(s["title"] for s in f["steps"]), *f.get("outputs", [])]))
+    return "\n".join(out)[-12000:]  # ponytail: 뒤쪽(최근) 1만 2천 자만, 작업이 아주 많아지면 단계별 요약으로
+
+
+def make_project_flow(pid):
+    """프로젝트 하나의 Flow 를 (다시) 만들어 저장한다."""
+    p = next((x for x in para()["projects"] if x["id"] == pid), None)
+    if not p or not p["tasks"]:
+        return {"error": "작업 기록이 있는 프로젝트가 아닙니다"}
+    if pid in _making:
+        return {"error": "이미 만드는 중입니다"}
+    _making.add(pid)
+    text = flow_input(p, p["tasks"])
+    try:
+        data = ask_flow(PROJ_ASK, text)
+    except (ValueError, OSError, subprocess.TimeoutExpired) as e:
+        return {"error": str(e) if isinstance(e, ValueError) else "AI 를 부르지 못했습니다: " + str(e)}
+    finally:
+        _making.discard(pid)
+    c = db()
+    c.execute("INSERT OR REPLACE INTO project_maps VALUES (?,?,?,?)", (pid, _hash(text), now_iso(), json.dumps(data, ensure_ascii=False)))
+    c.commit()
+    c.close()
+    return {"ok": True}
 
 
 def agent_view():
@@ -234,4 +293,12 @@ if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m
     assert save_area({"id": aid, "archive": False}) is None and agent_view()["areas"][0]["id"] == aid
     assert delete_resource(r2) and not delete_resource(r2)
     assert save_area({"id": aid, "delete": True}) is None and para()["resources"][0]["area_id"] is None
+    # 프로젝트 Flow — AI 답을 받아 저장하고, 작업이 늘면 낡음(stale)으로 본다
+    import fleet.tasks as T
+    T.ask_haiku = lambda *a: '{"summary": "s", "trigger": "t", "steps": [{"title": "a", "detail": "b"}], "outputs": ["o"]}'
+    assert make_project_flow(99)["error"] and make_project_flow(q["id"]) == {"ok": True}
+    f = para()["projects"][0]["flow"]
+    assert f["data"]["steps"][0]["title"] == "a" and not f["stale"]
+    add_task("sid-1", "정산 화면", "agent", project=q["id"])
+    assert para()["projects"][0]["flow"]["stale"]
     print("ok")

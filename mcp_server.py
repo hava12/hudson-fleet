@@ -32,6 +32,10 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
    이 세 가지는 note 에 비고 한 줄을 꼭 남긴다 — 완료면 결과, 중단이면 멈춘 이유, 반려면 반려 이유.
    details 는 text 를 풀어 쓴 설명 1줄씩 최대 3개다. task_start 때는 할 일(계획)을, task_update 때는 실제로 한 일·결과를
    적어 바꾼다 (줄마다 60자 안팎, 동사로 끝냄). 한 줄로 충분한 작은 일은 비워 둔다.
+   코드를 바꾼 일(tag 개발·디버그)을 "done" 으로 끝낼 때는 flow 도 남긴다 — 코드를 읽지 않는 사용자가 바뀐 동작을 이해하는 흐름도다.
+   trigger 는 그 동작을 무엇이 시작하나(사용자 동작·요청·일정), steps 는 실제로 도는 순서 2~6개(화면 → 서버 → DB 처럼,
+   title 12자·detail 60자 안팎, 조건에 따라 갈리면 branch 에 "조건 → 처리"), outputs 는 사용자가 보게 되는 결과.
+   쉬운 말로 쓰고, 코드 이름은 꼭 필요할 때만 괄호로 붙인다. 대시보드의 작업 줄을 펼치면 이 그림이 보인다.
 3. 이 도구들이 지연 로드(deferred) 상태면 먼저 ToolSearch 로
    "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list,mcp__plugin_hudson-fleet_fleet__project_list,mcp__plugin_hudson-fleet_fleet__project_archive,mcp__plugin_hudson-fleet_fleet__resource_save,mcp__plugin_hudson-fleet_fleet__resource_search" 를 불러온다.
 4. 일하는 도중에 사용자가 덧붙인 요청도 규칙 1 을 따른다. 하던 일의 일부가 아니면 따로 task_start 한다
@@ -53,6 +57,19 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
    일을 시작할 때 같은 주제의 자료가 있을 법하면 resource_search 로 먼저 찾아본다."""
 
 DETAILS = {"type": "array", "items": {"type": "string"}, "maxItems": 3}  # 3-Step-Desc (fleet/tasks.py MAX_DETAILS)
+LINES = {"type": "array", "items": {"type": "string"}, "maxItems": 6}
+FLOW = {"type": "object", "description": "선택. 코드를 바꾼 일을 done 으로 끝낼 때 — 바뀐 동작의 흐름도 (시작 → 단계 → 결과)",
+        "properties": {"trigger": {"type": "string", "description": "무엇이 이 동작을 시작하나 (사용자 동작·요청·일정)"},
+                       "inputs": {**LINES, "description": "선택. 쓰는 데이터·설정"},
+                       "steps": {"type": "array", "minItems": 2, "maxItems": 6, "description": "실제로 도는 순서",
+                                 "items": {"type": "object", "properties": {
+                                     "title": {"type": "string", "description": "12자 안팎"},
+                                     "detail": {"type": "string", "description": "60자 안팎 한 줄"},
+                                     "branch": {"type": "string", "description": "선택. 조건에 따라 갈리면 '조건 → 처리'"}},
+                                           "required": ["title", "detail"]}},
+                       "outputs": {**LINES, "description": "사용자가 보게 되는 결과"},
+                       "rules": {**LINES, "maxItems": 3, "description": "선택. 꼭 지키는 규칙"}},
+        "required": ["trigger", "steps", "outputs"]}  # fleet/tasks.py norm_flow 가 다듬는다
 
 TOOLS = [
     {"name": "task_start", "description": "작업을 시작하며 기록한다. 새 작업 id 를 돌려준다.",
@@ -68,7 +85,8 @@ TOOLS = [
          "id": {"type": "integer"}, "status": {"type": "string", "enum": ["done", "stopped", "rejected", "todo"]},
          "note": {"type": "string", "description": "비고 한 줄 (done·stopped·rejected 때 꼭): 완료면 결과, 중단이면 멈춘 이유, 반려면 반려 이유"},
          "details": {**DETAILS, "description": "선택. 실제로 한 일·결과 1줄씩 최대 3개. 주면 기존 설명을 바꾼다"},
-         "project": {"type": "integer", "description": "선택. 프로젝트를 바로잡을 때만. 0 이면 프로젝트에서 뺀다"}},
+         "project": {"type": "integer", "description": "선택. 프로젝트를 바로잡을 때만. 0 이면 프로젝트에서 뺀다"},
+         "flow": FLOW},
                      "required": ["id", "status"]}},
     {"name": "task_list", "description": "이 세션에 기록된 작업 목록 (순서대로).",
      "inputSchema": {"type": "object", "properties": {}}},
@@ -137,7 +155,7 @@ def call(name, args):
         return (r["error"], True) if "error" in r else (json.dumps(r, ensure_ascii=False), False)  # {id, projects?, hint?}
     if name == "task_update":
         r = api({"op": "update", "sid": sid, "id": args.get("id"), "status": args.get("status"), "note": args.get("note"),
-                 "details": args.get("details"), "project": args.get("project")})
+                 "details": args.get("details"), "project": args.get("project"), "flow": args.get("flow")})
         return (r["error"], True) if "error" in r else ("기록했습니다", False)
     if name == "task_list":
         r = api({"op": "list", "sid": sid})
