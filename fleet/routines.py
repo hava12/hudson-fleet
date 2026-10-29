@@ -76,7 +76,16 @@ def refresh():
         return {**saved(), "error": str(e)}
     finally:
         _busy.release()
+    threading.Thread(target=remap, daemon=True).start()
     return saved()
+
+
+def remap():
+    """지시문이 바뀐 루틴의 Flow 를 다시 만든다 (새로 받은 뒤 뒤에서). 한 번이라도 만든 것만 — 열어 보지 않은 루틴에는 AI 를 쓰지 않는다.
+    실패하면 stale 로 남아, 상세 페이지에 들어올 때 다시 만든다."""
+    for rid, m in maps().items():
+        if m["stale"]:
+            make_map(rid)
 
 
 # ── 흐름도: 루틴 지시문을 AI(haiku)가 시작 → 단계 → 결과로 정리한다. 한 번 만들면 [새로 만들기] 전까지 DB 저장본을 쓴다 ──
@@ -93,12 +102,13 @@ def _hash(s):
 
 
 def maps():
-    """저장된 흐름도 {루틴 id: {data, at, stale}}. stale: 만든 뒤 지시문이 바뀌었다."""
+    """저장된 흐름도 {루틴 id: {data, at, stale, making}}. stale: 만든 뒤 지시문이 바뀌었다 · making: 지금 다시 만드는 중."""
     now = {r["id"]: _hash(r["prompt"]) for r in saved()["items"]}
     c = db()
     rows = c.execute("SELECT id, hash, at, data FROM routine_maps").fetchall()
     c.close()
-    return {i: {"data": json.loads(d), "at": at, "stale": i in now and now[i] != h} for i, h, at, d in rows}
+    return {i: {"data": json.loads(d), "at": at, "stale": i in now and now[i] != h, "making": i in _making}
+            for i, h, at, d in rows}
 
 
 def _clean(text):

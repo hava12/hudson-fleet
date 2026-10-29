@@ -19,7 +19,8 @@ const RESULT = { SUCCEEDED: ['성공', 'var(--t-done)'], FAILED: ['실패', '#dc
 const STOP = { device_absent: '실행할 기기가 연결돼 있지 않아 멈춤' }  // 루틴이 멈춘 이유 (suspension_reason)
 const STALE = 3600e3  // 저장본이 이보다 오래됐으면 페이지를 열 때 새로 받는다
 
-// AI 가 지시문을 정리한 흐름도: 시작 → 단계(조건 분기는 ⤷) → 결과, 옆에 지키는 규칙. 저장본이 없으면 상세 페이지에 들어올 때 한 번 만든다
+// Flow: AI 가 지시문을 정리한 흐름도 — 시작 → 단계(조건 분기는 ⤷) → 결과, 옆에 지키는 규칙.
+// 저장본이 없거나 지시문이 바뀌었으면(stale) 상세 페이지에 들어올 때 만든다. 서버가 이미 다시 만드는 중(making)이면 기다린다
 function RoutineMap({ r, m, done }) {
   const { setMsg } = useApp()
   const [busy, setBusy] = useState(false)
@@ -30,7 +31,7 @@ function RoutineMap({ r, m, done }) {
     if (x.error) setMsg(x.error)
     done()
   }
-  useEffect(() => { if (!m && r.prompt) make() }, [])
+  useEffect(() => { if ((!m || (m.stale && !m.making)) && r.prompt) make() }, [])
   if (!m) return <div className="meta">{busy ? 'AI(haiku)가 지시문을 읽고 흐름을 정리하는 중… (10~30초)' : r.prompt ? '흐름도를 만들지 못했습니다 ' : '지시문이 없습니다'}
     {!busy && r.prompt && <button className="sm" onClick={make}>다시 시도</button>}</div>
   const d = m.data
@@ -45,8 +46,8 @@ function RoutineMap({ r, m, done }) {
       {d.outputs.length > 0 && <><i className="farrow" aria-hidden>↓</i>{box('결과', list(d.outputs), 'fend')}</>}
     </div>
     {d.rules.length > 0 && <div className="frules"><b>지키는 규칙</b>{list(d.rules)}</div>}</div>
-    <div className="meta" style={{ marginTop: 8 }}>{when(m.at)} 에 AI(haiku)가 정리했습니다{m.stale && <b style={{ color: 'var(--t-todo)' }}> · 그 뒤 지시문이 바뀌었습니다</b>}{' '}
-      <button className="sm" disabled={busy} onClick={make} title="AI 로 다시 만듭니다 (haiku 사용)">{busy ? '만드는 중…' : '새로 만들기'}</button></div>
+    <div className="meta" style={{ marginTop: 8 }}>{when(m.at)} 에 AI(haiku)가 정리했습니다{m.stale && <b style={{ color: 'var(--t-todo)' }}> · 지시문이 바뀌어 {busy || m.making ? '다시 만드는 중…' : '다시 만들어야 합니다'}</b>}{' '}
+      <button className="sm" disabled={busy || m.making} onClick={make} title="AI 로 다시 만듭니다 (haiku 사용)">{busy || m.making ? '만드는 중…' : '새로 만들기'}</button></div>
   </div>
 }
 
@@ -54,7 +55,8 @@ const nextRun = r => r.enabled && r.cron ? when(r.next) : '—'
 const lastRun = r => r.last ? <>{when(r.last)} <span style={{ color: RESULT[r.result]?.[1] }}>{RESULT[r.result]?.[0] || r.result}</span>{r.why && ` · ${r.why}`}</> : '—'
 const OnOff = ({ r }) => <span className="pill" style={{ color: r.enabled ? 'var(--t-done)' : 'var(--mute)' }}>{r.enabled ? '켜짐' : '꺼짐'}</span>
 
-// 예약 작업 상세 (#sched/<id>): 설정 한눈에 → AI 가 정리한 흐름도 → 지시문 전문
+// 예약 작업 상세 (#sched/<id>): 설정 한눈에 → Flow(접고 펴기, 다른 루틴을 열어도 접힘 상태를 이어 간다) → 지시문 전문
+let flowOpen = true
 function Detail({ r, loaded, m, done }) {
   const { G } = useApp()
   const back = <div className="sh"><a className="lk" href="#sched">← 예약 작업 목록</a></div>
@@ -67,7 +69,9 @@ function Detail({ r, loaded, m, done }) {
     <section className="card">{back}
       <h3 className="dtitle">{r.name || '(이름 없음)'} <OnOff r={r} /></h3>
       <dl className="kv">{kv.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl></section>
-    <section className="card"><div className="sh"><h2>AI 가 정리한 흐름</h2></div><RoutineMap key={r.id} r={r} m={m} done={done} /></section>
+    <section className="card"><details open={flowOpen} onToggle={e => { flowOpen = e.target.open }}>
+      <summary><h2 style={{ display: 'inline-block' }}>Flow</h2> <span className="meta">AI 가 지시문을 정리한 흐름</span></summary>
+      <div style={{ marginTop: 10 }}><RoutineMap key={r.id} r={r} m={m} done={done} /></div></details></section>
     <section className="card"><details><summary><h2 style={{ display: 'inline-block' }}>지시문 전문</h2></summary>
       <pre style={{ marginTop: 10 }}>{r.prompt || '(지시문 없음)'}</pre></details></section>
   </div>
@@ -77,7 +81,7 @@ function Detail({ r, loaded, m, done }) {
 export default function Sched({ sub }) {
   const { G, setMsg } = useApp()
   const [n, setN] = useState(0), [busy, setBusy] = useState(false)
-  const S = usePoll('/api/schedules', 30000, [n])
+  const S = usePoll('/api/schedules', sub ? 10000 : 30000, [n])  // 상세에서는 다시 만든 Flow 가 빨리 보이게
   const R = S?.routines
   const pull = async () => {
     setBusy(true)
@@ -98,7 +102,7 @@ export default function Sched({ sub }) {
         : <div className="tw"><table className="tbl"><tbody>
           <tr><th>이름</th><th>일정</th><th>다음 실행</th><th>마지막 실행</th><th>실행 위치</th><th>모델 · 권한</th></tr>
           {rs.map(r => <tr key={r.id} style={{ opacity: r.enabled ? 1 : .55 }}>
-            <td><a className="lk" href={'#sched/' + encodeURIComponent(r.id)} title="상세 페이지: AI 가 정리한 흐름도와 지시문">{r.name || '(이름 없음)'}</a> <OnOff r={r} />
+            <td><a className="lk" href={'#sched/' + encodeURIComponent(r.id)} title="상세 페이지: Flow(AI 가 정리한 흐름도)와 지시문">{r.name || '(이름 없음)'}</a> <OnOff r={r} />
               {r.stopped && <div className="meta">{STOP[r.stopped] || r.stopped}</div>}</td>
             <td title={r.cron ? `${r.cron}${r.tz ? ' · ' + r.tz : ''}` : ''}>{cronText(r.cron)}</td>
             <td className="meta">{nextRun(r)}</td>
@@ -107,7 +111,7 @@ export default function Sched({ sub }) {
             <td className="meta">{r.model.replace(/^claude-/, '')}{r.mode && <div>{r.mode}</div>}</td></tr>)}
           {!rs.length && <tr><td colSpan="6" className="meta">예약 작업이 없습니다</td></tr>}
         </tbody></table></div>}
-      <p className="meta" style={{ margin: '10px 0 0' }}>이름을 누르면 상세 페이지에서 AI 가 정리한 흐름도를 봅니다 (처음 한 번 만들고 저장해 둡니다). 예약 작업은 claude.ai 에 저장되고 Claude 데스크톱 앱이나 클라우드에서 실행됩니다. 로그인 토큰을 읽지 않으려고, [새로 받기] 는 Claude Code 의 예약 작업 조회 도구를 haiku 로 한 번 불러 받아 옵니다. 페이지를 열 때 저장본이 1시간보다 오래됐으면 저절로 다시 받습니다.</p>
+      <p className="meta" style={{ margin: '10px 0 0' }}>이름을 누르면 상세 페이지에서 Flow(AI 가 지시문을 정리한 흐름도)를 봅니다. 처음 한 번 만들어 저장해 두고, 새로 받은 지시문이 바뀌었으면 저절로 다시 만듭니다. 예약 작업은 claude.ai 에 저장되고 Claude 데스크톱 앱이나 클라우드에서 실행됩니다. 로그인 토큰을 읽지 않으려고, [새로 받기] 는 Claude Code 의 예약 작업 조회 도구를 haiku 로 한 번 불러 받아 옵니다. 페이지를 열 때 저장본이 1시간보다 오래됐으면 저절로 다시 받습니다.</p>
     </section>
 
     <section className="card"><div className="sh"><h2>세션 안 예약</h2><span className="meta">살아 있는 세션이 /loop·예약 도구로 걸어 둔 것 — 세션이 끝나면 사라집니다</span></div>
