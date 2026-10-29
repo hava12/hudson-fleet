@@ -21,6 +21,7 @@ from .links import LinkError, check as check_link, github_prs, jira_issue, jira_
 from .para import (agent_view, archive_project, delete_resource, has_project, names, para, save_area, save_project, save_resource,
                    search_resources)
 from .pushes import pushes
+from .routines import refresh as refresh_routines, saved as saved_routines, session_schedules
 from .tasks import TASKS_SQL, add_task, move_task, saved_tasks, set_task, summarize
 from .usage import usage, usage5h_all
 
@@ -183,6 +184,8 @@ class H(BaseHTTPRequestHandler):
             return self.send(usage())
         if u.path == "/api/mcp":
             return self.send(mcp_servers(q.get("refresh") == "1"))
+        if u.path == "/api/schedules":  # 예약 작업 페이지: 루틴 저장본 {at, items} 과 살아 있는 세션의 예약
+            return self.send({"routines": saved_routines(), "sessions": session_schedules()})
         if u.path == "/api/pushes":  # Claude 가 한 git push 목록 (?limit= &sid= 그 세션 것만)
             return self.send(pushes(int(q.get("limit", 200)), q.get("sid")))
         if u.path == "/api/card.svg":  # Gist 에 올리는 프로필 카드 미리보기
@@ -270,6 +273,8 @@ class H(BaseHTTPRequestHandler):
             return self.send({"ok": True} if delete_session(body.get("sid")) else {"error": "끝난 세션만 지울 수 있습니다"})
         if self.path == "/api/title":  # {sid, title} — 대시보드에서만 쓰는 제목. 빈 값이면 원래대로
             return self.send({"ok": True} if set_title(body.get("sid"), body.get("title")) else {"error": "세션 확인"})
+        if self.path == "/api/schedules/refresh":  # 루틴을 claude.ai 에서 새로 받는다 — haiku 를 쓰므로 POST (출처 검사 대상)
+            return self.send(refresh_routines())
         if self.path == "/api/summary":  # 토큰을 쓰므로 GET 이 아닌 POST (출처 검사 대상)
             return self.send(summarize(body.get("sid", "")))
         if self.path != "/api/stop":

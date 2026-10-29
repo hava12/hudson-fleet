@@ -73,6 +73,8 @@ def schema(c):
     # 세션에서 한 git push (Claude 의 Bash · 사용자의 ! 명령). 대화 기록이 지워져도 남도록 커밋 메시지까지 저장한다
     c.execute("CREATE TABLE IF NOT EXISTS pushes (id TEXT PRIMARY KEY, ts TEXT, sid TEXT, cwd TEXT, remote TEXT,"
               " ref TEXT, old TEXT, new TEXT, commits TEXT)")  # id = tool_use id + ref, commits = JSON [[hash, 제목]]
+    # Claude 예약 작업(루틴) 저장본 한 줄 (fleet/routines.py). at = 받은 시각, data = JSON 목록
+    c.execute("CREATE TABLE IF NOT EXISTS routines (id INTEGER PRIMARY KEY CHECK (id = 1), at TEXT, data TEXT)")
     c.execute("CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value TEXT)")  # 화면에서 바꾼 설정 (EDIT 에 있는 것만)
     c.execute("DROP TABLE IF EXISTS users")  # 지운 로그인 계정·API 키 기능(개인용으로 되돌림)이 남긴 표
     c.execute("DROP TABLE IF EXISTS api_keys")

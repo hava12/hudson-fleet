@@ -8,8 +8,8 @@ header .sm{white-space:nowrap}.hr{margin-left:auto;display:flex;flex-wrap:wrap;j
 .hmsg{max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:6px;padding:0 6px;animation:hl 1.5s}
 @keyframes hl{from{background:color-mix(in srgb,var(--t-todo) 40%,transparent);color:var(--fg)}}.hmsg:empty{display:none}  /* 새 메시지가 오면 잠깐 노랗게 */
 @media (max-width:1000px){header{padding:4px 20px}nav{order:9;flex-basis:100%;height:44px}}
-/* 휴대폰: 1줄 이름·알림·버전·설정, 2줄 사용량, (메시지가 있으면 그 줄), 마지막 줄 메뉴 */
-@media (max-width:600px){.todo>li{flex-wrap:wrap}.todo .tbody{flex-basis:100%}.hr{display:contents}.hr>button{margin-left:auto}.hu{order:7;flex-basis:100%}.hmsg{order:8;flex-basis:100%;max-width:none}.hmsg:empty{display:none}}
+/* 휴대폰: 1줄 이름·알림·버전·설정, 2줄 사용량, (메시지가 있으면 그 줄), 마지막 줄 메뉴 (다섯 개가 390px 에 들어가게 간격을 줄인다) */
+@media (max-width:600px){header nav{gap:0}header nav a{padding:0 7px}.todo>li{flex-wrap:wrap}.todo .tbody{flex-basis:100%}.hr{display:contents}.hr>button{margin-left:auto}.hu{order:7;flex-basis:100%}.hmsg{order:8;flex-basis:100%;max-width:none}.hmsg:empty{display:none}}
 header h1{font-size:16px;margin:0 16px 0 0;letter-spacing:-.01em;white-space:nowrap}header h1 span{color:var(--acc)}
 input,button,select{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg)}
 button{cursor:pointer}button:hover{background:var(--soft)}button.pri{background:var(--acc);color:#fff;border:0}button.sm{padding:2px 8px;font-size:13px}
