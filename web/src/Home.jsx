@@ -17,13 +17,14 @@ const STYLE = [
   { selector: 'node[?big]', style: { 'overlay-opacity': 0 } },
   { selector: 'edge.flow', style: { 'line-style': 'dashed', 'line-dash-pattern': [6, 4], 'line-color': GINFO.work[1], 'target-arrow-color': GINFO.work[1] } }]
 
-function SessionCard({ e, n, u = {}, on, home }) {
+// e: 그래프 노드 — 있으면 그 자리에 겹치고, 없으면(좁은 창의 목록) 제자리에 놓고 누르면 열린다 (onOpen)
+function SessionCard({ e, n, u = {}, on, home, faded, agents, onOpen }) {
   const col = GINFO[grp(n.status)][1]
-  const b = e.renderedBoundingBox({ includeLabels: false, includeOverlays: false })
+  const b = e?.renderedBoundingBox({ includeLabels: false, includeOverlays: false })
   const r = n.ctx / n.ctxMax
   return (
-    <div className={`ncard ${grp(n.status)}${on ? ' on' : ''}${e.hasClass('faded') ? ' faded' : ''}`}
-      style={{ '--c': col, left: b.x1, top: b.y1, width: NW, height: NH, transform: `scale(${e.cy().zoom()})` }}>
+    <div className={`ncard ${grp(n.status)}${on ? ' on' : ''}${faded ? ' faded' : ''}${e ? '' : ' li'}`} {...onOpen && press(onOpen)}
+      style={{ '--c': col, ...b && { left: b.x1, top: b.y1, width: NW, height: NH, transform: `scale(${e.cy().zoom()})` } }}>
       <b><Dot c={col} /><span className="nm">{n.label}</span>{n.model && <span className="mdl">{modelName(n.model)}{n.effort ? ' · ' + n.effort : ''}</span>}</b>
       <dl>
         <dt>실행 앱</dt><dd>{n.kind === 'background' ? '백그라운드' : n.app || '?'}</dd>
@@ -32,6 +33,7 @@ function SessionCard({ e, n, u = {}, on, home }) {
           {Math.round(r * 100)}% <span className="meta">· {fmtTok(n.ctx)} / {fmtTok(n.ctxMax)}</span></dd></>}
         <dt>5시간 사용량</dt><dd><span className="bar"><i style={{ width: Math.min(u.pct || 0, 100) + '%' }} /></span>
           {u.pct == null ? '?' : u.pct + '%'} <span className="meta">· {fmtTok(u.tokens)} 토큰</span></dd>
+        {agents > 0 && <><dt>서브에이전트</dt><dd>{agents}개 실행 중</dd></>}
       </dl>
     </div>)
 }
@@ -112,8 +114,10 @@ export default function Home() {
   const live = new Map(ss.map(n => [n.sessionId, n]))
   const todo = (TODO || []).filter(t => !statF || (live.has(t.sid) && pick(live.get(t.sid))))
   const setStat = k => { setStatF(statF === k ? '' : k); if (k !== statF) document.getElementById('tblh').scrollIntoView({ behavior: 'smooth', block: 'center' }) }
-  const Tile = ({ k, n, l, c }) => <div className={'stat' + (statF === k ? ' on' : '')} {...press(() => setStat(k))} aria-pressed={statF === k}>
+  // 컴포넌트가 아닌 함수로 그린다 — 그릴 때마다 새 컴포넌트가 되면 타일이 새로 만들어져 키보드 초점이 풀린다
+  const tile = (k, n, l, c) => <div key={k} className={'stat' + (statF === k ? ' on' : '')} {...press(() => setStat(k))} aria-pressed={statF === k}>
     <b style={{ color: n ? c : 'var(--mute)' }}>{n || 0}</b><span><Dot c={c} />{l}</span></div>
+  const isOn = n => side?.type === 'session' && side.sid === n.sessionId
 
   return <div className="pg">
     <section className="card"><div className="sh"><h2>상태별 노드</h2><div className="legend">
@@ -122,11 +126,15 @@ export default function Home() {
       <span className="meta">빈 곳 두 번 누르기: 전체 보기</span></div></div>
       <div id="cy" ref={ref} onContextMenu={e => e.preventDefault()}>
         {cy && <div id="cards">{cy.nodes('[type="session"]').map(e => <SessionCard key={e.id()} e={e} n={e.data()} u={U5[e.data('sessionId')]} home={G.home}
-          on={side?.type === 'session' && side.sid === e.data('sessionId')} />)}</div>}
+          on={isOn(e.data())} faded={e.hasClass('faded')} />)}</div>}
       </div>
+      {/* 좁은 창(휴대폰): 그래프는 배율이 너무 작아 읽을 수 없어 세션 카드 목록으로 보인다 (style.css 가 둘 중 하나만 보인다) */}
+      <div id="clist">{ss.map(n => <SessionCard key={n.id} n={n} u={U5[n.sessionId]} home={G.home} on={isOn(n)} faded={statF && !pick(n)}
+        agents={G.nodes.filter(a => a.type === 'agent' && a.sid === n.sessionId).length} onOpen={() => openSide({ type: 'session', sid: n.sessionId })} />)}
+        {!ss.length && <div className="meta">살아 있는 세션이 없습니다</div>}</div>
       <div className="stats">
-        {LIVE.map(k => <Tile key={k} k={k} n={cnt[k]} l={GINFO[k][0]} c={GINFO[k][1]} />)}
-        <Tile k="agent" n={G.nodes.filter(n => n.type === 'agent').length} l="서브에이전트" c={FILL.agent} />
+        {LIVE.map(k => tile(k, cnt[k], GINFO[k][0], GINFO[k][1]))}
+        {tile('agent', G.nodes.filter(n => n.type === 'agent').length, '서브에이전트', FILL.agent)}
       </div></section>
 
     <section className="card"><div className="sh"><h2 id="tblh">{statF

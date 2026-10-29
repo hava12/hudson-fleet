@@ -71,10 +71,8 @@ def _area(v):
 
 def _close_todos(c, pid):
     """프로젝트를 끝내면 그 프로젝트의 남은 일을 반려로 정리한다 (비고: 프로젝트 끝남). 남길 일은 먼저 다른 프로젝트로 옮긴다."""
-    t = now_iso()
-    ids = [r[0] for r in c.execute("SELECT id FROM session_tasks WHERE project_id = ? AND status = 'todo'", (pid,))]
-    c.executemany("UPDATE session_tasks SET status = 'rejected', note = '프로젝트 끝남', updated_at = ? WHERE id = ?", [(t, i) for i in ids])
-    c.executemany("INSERT INTO task_events (task_id, ts, status, note) VALUES (?,?,?,?)", [(i, t, "rejected", "프로젝트 끝남") for i in ids])
+    c.execute("UPDATE session_tasks SET status = 'rejected', note = '프로젝트 끝남', updated_at = ? WHERE project_id = ? AND status = 'todo'",
+              (now_iso(), pid))
 
 
 def save_area(b):

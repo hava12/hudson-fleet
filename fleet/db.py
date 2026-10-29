@@ -68,8 +68,7 @@ def schema(c):
     # 자료: 에이전트가 MCP 로 남긴다 (사용자가 남기라고 할 때 · 프로젝트를 보관할 때 정리 한 장). sid 는 남긴 세션
     c.execute("CREATE TABLE IF NOT EXISTS resources (id INTEGER PRIMARY KEY, title TEXT, summary TEXT, body TEXT,"
               " project_id INT, area_id INT, sid TEXT, created_at TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS task_events (id INTEGER PRIMARY KEY, task_id INT, ts TEXT, status TEXT,"
-              " note TEXT)")  # 시작·완료·중단·반려·순서 변경 이력 (추가만)
+    c.execute("DROP TABLE IF EXISTS task_events")  # 쌓기만 하고 읽지 않던 작업 이력(시작·완료·옮김 등)
     c.execute("DROP TABLE IF EXISTS session_files")  # 지운 "바뀐 파일" 기능(44f3f93)이 남긴 표
     # 세션에서 한 git push (Claude 의 Bash · 사용자의 ! 명령). 대화 기록이 지워져도 남도록 커밋 메시지까지 저장한다
     c.execute("CREATE TABLE IF NOT EXISTS pushes (id TEXT PRIMARY KEY, ts TEXT, sid TEXT, cwd TEXT, remote TEXT,"

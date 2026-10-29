@@ -5,6 +5,7 @@ import re
 import shlex
 import subprocess
 import time
+from functools import lru_cache
 from pathlib import Path
 
 from .config import CFG, INTERNAL, SESSIONS, claude
@@ -86,6 +87,8 @@ def proc_chain(pid):
     return out
 
 
+# ponytail: pid 로 기억한다 — 5초마다 세션마다 ps 를 여러 번 띄우지 않게. pid 가 다른 앱의 새 세션에 다시 쓰이면 옛 앱 이름이 남는다 (드묾)
+@lru_cache(maxsize=256)
 def host_app(pid):
     """세션을 띄운 터미널 앱(.app 번들)."""
     return next((p["path"].split(".app/")[0] + ".app" for p in proc_chain(pid) if ".app/" in p["path"]), None)

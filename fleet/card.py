@@ -16,7 +16,7 @@ TOKENS_FILE = "hudson-fleet-tokens.svg"
 
 def counts(days):
     """최근 days 일 동안 완료한 작업 수 {태그: 건수}. updated_at 기준, 태그가 없는 옛 행(태그 기능 이전)은 뺀다."""
-    # ponytail: 완료 뒤에 태그만 고쳐도 updated_at 이 바뀐다 — 정확한 완료 시각이 필요하면 task_events 의 done 시각으로
+    # ponytail: 완료 뒤에 태그만 고쳐도 updated_at 이 바뀐다 — 정확한 완료 시각이 필요하면 session_tasks 에 done_at 칸을 둔다
     since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat(timespec="seconds")
     c = db()
     rows = c.execute("SELECT tag, count(*) FROM session_tasks WHERE status = 'done' AND tag IS NOT NULL AND updated_at >= ?"

@@ -1,5 +1,5 @@
-:root{--warn:#b45309;--add:#067d17;--mod:#0032a0;--del:#6c707e;--bg:#f6f7f9;--fg:#0f172a;--mute:#475569;--line:#d5dce6;--card:#fff;--acc:#2563eb;--soft:#f1f5f9;--t-todo:#ca8a04;--t-stop:#ea580c;--t-done:#16a34a;--t-rej:#6c707e}
-@media (prefers-color-scheme:dark){:root{--warn:#fbbf24;--add:#629755;--mod:#6897bb;--del:#868a91;--bg:#0b1120;--fg:#f1f5f9;--mute:#b4c0cf;--line:#2c3a50;--card:#111827;--acc:#60a5fa;--soft:#1e293b;--t-todo:#facc15;--t-stop:#fb923c;--t-done:#4ade80;--t-rej:#94a3b8}}
+:root{--warn:#b45309;--del:#6c707e;--bg:#f6f7f9;--fg:#0f172a;--mute:#475569;--line:#d5dce6;--card:#fff;--acc:#2563eb;--soft:#f1f5f9;--t-todo:#ca8a04;--t-stop:#ea580c;--t-done:#16a34a;--t-rej:#6c707e}
+@media (prefers-color-scheme:dark){:root{--warn:#fbbf24;--del:#868a91;--bg:#0b1120;--fg:#f1f5f9;--mute:#b4c0cf;--line:#2c3a50;--card:#111827;--acc:#60a5fa;--soft:#1e293b;--t-todo:#facc15;--t-stop:#fb923c;--t-done:#4ade80;--t-rej:#94a3b8}}
 *{box-sizing:border-box}body{margin:0;font:15px/1.6 -apple-system,system-ui,"Apple SD Gothic Neo",sans-serif;background:var(--bg);color:var(--fg)}
 /* 상단 줄: 글자를 꺾지 않는다. 1000px 아래에서는 메뉴가 둘째 줄로 내려간다 (메뉴가 넷이라 휴대폰 폭에도 들어간다).
    오른쪽 묶음(.hr: 알림·사용량·버전·설정)은 함께 움직이고, 그래도 좁으면 묶음 안에서 줄을 바꾼다 */
@@ -31,6 +31,9 @@ h2{font-size:14px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02e
 @keyframes flow{from{background-position:-70% 0}to{background-position:170% 0}}
 @media (prefers-reduced-motion:reduce){.ncard.work::before{animation:none}}
 .ncard.on{box-shadow:0 0 0 2px var(--c),0 6px 20px rgba(0,0,0,.25)}.ncard.faded{opacity:.15}
+/* 좁은 창: 그래프 대신 카드 목록 (Home.jsx #clist) */
+#clist{display:none}.ncard.li{position:relative;pointer-events:auto;cursor:pointer;box-shadow:none}.ncard.li.on{box-shadow:0 0 0 2px var(--c)}
+@media (max-width:600px){#cy,.sh .legend{display:none}#clist{display:grid;gap:8px}}  /* .sh 를 붙여 아래쪽 .legend{display:flex} 보다 먼저 */
 .ncard{position:absolute;transform-origin:0 0;pointer-events:none;z-index:5;box-sizing:border-box;background:var(--card);border:1px solid var(--line);
   border-top:3px solid var(--c);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);padding:10px 12px;font-size:13px}
 .ncard b{display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px;white-space:nowrap}
@@ -48,7 +51,7 @@ h2{font-size:14px;margin:0;color:var(--mute);font-weight:600;letter-spacing:.02e
 .tbl{width:100%;border-collapse:collapse;font-size:14px}
 .tbl th{text-align:left;font-weight:500;color:var(--mute);font-size:13px;padding:6px 10px;border-bottom:1px solid var(--line)}
 .tbl td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:top}.tbl tr:last-child td{border-bottom:0}
-.tbl td{white-space:nowrap}.tbl input,.tbl select:not(.pill){padding:3px 8px;font-size:13px}  /* 표 안 입력 칸은 작게 — 글자 줄과 높이를 맞춘다 */td.loc{font-family:ui-monospace,monospace;font-size:13px;color:var(--mute);max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.tbl td{white-space:nowrap}.tbl input,.tbl select:not(.pill){padding:3px 8px;font-size:13px}  /* 표 안 입력 칸은 작게 — 글자 줄과 높이를 맞춘다 */
 .pill{display:inline-flex;align-items:center;padding:1px 8px;border-radius:99px;font-size:13px;background:var(--soft);white-space:nowrap}
 a.lk{color:var(--fg);font-weight:600;cursor:pointer;text-decoration:none}a.lk:hover{color:var(--acc)}
 .acts{white-space:nowrap}.acts button{margin-right:4px}.danger{color:#dc2626}
@@ -63,7 +66,6 @@ pre{white-space:pre-wrap;word-break:break-word;background:var(--soft);border:1px
 details>summary{cursor:pointer}
 /* 패널의 접는 칸(세션 요약·기록할 작업·Push): 제목 아래 내용을 한 칸 들여 써 제목과 깊이가 달라 보이게 */
 .sec>:not(summary){margin-left:16px}
-.tag{padding:0 8px;border-radius:99px;border:1px solid var(--line);color:var(--mute);font-size:13px}
 #menu{position:fixed;display:none;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #0003;padding:4px;z-index:9}
 #menu div{padding:6px 12px;border-radius:4px;cursor:pointer}#menu div:hover{background:var(--soft)}
 nav{display:flex;gap:4px;height:56px;max-width:100%}nav a{display:flex;align-items:center;padding:0 12px;color:var(--mute);text-decoration:none;border-bottom:2px solid transparent;white-space:nowrap;flex-shrink:0;cursor:pointer}
@@ -72,7 +74,7 @@ header h1 a{color:inherit;text-decoration:none}  /* 로고 = 현황으로 */
 .dd{position:relative;display:flex}.ddm{position:absolute;top:100%;left:0;z-index:40;min-width:150px;display:flex;flex-direction:column;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
 .ddm a{padding:8px 12px;border-bottom:0;border-radius:6px;color:var(--fg)}.ddm a:hover,.ddm a.on{background:var(--soft)}
 nav a:hover{color:var(--fg)}nav a.on{color:var(--fg);font-weight:600;border-bottom-color:var(--acc)}
-.pg{display:flex;flex-direction:column;gap:16px}.pg[hidden]{display:none}#mcy{height:200px;border-radius:8px;background:var(--soft)}
+.pg{display:flex;flex-direction:column;gap:16px}#mcy{height:200px;border-radius:8px;background:var(--soft)}
 .hu{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mute);white-space:nowrap}
 .hu b{color:var(--fg);font-weight:600;min-width:28px}
 .bar{width:64px;height:6px;border-radius:99px;background:var(--soft);overflow:hidden}.bar i{display:block;height:100%;border-radius:99px}

@@ -26,12 +26,16 @@ export const post = (p, b) => fetch(p, { method: 'POST', headers: { 'Content-Typ
   .then(r => r.json()).catch(() => ({ error: '서버에 닿지 않습니다' }))
 
 // ms 마다 다시 받는다. 실패하면 1초 뒤 다시 (리더가 바뀌는 1~2초 동안은 마지막 값을 그대로 보여 준다). deps 가 바뀌면 바로 다시 (ms 가 없으면 deps 가 바뀔 때만)
-// 주소가 바뀌면 새 값이 올 때까지 null — 앞 주소의 값(다른 세션의 push 등)을 잠깐 보여 주지 않는다
+// 주소가 바뀌면 새 값이 올 때까지 null — 앞 주소의 값(다른 세션의 push 등)을 잠깐 보여 주지 않는다. 받은 값이 그대로면 다시 그리지 않는다
 export function usePoll(url, ms, deps = []) {
   const [[at, data], setData] = useState([null, null])
   useEffect(() => {
     let t, live = true
-    const run = () => get(url).then(d => { if (live) { setData([url, d]); if (ms) t = setTimeout(run, ms) } },
+    const run = () => get(url).then(d => {
+      if (!live) return
+      setData(p => p[0] === url && JSON.stringify(p[1]) === JSON.stringify(d) ? p : [url, d])
+      if (ms) t = setTimeout(run, ms)
+    },
       () => { if (live) t = setTimeout(run, 1000) })
     run()
     return () => { live = false; clearTimeout(t) }
