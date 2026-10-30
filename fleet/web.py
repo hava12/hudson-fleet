@@ -45,9 +45,9 @@ def agent_task(body):
             flow = norm_flow(body["flow"]) if body.get("flow") else None
         except ValueError as e:
             return {"error": f"{e}. flow 는 {{trigger, steps: [{{title, detail, branch?}}], outputs}} 모양입니다"}, 400
-        ok = set_task(body.get("id"), "agent", body.get("status"), note=body.get("note"), sid=sid, details=body.get("details"),
+        ok = set_task(body.get("id"), "agent", body.get("status"), note=body.get("note"), details=body.get("details"),
                       project=pj, flow=flow)
-        return ({"ok": True}, 200) if ok else ({"error": "이 세션의 작업 id 가 아니거나 분류가 잘못됐습니다"}, 400)
+        return ({"ok": True}, 200) if ok else ({"error": "없는 작업 id 이거나 분류가 잘못됐습니다"}, 400)
     if op == "list":
         return {"tasks": saved_tasks(sid)[0]}, 200
     if op == "projects":

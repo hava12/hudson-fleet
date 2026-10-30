@@ -80,7 +80,8 @@ TOOLS = [
          "details": {**DETAILS, "description": "선택. 할 일(계획)을 풀어 쓴 설명 1줄씩 최대 3개"},
          "project": {"type": "integer", "description": "선택. 이 일이 속한 프로젝트 id (project_list 에서 고른다). 맞는 것이 없으면 비운다"}},
                      "required": ["text", "tag"]}},
-    {"name": "task_update", "description": "작업의 결과를 기록한다: done 완료 · stopped 중단 · rejected 반려 · todo 남은 일.",
+    {"name": "task_update", "description": "작업의 결과를 기록한다: done 완료 · stopped 중단 · rejected 반려 · todo 남은 일."
+                                         " 다른 세션이 남긴 작업도 id 로 닫을 수 있다 (그 일의 결론을 사용자가 이 세션에서 알려 줬을 때).",
      "inputSchema": {"type": "object", "properties": {
          "id": {"type": "integer"}, "status": {"type": "string", "enum": ["done", "stopped", "rejected", "todo"]},
          "note": {"type": "string", "description": "비고 한 줄 (done·stopped·rejected 때 꼭): 완료면 결과, 중단이면 멈춘 이유, 반려면 반려 이유"},

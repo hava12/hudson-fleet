@@ -78,14 +78,14 @@ def add_task(sid, text, source, status="todo", tag=None, details=None, project=N
     return tid
 
 
-def set_task(tid, by, status=None, note=None, sort=None, delete=False, sid=None, tag=None, details=None, project=None, flow=None):
+def set_task(tid, by, status=None, note=None, sort=None, delete=False, tag=None, details=None, project=None, flow=None):
     """작업 한 행의 분류·태그·순서·설명 줄·프로젝트(0 이면 뺀다)·흐름도(flow, norm_flow 로 다듬은 것)를 바꾸거나 지운다.
-    sid 를 주면 그 세션의 작업만 건드린다 (MCP 용).
+    어느 세션의 작업이든 id 로 고친다 — 다른 세션이 남긴 질문의 답을 이 세션에서 들었을 때 닫을 수 있게.
     사람이 haiku 행을 고치면 source 를 human 으로 바꿔 다음 haiku 정리 때 지워지지 않게 한다."""
     if (status is not None and status not in TASK_STATUS.values()) or (tag is not None and tag not in TAGS):
         return False
     c = db()
-    where, key = "id = ?" + (" AND sid = ?" if sid else ""), (tid, *([sid] if sid else []))
+    where, key = "id = ?", (tid,)
     if delete:
         n = c.execute(f"DELETE FROM session_tasks WHERE {where}", key).rowcount
     else:
