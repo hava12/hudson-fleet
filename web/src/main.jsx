@@ -27,7 +27,7 @@ function live(g) {
 }
 
 // ── 사용량: /usage 의 5시간(Current session)·1주일(Current week) 한도, 헤더 오른쪽에 작게 ──
-const barColor = p => p >= 80 ? '#dc2626' : p >= 50 ? '#d97706' : '#16a34a'
+const barColor = p => p >= 80 ? 'var(--bad)' : p >= 50 ? 'var(--wait)' : 'var(--ok)'
 function Usage() {
   const U = usePoll('/api/usage', 60000)
   if (!U) return <div className="hu"><span>사용량<span className="dots" /></span></div>

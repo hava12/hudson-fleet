@@ -1,13 +1,15 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
 export const when = ts => ts ? new Date(ts).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
-export const dark = matchMedia('(prefers-color-scheme: dark)').matches
+// 색·글자 크기·모서리는 style.css 맨 위 이름표(:root) 한 곳에서 정한다. 화면 코드는 'var(--이름)' 만 쓴다.
+// 그래프(cytoscape)는 CSS 이름표를 못 읽으므로 그릴 때 실제 값으로 바꿔 준다
+export const tok = v => v.startsWith('var(') ? getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim() : v
 // 상태값(interactive 의 status, background 의 state) → 화면 분류
 const GROUP = { busy: 'work', running: 'work', blocked: 'wait', waiting: 'wait', needs_input: 'wait', idle: 'idle',
   stopped: 'done', completed: 'done', done: 'done', failed: 'fail' }
-export const GINFO = { work: ['작업 중', '#16a34a'], wait: ['입력 대기', '#d97706'], idle: ['쉬는 중', '#64748b'], done: ['끝남', '#a8a29e'], fail: ['실패', '#dc2626'] }
+export const GINFO = { work: ['작업 중', 'var(--ok)'], wait: ['입력 대기', 'var(--wait)'], idle: ['쉬는 중', 'var(--idle)'], done: ['끝남', 'var(--off)'], fail: ['실패', 'var(--bad)'] }
 export const grp = st => GROUP[st] || 'idle', isDead = st => ['done', 'fail'].includes(grp(st))  // 끝난 세션: 흐리게, 종료 메뉴 숨김
-export const FILL = { project: dark ? '#334155' : '#475569', agent: '#7c3aed' }
+export const FILL = { project: 'var(--node-proj)', agent: 'var(--node-agent)' }
 // 작업 상태 색: 남은 일은 노랑으로 눈에 띄게, 중단은 주황으로 남은 일과 구분 (style.css 의 --t-*)
 export const TASK = { done: ['완료', 'var(--t-done)'], stopped: ['중단', 'var(--t-stop)'], todo: ['남은 일', 'var(--t-todo)'], rejected: ['반려', 'var(--t-rej)'] }
 export const TAGS = ['개발', '디자인', '기획', '테스트', '문서', '디버그', '데이터', '운영', '기타']  // fleet/tasks.py TAGS 와 같은 순서
@@ -54,7 +56,7 @@ export const tilde = (p, home) => p && home && p.startsWith(home) ? '~' + p.slic
 
 // 물음표에 마우스를 올리거나(휴대폰은 누르면) 설명 상자가 뜬다
 export const Tip = ({ children }) => <span className="tip" tabIndex={0} aria-label="설명 보기">?<span className="tipbox" role="tooltip">{children}</span></span>
-export const Dot = ({ c, sq }) => <i className="dot" style={{ background: c, borderRadius: sq ? 2 : undefined }} />
+export const Dot = ({ c, sq }) => <i className="dot" style={{ background: c, borderRadius: sq ? 'var(--r-xs)' : undefined }} />
 export const Pill = ({ st }) => <span className="pill"><Dot c={GINFO[grp(st)][1]} />{GINFO[grp(st)][0]}</span>
 export const TaskSum = ({ ts }) => ts.length
   ? Object.entries(TASK).filter(([k]) => ts.some(t => t.status === k))

@@ -16,7 +16,7 @@ function cronText(c) {
   return c
 }
 
-const RESULT = { SUCCEEDED: ['성공', 'var(--t-done)'], FAILED: ['실패', '#dc2626'] }
+const RESULT = { SUCCEEDED: ['성공', 'var(--t-done)'], FAILED: ['실패', 'var(--bad)'] }
 const STOP = { device_absent: '실행할 기기가 연결돼 있지 않아 멈춤' }  // 루틴이 멈춘 이유 (suspension_reason)
 const STALE = 3600e3  // 저장본이 이보다 오래됐으면 페이지를 열 때 새로 받는다
 
@@ -46,7 +46,7 @@ function Detail({ r, loaded, m, done, pull }) {
     <section className="card">{back}
       <h3 className="dtitle">{r.name || '(이름 없음)'} <OnOff r={r} />
         <a className="lk" href={'https://claude.ai/code/routines/' + encodeURIComponent(r.id)} target="_blank" rel="noopener" onClick={() => { armed.current = true }}
-          style={{ marginLeft: 'auto', fontSize: 13 }} title="claude.ai 의 예약 작업 페이지에서 지시문·일정을 고칩니다. 고치고 이 창으로 돌아오면 새로 받아 Flow 를 다시 만듭니다">claude.ai 에서 고치기 ↗</a></h3>
+          style={{ marginLeft: 'auto', fontSize: 'var(--fs-s)' }} title="claude.ai 의 예약 작업 페이지에서 지시문·일정을 고칩니다. 고치고 이 창으로 돌아오면 새로 받아 Flow 를 다시 만듭니다">claude.ai 에서 고치기 ↗</a></h3>
       <dl className="kv">{kv.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl></section>
     <section className="card"><details open={flowOpen} onToggle={e => { flowOpen = e.target.open }}>
       <summary><h2 style={{ display: 'inline-block' }}>Flow</h2> <span className="meta">AI 가 지시문을 정리한 흐름</span></summary>

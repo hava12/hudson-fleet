@@ -76,7 +76,7 @@ function SessionPanel({ sid, agent }) {
       <div><b>{ov.title || '(제목 없음)'}</b> <TitleBtn sid={sid} title={ov.title} /></div>
       <div className="meta">{when(ov.first)} → {when(ov.last)}</div>
       <details className="sec" open={taskOpen} onToggle={e => { e.stopPropagation(); taskOpen = e.target.open }}>
-        <summary><h4 style={{ display: 'inline-block', fontSize: 14 }}>기록할 작업 · {ts.length}건</h4></summary>
+        <summary><h4 style={{ display: 'inline-block', fontSize: 'var(--fs-m)' }}>기록할 작업 · {ts.length}건</h4></summary>
         {ai.err ? <div>{ai.err}</div> : ts.length ? <TaskList ts={ts} edit="all" /> : <div className="meta">아직 정리하지 않았습니다</div>}
         <div style={{ marginTop: 6 }}><button className="sm" disabled={ai.busy} onClick={summarize}>{ai.busy ? '요약 중…' : ai.label || (ts.length ? '다시 정리' : '작업 정리')}</button>
           {' '}<span className="meta">haiku · 토큰 사용 · 기록이 그대로면 저장본 재사용</span></div>

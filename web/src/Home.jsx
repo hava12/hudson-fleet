@@ -1,22 +1,22 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { fitBox, textW, useCy } from './Graph'
 import { TaskList } from './TaskList'
-import { Dot, FILL, GINFO, LIVE, dark, fmtTok, grp, modelName, post, press, tilde, useApp, usePoll } from './lib'
+import { Dot, FILL, GINFO, LIVE, fmtTok, grp, modelName, post, press, tilde, tok, useApp, usePoll } from './lib'
 import { TodaySched } from './Sched'
 
 // 세션 노드는 자리만 카드 크기로 잡고, 그 위에 카드(SessionCard)를 겹친다 (노드 이름표로는 줄마다 모양을 줄 수 없다)
 const NW = 300, NH = 148  // NH 는 .ncard 글자 크기·줄 간격(13px × 1.6, 제목 + 4줄)에 맞춘다. 글자를 키우면 같이 키운다
 const STYLE = [
-  { selector: 'node', style: { shape: 'round-rectangle', label: 'data(short)', width: 'data(w)', height: 'data(h)', 'font-size': 12, color: '#fff', 'text-wrap': 'wrap', 'line-height': 1.5,
-    'text-valign': 'center', 'text-halign': 'center', 'background-color': e => e.data('type') === 'session' ? GINFO[grp(e.data('status'))][1] : FILL[e.data('type')], 'border-width': 0 } },
+  { selector: 'node', style: { shape: 'round-rectangle', label: 'data(short)', width: 'data(w)', height: 'data(h)', 'font-size': () => tok('var(--fs-xs)'), color: () => tok('var(--on-fill)'), 'text-wrap': 'wrap', 'line-height': 1.5,
+    'text-valign': 'center', 'text-halign': 'center', 'background-color': e => tok(e.data('type') === 'session' ? GINFO[grp(e.data('status'))][1] : FILL[e.data('type')]), 'border-width': 0 } },
   { selector: 'node[type="project"]', style: { 'font-weight': 'bold' } },
   { selector: 'node[?big]', style: { label: '', 'background-opacity': 0 } },
   { selector: '.faded', style: { opacity: 0.12 } },
-  { selector: 'edge', style: { width: 1.5, 'line-color': dark ? '#57534e' : '#d6d3d1', 'target-arrow-color': dark ? '#57534e' : '#d6d3d1',
+  { selector: 'edge', style: { width: 1.5, 'line-color': () => tok('var(--edge)'), 'target-arrow-color': () => tok('var(--edge)'),
     'target-arrow-shape': 'triangle', 'arrow-scale': 0.8, 'curve-style': 'taxi', 'taxi-direction': 'rightward', 'taxi-turn': '50%' } },
-  { selector: ':selected', style: { 'overlay-color': '#c2410c', 'overlay-opacity': 0.2, 'overlay-padding': 4 } },
+  { selector: ':selected', style: { 'overlay-color': () => tok('var(--acc)'), 'overlay-opacity': 0.2, 'overlay-padding': 4 } },
   { selector: 'node[?big]', style: { 'overlay-opacity': 0 } },
-  { selector: 'edge.flow', style: { 'line-style': 'dashed', 'line-dash-pattern': [6, 4], 'line-color': GINFO.work[1], 'target-arrow-color': GINFO.work[1] } }]
+  { selector: 'edge.flow', style: { 'line-style': 'dashed', 'line-dash-pattern': [6, 4], 'line-color': () => tok(GINFO.work[1]), 'target-arrow-color': () => tok(GINFO.work[1]) } }]
 
 // e: 그래프 노드 — 있으면 그 자리에 겹치고, 없으면(좁은 창의 목록) 제자리에 놓고 누르면 열린다 (onOpen)
 function SessionCard({ e, n, u = {}, on, home, faded, agents, onOpen }) {
