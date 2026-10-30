@@ -173,8 +173,22 @@ def work_items(sid):
     return out[:20]
 
 
+# AI 티 줄이기 — im-not-ai(github.com/epoko77-ai/im-not-ai, MIT)의 규칙 가운데 "쓰기 전에 넣어도 되는" 것만 골랐다
+# (A-7·A-8·A-9·B-2·C-5·C-11·D-2·D-3·D-6·I-3). "~를 통해 한 문단 3회+" 같은 횟수 규칙은 쓰기 전에 넣으면 금지로 읽혀
+# 글이 어색해진다고 원작자가 밝혀서 뺐다. 모든 haiku 정리(작업 정리·Flow·프로젝트·예약 작업 흐름도)가 이 함수를 거친다.
+STYLE = """
+한국어 문장을 쓸 때 지킬 것:
+- 이중 피동(~되어진다, ~지게 된다)을 쓰지 않는다. "~에 의해 ~됐다" 대신 하는 쪽을 주어로 쓴다.
+- "~을 가지고 있다" 같은 직역 대신 "~이 있다", "~하다"로 쓴다.
+- "매우 중요하다, 주목할 만하다, 시사하는 바가 크다, 혁신적" 같은 과장을 쓰지 않고 실제로 한 일을 쓴다.
+- "다음과 같다, 크게 세 가지로 나눌 수 있다" 같은 도입구 없이 바로 쓴다.
+- "~다는 것이다", "~할 때입니다" 같은 맺음 공식을 쓰지 않는다.
+- 연결어미(-고, -며, -지만) 바로 뒤에 쉼표를 찍지 않는다. 이모지를 쓰지 않는다.
+- 광고 같은 영어(seamless, robust 등)는 우리말로 쓰고, API·DB·PR 같은 기술 용어는 그대로 둔다."""
+
+
 def ask_haiku(instr, body):
-    return subprocess.run(["claude", "-p", "--model", CFG["HUDSON_FLEET_SUMMARY_MODEL"], *QUIET, instr],
+    return subprocess.run(["claude", "-p", "--model", CFG["HUDSON_FLEET_SUMMARY_MODEL"], *QUIET, instr + STYLE],
                           input=body, capture_output=True, text=True, timeout=180).stdout.strip()
 
 
