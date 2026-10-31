@@ -21,6 +21,7 @@ description: 지금 작업 중인 프로젝트를 읽고 기획명세서를 HTML
 1. 개요 재료: `README*`, `CLAUDE.md`, `docs/`, 패키지 파일(`package.json`, `build.gradle`, `pyproject.toml` 등)
 2. 기능 재료: 화면·라우트·컨트롤러·API·명령·이벤트 처리 코드, 설정 파일, 시험 코드(시험 이름이 곧 기능 규칙인 경우가 많다)
 3. 아키텍처 재료: 진입점, 서버·워커·큐·배치, 배포 설정(`Dockerfile`, `wrangler.*`, `*.yaml`, CI), 외부 서비스 호출, 환경 변수 이름
+   - 언어·프레임워크 재료: 확장자별 파일, 빌드 설정(`tsconfig.json`, `build.gradle`의 plugins, `pyproject.toml`), 런타임 버전(`.nvmrc`, `engines`, Java toolchain, `.python-version`), 프레임워크 설정 파일
    - 의존성 재료: 패키지 파일과 잠금 파일(`package-lock.json`, `gradle.lockfile`, `poetry.lock` 등)의 버전, HTML의 CDN `<script>`·importmap 주소, 소스의 `import` 문
 4. ERD 재료: 마이그레이션·`schema.sql`·ORM 엔티티(JPA `@Entity`, Prisma, TypeORM, Django models 등)·DB 생성 코드. DB가 없으면 데이터가 어디에 있는지(파일·메모리·외부 서비스) 확인한다
 5. 히스토리 재료: **hudson-fleet 기록이 있으면 먼저 쓴다.**
@@ -53,8 +54,11 @@ description: 지금 작업 중인 프로젝트를 읽고 기획명세서를 HTML
 
 ### 4. 시스템 아키텍처
 - mermaid `flowchart LR` 하나: 사용자(브라우저·앱) → 서버·워커 → DB·저장소 → 외부 서비스. 화살표에 통신 방식(HTTPS, WebSocket, SQL, 큐)을 적는다
+- **언어·프레임워크 구성(기술 스택)**: 표 `영역 | 언어 | 프레임워크·런타임·주요 라이브러리 | 버전 | 근거(파일:줄)`
+  - 영역은 프론트(화면)·서버·DB·배포·인프라·개발·시험 순으로 쓰고, 없는 영역은 뺀다. 쓰지 않는 옛 구성은 맨 아래에 `쓰지 않음`으로 적는다
+  - 프레임워크를 쓰지 않으면 `없음(바닐라 JS)`처럼 적는다. 요구 버전이 정해져 있지 않으면 `정해지지 않음`과 확인한 환경의 버전을 함께 적는다
 - 표: `구성요소 | 맡는 일 | 기술·버전 | 위치(파일·폴더)`
-- **의존성 트리**: `<pre class="tree">`에 `├──`·`└──` 줄로 그린다. 묶음은 아래 순서로 하고, 없는 묶음은 뺀다.
+- **의존성 트리**: 접고 펼 수 있는 목록(`ul.dep` 안의 `details`)으로 그린다. 묶음은 펼쳐 두고(`open`), 하위 의존성이 있는 항목은 접어 둔다(펼치면 그 아래가 보인다). 트리 위에 `모두 펼치기`·`모두 접기` 버튼을 둔다. 묶음은 아래 순서로 하고, 없는 묶음은 뺀다.
   - 화면(브라우저): CDN 라이브러리와 쓰는 하위 모듈, 외부 리소스
   - 서버·런타임: 플랫폼·프레임워크·라이브러리
   - 개발·시험: 빌드·배포 도구, 시험 도구(직접 의존성만 쓰고, 그 아래 주요 의존성은 한 단계만, 전체 개수를 덧붙인다)
@@ -99,7 +103,10 @@ code{font:12.5px ui-monospace,Menlo,monospace;background:var(--bg);padding:1px 5
 .chip{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
 .done{color:var(--done);background:var(--done-bg)} .wip{color:var(--wip);background:var(--wip-bg)} .plan{color:var(--plan);background:var(--plan-bg)}
 pre.mermaid{background:var(--bg);border-radius:8px;padding:12px;margin:0;min-width:520px}
-pre.tree{background:var(--bg);border-radius:8px;padding:14px 16px;margin:0;font:13px/1.6 ui-monospace,Menlo,monospace;overflow-x:auto}
+.dep,.dep ul{list-style:none;margin:0;padding:0} .dep{font:13px/1.8 ui-monospace,Menlo,monospace;background:var(--bg);border-radius:8px;padding:12px 16px;overflow-x:auto}
+.dep ul{padding-left:20px} .dep li{position:relative;padding-left:16px;border-left:1px solid var(--line)} .dep li:last-child{border-left-color:transparent}
+.dep li::before{content:"";position:absolute;left:-1px;top:0;width:12px;height:.9em;border-left:1px solid var(--line);border-bottom:1px solid var(--line)}
+.dep summary{cursor:pointer} .dep .ver{color:var(--muted)}
 details.flow{border:1px solid var(--line);border-radius:8px;padding:0 14px}
 details.flow summary{cursor:pointer;padding:10px 0;font-weight:600} details.flow[open]{padding-bottom:14px}
 .btns{display:flex;gap:8px} .btns button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);cursor:pointer}
@@ -109,10 +116,16 @@ details.flow summary{cursor:pointer;padding:10px 0;font-weight:600} details.flow
 <li><a href="#architecture">시스템 아키텍처</a></li><li><a href="#erd">ERD</a></li><li><a href="#history">진행 히스토리</a></li></ul></nav></header>
 <section id="overview"><h2>1. 개요</h2>…</section>
 <section id="flows"><h2>3. 기능별 플로우차트</h2>
-<div class="btns"><button type="button" data-all="open">모두 펼치기</button><button type="button" data-all="close">모두 접기</button></div>
+<div class="btns"><button type="button" data-all="open" data-for="flow">모두 펼치기</button><button type="button" data-all="close" data-for="flow">모두 접기</button></div>
 <details class="flow"><summary>F-01 로그인 · <span class="chip done">완료</span> · 한 줄 요약</summary><div class="scroll"><pre class="mermaid">…</pre></div><p class="muted">설명</p></details>
 </section>
-<!-- features · architecture(.tree 포함) · erd · history 도 section 모양 -->
+<section id="architecture"><h2>4. 시스템 아키텍처</h2>…
+<div class="btns"><button type="button" data-all="open" data-for="dep">모두 펼치기</button><button type="button" data-all="close" data-for="dep">모두 접기</button></div>
+<ul class="dep"><li><details open><summary>화면(브라우저)</summary><ul>
+  <li><details><summary>three.js <span class="ver">0.180.0</span></summary><ul><li>build/three.module.js</li></ul></details></li>
+  <li>Web Audio API</li></ul></details></li></ul>
+</section>
+<!-- features · erd · history 도 section 모양 -->
 <p class="muted">도식이 글로만 보이면 인터넷 연결을 확인하세요(mermaid 를 불러와 그립니다).</p>
 </div>
 <script type="module">
@@ -126,7 +139,7 @@ const pending = (root) => [...root.querySelectorAll("pre.mermaid:not([data-proce
 draw(pending(document).filter((p) => !p.closest("details:not([open])")));
 document.querySelectorAll("details.flow").forEach((d) => d.addEventListener("toggle", () => d.open && draw(pending(d))));
 document.querySelectorAll("[data-all]").forEach((b) => b.addEventListener("click", () => {
-  document.querySelectorAll("details.flow").forEach((d) => { d.open = b.dataset.all === "open"; });
+  document.querySelectorAll(b.dataset.for === "dep" ? ".dep details" : "details.flow").forEach((d) => { d.open = b.dataset.all === "open"; });
 }));
 </script></body></html>
 ```
