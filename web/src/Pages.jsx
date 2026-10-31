@@ -139,7 +139,7 @@ function SettingValue({ c, done, w }) {  // w: 입력 칸 폭 — 연결 칸은 
   }
   return <form className="uadd" style={{ marginTop: 0 }} onSubmit={e => { e.preventDefault(); save(v) }}>
     <input type={c.secret ? 'password' : 'text'} autoComplete="off" value={v} onChange={e => setV(e.target.value)}
-      placeholder={c.secret ? c.value || '비어 있음' : c.value} style={{ width: w || (c.secret ? 240 : 160) }} />
+      placeholder={c.secret ? c.value || '비어 있음' : c.value} style={{ width: w || (c.secret ? 240 : c.name.endsWith('_DIR') ? 320 : 160) }} />
     <Button disabled={c.secret && !v}>저장</Button>
     {c.secret && c.src === 'screen' && <Button type="button" onClick={() => save('')}>지우기</Button>}</form>
 }

@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react'
 import { FlowMaker } from './Flow'
 import { TaskList } from './TaskList'
-import { TaskSum, Tip, post, press, useApp, usePoll, when } from './lib'
+import { TaskSum, Tip, post, press, tilde, useApp, usePoll, when } from './lib'
 import { Button, Card, Collapsible, Pill, Table } from './ui'
 
 // ── PARA: 일과 자료를 실행 가능성 순서로 네 칸에 나눈다 (fleet/para.py) ──
@@ -34,19 +34,20 @@ function NewForm({ as, save }) {
     <Button variant="primary" disabled={!f.name.trim() || !f.done_when.trim()}>만들기</Button></form>
 }
 
-// 기획명세서: [명세서 업데이트] 를 누르면 프로젝트 폴더에서 Claude(Sonnet)가 project-spec 스킬로 명세서를 만들거나 고친다
-// (fleet/para.py make_spec, 몇 분). 폴더는 처음 한 번 지정하고, 스킬로 만들면 에이전트가 MCP project_folder 로 적는다
+// 기획명세서: [명세서 업데이트] 를 누르면 코드 폴더에서 Claude(Sonnet)가 project-spec 스킬로 명세서를 만들거나 고친다 (fleet/para.py make_spec, 몇 분).
+// 파일은 설정(⚙)의 명세서 폴더에 생긴다. 코드 폴더는 작업 기록에서 고르고, 다르면 [코드 폴더 바꾸기] 로 정한다 (비우면 다시 기록에서)
 function SpecBar({ p, save }) {
-  const { setMsg, bump } = useApp()
+  const { G, setMsg, bump } = useApp()
   const s = p.spec || {}
-  const pick = () => { const f = prompt('명세서를 만들 프로젝트 폴더 (절대 경로)', s.folder || ''); if (f !== null) save({ id: p.id, folder: f }) }
+  const pick = () => { const f = prompt('명세서가 읽을 코드 폴더 (절대 경로). 비우면 작업 기록에서 고릅니다', s.auto ? '' : s.folder || ''); if (f !== null) save({ id: p.id, folder: f }) }
   const make = async () => { const x = await post('/api/project-spec', { id: p.id }); if (x.error) setMsg(x.error); bump() }
   return <div className="meta" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
-    <b>기획명세서</b><span>{s.folder || '폴더를 지정하지 않았습니다'}</span>
-    <Button onClick={pick}>폴더 지정</Button>
+    <b>기획명세서</b><span title="명세서가 읽을 코드 폴더">{s.folder ? tilde(s.folder, G.home) + (s.auto ? ' (작업 기록에서 고름)' : '') : '코드 폴더를 찾지 못했습니다'}</span>
+    <Button onClick={pick}>코드 폴더 바꾸기</Button>
     <Button variant="primary" disabled={!s.folder || s.making} onClick={make}
       title="프로젝트 폴더에서 Claude(Sonnet)가 project-spec 스킬로 명세서를 만들거나 고칩니다 (몇 분)">{s.making ? '만드는 중… (몇 분)' : '명세서 업데이트'}</Button>
     {s.exists && <a className="lk" href={`/api/project-spec?id=${p.id}`} target="_blank" rel="noopener">명세서 열기</a>}
+    {s.file && <span title="저장 위치 — 설정(⚙)의 HUDSON_FLEET_SPEC_DIR 에서 바꿉니다">저장 {tilde(s.file, G.home)}</span>}
     {s.at && <span>마지막 수정 {when(s.at)}</span>}
     {s.error && <span style={{ color: 'var(--t-todo)' }}>{s.error}</span>}</div>
 }

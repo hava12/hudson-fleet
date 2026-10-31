@@ -56,7 +56,7 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
    물을 때 함께 알린다.
    일을 시작할 때 같은 주제의 자료가 있을 법하면 resource_search 로 먼저 찾아본다.
 9. 프로젝트의 지난 기록(여러 세션의 작업·흐름도·push·자료)이 필요하면 project_history(id) 로 읽는다 — 기획명세서를 만들 때 등.
-   기획명세서를 만든 뒤에는 project_folder(id, folder) 로 그 폴더를 적는다 — 대시보드 [명세서 업데이트] 가 그 폴더에서 다시 만든다."""
+   기획명세서는 project_history 의 spec_file 경로에 만들고, 만든 뒤 project_folder(id, folder) 로 조사한 코드 폴더를 적는다."""
 
 DETAILS = {"type": "array", "items": {"type": "string"}, "maxItems": 3}  # 3-Step-Desc (fleet/tasks.py MAX_DETAILS)
 LINES = {"type": "array", "items": {"type": "string"}, "maxItems": 6}
@@ -115,10 +115,10 @@ TOOLS = [
                                                " 기획명세서의 진행 히스토리·기능별 플로우차트를 만들 때 쓴다.",
      "inputSchema": {"type": "object", "properties": {"id": {"type": "integer", "description": "프로젝트 id (project_list 로 찾는다)"}},
                      "required": ["id"]}},
-    {"name": "project_folder", "description": "프로젝트의 폴더(기획명세서를 만든 곳)를 적는다. 대시보드의 [명세서 업데이트] 버튼이 이 폴더에서"
-                                              " project-spec 스킬을 다시 돌린다. 기획명세서를 만든 뒤 부른다.",
+    {"name": "project_folder", "description": "기획명세서가 읽은 코드 폴더를 적는다. 대시보드의 [명세서 업데이트] 버튼이 이 폴더에서"
+                                              " project-spec 스킬을 다시 돌린다 (적지 않으면 작업 기록에서 고른다). 기획명세서를 만든 뒤 부른다.",
      "inputSchema": {"type": "object", "properties": {"id": {"type": "integer", "description": "프로젝트 id"},
-                                                      "folder": {"type": "string", "description": "절대 경로 (명세서 파일이 있는 폴더)"}},
+                                                      "folder": {"type": "string", "description": "절대 경로 (조사한 코드 폴더)"}},
                      "required": ["id", "folder"]}},
 ]
 

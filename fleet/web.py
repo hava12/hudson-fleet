@@ -153,7 +153,7 @@ class H(BaseHTTPRequestHandler):
             return self.send(para())
         if u.path == "/api/project-spec":  # ?id= — 그 프로젝트 폴더의 기획명세서 HTML 을 연다 ([명세서 열기])
             row = next((p for p in para()["projects"] if str(p["id"]) == q.get("id")), None)
-            f = row and row.get("folder") and spec_file(row["folder"])
+            f = row and spec_file(row)
             return self.send(f.read_bytes(), "text/html") if f and f.is_file() else self.send({"error": "명세서가 없습니다"}, code=404)
         if u.path == "/api/projects":  # 작업 줄의 프로젝트 고르기 칸
             return self.send(names())
