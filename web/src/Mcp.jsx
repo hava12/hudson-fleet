@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { fitBox, textW, useCy } from './Graph'
 import { Dot, FILL, get, tok, useApp } from './lib'
+import { Button, Card } from './ui'
 
 export const MST = { ok: ['연결됨', 'var(--ok)'], auth: ['인증 필요', 'var(--wait)'], fail: ['연결 실패', 'var(--bad)'], pending: ['승인 대기', 'var(--idle)'] }
 const STYLE = [
@@ -45,13 +46,13 @@ export default function Mcp() {
 
   const cnt = {}
   ms?.forEach(m => cnt[m.ok] = (cnt[m.ok] || 0) + 1)
-  return <div className="pg"><section className="card">
+  return <div className="pg"><Card>
     <div className="sh"><h2>연결된 MCP 서버</h2>
       <div className="legend">{Object.values(MST).map(([l, c]) => <span key={l}><Dot c={c} />{l}</span>)}</div>
-      <button className="sm" disabled={busy} onClick={() => load(true)}>다시 검사</button></div>
+      <Button disabled={busy} onClick={() => load(true)}>다시 검사</Button></div>
     <div className="gwrap"><div id="mcy" ref={ref} />
       {busy && <div className="loading">연결 상태 검사 중<span className="dots" />&nbsp;<span style={{ fontSize: 'var(--fs-s)' }}>(10초 정도 걸립니다)</span></div>}</div>
     <div className="stats">{Object.entries(MST).map(([k, [l, c]]) => <div key={k} className="stat"><b style={{ color: cnt[k] ? c : 'var(--mute)' }}>{cnt[k] || 0}</b><span><Dot c={c} />{l}</span></div>)}</div>
     <p className="meta" style={{ margin: '10px 0 0' }}>홈 폴더 기준 목록입니다. 프로젝트 폴더에만 설정한 서버(.mcp.json)는 빠질 수 있습니다.</p>
-  </section></div>
+  </Card></div>
 }

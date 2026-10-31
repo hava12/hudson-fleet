@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { FlowMaker } from './Flow'
 import { post, tilde, useApp, usePoll, when } from './lib'
+import { Button, Card, Collapsible, Pill, Table } from './ui'
 
 // cron 5칸 → 쉬운 말. 자주 쓰는 모양만 바꾸고 나머지는 그대로 보인다
 const DOW = '일월화수목금토'
@@ -22,7 +23,7 @@ const STALE = 3600e3  // 저장본이 이보다 오래됐으면 페이지를 열
 
 const nextRun = r => r.enabled && r.cron ? when(r.next) : '—'
 const lastRun = r => r.last ? <>{when(r.last)} <span style={{ color: RESULT[r.result]?.[1] }}>{RESULT[r.result]?.[0] || r.result}</span>{r.why && ` · ${r.why}`}</> : '—'
-const OnOff = ({ r }) => <span className="pill" style={{ color: r.enabled ? 'var(--t-done)' : 'var(--mute)' }}>{r.enabled ? '켜짐' : '꺼짐'}</span>
+const OnOff = ({ r }) => <Pill color={r.enabled ? 'var(--t-done)' : 'var(--mute)'}>{r.enabled ? '켜짐' : '꺼짐'}</Pill>
 
 // 예약 작업 상세 (#sched/<id>): 설정 한눈에 → Flow(접고 펴기, 다른 루틴을 열어도 접힘 상태를 이어 간다) → 지시문 전문
 let flowOpen = true
@@ -37,22 +38,21 @@ function Detail({ r, loaded, m, done, pull }) {
     return () => { removeEventListener('focus', back); document.removeEventListener('visibilitychange', back) }
   }, [pull])
   const back = <div className="sh"><a className="lk" href="#sched">← 예약 작업 목록</a></div>
-  if (!r) return <div className="pg"><section className="card">{back}
-    <div className="meta">{loaded ? '이 예약 작업을 찾지 못했습니다. 목록에서 [새로 받기] 를 눌러 보세요' : '불러오는 중…'}</div></section></div>
+  if (!r) return <div className="pg"><Card>{back}
+    <div className="meta">{loaded ? '이 예약 작업을 찾지 못했습니다. 목록에서 [새로 받기] 를 눌러 보세요' : '불러오는 중…'}</div></Card></div>
   const kv = [['일정', <>{cronText(r.cron)}{r.cron && <span className="meta"> ({r.cron}{r.tz ? ' · ' + r.tz : ''})</span>}</>], ['다음 실행', nextRun(r)],
     ['마지막 실행', lastRun(r)], ['실행 기기', r.device], ['작업 폴더', r.folders.map(f => <div key={f} title={f}>{tilde(f, G.home)}</div>)],
     ['모델', r.model.replace(/^claude-/, '') || '—'], ['권한 모드', r.mode || '—'], ...r.stopped ? [['멈춘 이유', STOP[r.stopped] || r.stopped]] : []]
   return <div className="pg">
-    <section className="card">{back}
+    <Card>{back}
       <h3 className="dtitle">{r.name || '(이름 없음)'} <OnOff r={r} />
         <a className="lk" href={'https://claude.ai/code/routines/' + encodeURIComponent(r.id)} target="_blank" rel="noopener" onClick={() => { armed.current = true }}
           style={{ marginLeft: 'auto', fontSize: 'var(--fs-s)' }} title="claude.ai 의 예약 작업 페이지에서 지시문·일정을 고칩니다. 고치고 이 창으로 돌아오면 새로 받아 Flow 를 다시 만듭니다">claude.ai 에서 고치기 ↗</a></h3>
-      <dl className="kv">{kv.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl></section>
-    <section className="card"><details open={flowOpen} onToggle={e => { flowOpen = e.target.open }}>
-      <summary><h2 style={{ display: 'inline-block' }}>Flow</h2> <span className="meta">AI 가 지시문을 정리한 흐름</span></summary>
-      <div style={{ marginTop: 10 }}><FlowMaker key={r.id} m={m} url="/api/routine-map" body={{ id: r.id }} ok={!!r.prompt} done={done} what="지시문" /></div></details></section>
-    <section className="card"><details><summary><h2 style={{ display: 'inline-block' }}>지시문 전문</h2></summary>
-      <pre style={{ marginTop: 10 }}>{r.prompt || '(지시문 없음)'}</pre></details></section>
+      <dl className="kv">{kv.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl></Card>
+    <Card><Collapsible open={flowOpen} onToggle={e => { flowOpen = e.target.open }} summary={<><h2 style={{ display: 'inline-block' }}>Flow</h2> <span className="meta">AI 가 지시문을 정리한 흐름</span></>}>
+      <div style={{ marginTop: 10 }}><FlowMaker key={r.id} m={m} url="/api/routine-map" body={{ id: r.id }} ok={!!r.prompt} done={done} what="지시문" /></div></Collapsible></Card>
+    <Card><Collapsible summary={<h2 style={{ display: 'inline-block' }}>지시문 전문</h2>}>
+      <pre style={{ marginTop: 10 }}>{r.prompt || '(지시문 없음)'}</pre></Collapsible></Card>
   </div>
 }
 
@@ -72,14 +72,14 @@ export function TodaySched() {
     return [{ t: r.next, name: r.name, href: '#sched/' + r.id, st: new Date(r.next) > now ? ['예정', 'var(--acc)'] : ['지남', 'var(--mute)'] }]
   }).concat(S.sessions.filter(j => isToday(j.next) && j.next > now).map(j => ({ t: j.next, name: `${j.session} · ${j.prompt}`, href: '', st: ['세션 예약', 'var(--mute)'] })))
     .sort((a, b) => new Date(a.t) - new Date(b.t))
-  return <section className="card"><div className="sh"><h2>오늘 예약 작업</h2>
+  return <Card><div className="sh"><h2>오늘 예약 작업</h2>
     <a className="lk meta" href="#sched" style={{ fontWeight: 400 }}>예약 작업 전체 보기 →</a>
     {S.routines.at && <span className="meta" title="예약 작업 페이지에서 새로 받으면 바뀝니다">{when(S.routines.at)} 에 받은 목록 기준</span>}</div>
     {rows.length ? <ul className="tsl">{rows.map((x, i) => <li key={i}><time>{hm(x.t)}</time>
-      <span className="pill" style={{ color: x.st[1] }} title={x.st[0] === '지남' ? '예정 시각이 지났습니다. 예약 작업 페이지에서 새로 받으면 결과가 보입니다' : undefined}>{x.st[0]}</span>
+      <Pill color={x.st[1]} title={x.st[0] === '지남' ? '예정 시각이 지났습니다. 예약 작업 페이지에서 새로 받으면 결과가 보입니다' : undefined}>{x.st[0]}</Pill>
       {x.href ? <a className="lk" href={x.href}>{x.name}</a> : <span>{x.name}</span>}</li>)}</ul>
       : <div className="meta">{S.routines.at ? '오늘 도는 예약 작업이 없습니다' : '예약 작업 목록을 아직 받지 않았습니다 — 예약 작업 페이지를 열면 받습니다'}</div>}
-  </section>
+  </Card>
 }
 
 export default function Sched({ sub }) {
@@ -98,12 +98,12 @@ export default function Sched({ sub }) {
   if (sub) return <Detail r={R?.items.find(x => x.id === sub)} loaded={!!R?.at && !busy} m={S?.maps?.[sub]} done={() => setN(x => x + 1)} pull={pull} />
   const rs = [...(R?.items || [])].sort((a, b) => b.enabled - a.enabled || (a.next || '9').localeCompare(b.next || '9'))
   return <div className="pg">
-    <section className="card"><div className="sh"><h2>Claude 예약 작업</h2>
+    <Card><div className="sh"><h2>Claude 예약 작업</h2>
       <span className="meta">{R?.at ? `${rs.filter(r => r.enabled).length}개 켜짐 · 전체 ${rs.length}개 · ${when(R.at)} 에 받음` : ''}</span>
-      <button className="sm" style={{ marginLeft: 'auto' }} disabled={busy} onClick={pull}
-        title="claude.ai 에서 다시 받습니다. haiku 를 짧게 한 번 실행합니다 (약 10초 · 0.5센트)">{busy ? '받는 중… (10초쯤)' : '새로 받기'}</button></div>
+      <Button style={{ marginLeft: 'auto' }} disabled={busy} onClick={pull}
+        title="claude.ai 에서 다시 받습니다. haiku 를 짧게 한 번 실행합니다 (약 10초 · 0.5센트)">{busy ? '받는 중… (10초쯤)' : '새로 받기'}</Button></div>
       {!R ? <div className="meta">불러오는 중…</div> : !R.at ? <div className="meta">{busy ? '처음 받는 중입니다…' : '아직 받지 않았습니다'}</div>
-        : <div className="tw"><table className="tbl"><tbody>
+        : <Table>
           <tr><th>이름</th><th>일정</th><th>다음 실행</th><th>마지막 실행</th><th>실행 위치</th><th>모델 · 권한</th></tr>
           {rs.map(r => <tr key={r.id} style={{ opacity: r.enabled ? 1 : .55 }}>
             <td><a className="lk" href={'#sched/' + encodeURIComponent(r.id)} title="상세 페이지: Flow(AI 가 정리한 흐름도)와 지시문">{r.name || '(이름 없음)'}</a> <OnOff r={r} />
@@ -114,21 +114,21 @@ export default function Sched({ sub }) {
             <td className="meta">{r.device}{r.folders.map(f => <div key={f} title={f}>{tilde(f, G.home)}</div>)}</td>
             <td className="meta">{r.model.replace(/^claude-/, '')}{r.mode && <div>{r.mode}</div>}</td></tr>)}
           {!rs.length && <tr><td colSpan="6" className="meta">예약 작업이 없습니다</td></tr>}
-        </tbody></table></div>}
+        </Table>}
       <p className="meta" style={{ margin: '10px 0 0' }}>이름을 누르면 상세 페이지에서 Flow(AI 가 지시문을 정리한 흐름도)를 봅니다. 처음 한 번 만들어 저장해 두고, 새로 받은 지시문이 바뀌었으면 저절로 다시 만듭니다. 예약 작업은 claude.ai 에 저장되고 Claude 데스크톱 앱이나 클라우드에서 실행됩니다. 로그인 토큰을 읽지 않으려고, [새로 받기] 는 Claude Code 의 예약 작업 조회 도구를 haiku 로 한 번 불러 받아 옵니다. 페이지를 열 때 저장본이 1시간보다 오래됐으면 저절로 다시 받습니다.</p>
-    </section>
+    </Card>
 
-    <section className="card"><div className="sh"><h2>세션 안 예약</h2><span className="meta">살아 있는 세션이 /loop·예약 도구로 걸어 둔 것 — 세션이 끝나면 사라집니다</span></div>
-      {!S ? <div className="meta">불러오는 중…</div> : <div className="tw"><table className="tbl"><tbody>
+    <Card><div className="sh"><h2>세션 안 예약</h2><span className="meta">살아 있는 세션이 /loop·예약 도구로 걸어 둔 것 — 세션이 끝나면 사라집니다</span></div>
+      {!S ? <div className="meta">불러오는 중…</div> : <Table>
         <tr><th>세션</th><th>종류</th><th>일정</th><th>다음 실행</th><th>지시문</th></tr>
         {S.sessions.map((j, i) => <tr key={i}>
           <td>{j.session}</td>
-          <td><span className="pill">{j.kind === 'loop' ? '/loop' : j.recurring ? '반복' : '한 번'}</span></td>
+          <td><Pill>{j.kind === 'loop' ? '/loop' : j.recurring ? '반복' : '한 번'}</Pill></td>
           <td>{j.kind === 'loop' ? j.reason || '스스로 정한 간격' : cronText(j.cron)}{j.expires && <div className="meta">{when(j.expires)} 에 끝남 (7일)</div>}</td>
           <td className="meta">{j.next > Date.now() ? when(j.next) : '일정대로'}</td>
           <td style={{ whiteSpace: 'normal' }}>{j.prompt}</td></tr>)}
         {!S.sessions.length && <tr><td colSpan="5" className="meta">걸어 둔 예약이 없습니다</td></tr>}
-      </tbody></table></div>}
-    </section>
+      </Table>}
+    </Card>
   </div>
 }

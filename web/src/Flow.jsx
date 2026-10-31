@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { post, useApp, when } from './lib'
+import { Button } from './ui'
 
 // Flow: 흐름도 한 장 — 시작 → 단계(조건 분기는 ⤷) → 결과, 옆에 지키는 규칙. 모양은 fleet/tasks.py norm_flow
 // 예약 작업(AI 가 지시문을 정리) · 프로젝트(AI 가 작업 기록을 정리) · 작업(에이전트가 끝낼 때 직접 남김)이 같이 쓴다
@@ -32,10 +33,10 @@ export function FlowMaker({ m, url, body, ok, done, what }) {
   }
   useEffect(() => { if ((!m || (m.stale && !m.making)) && ok) make() }, [])
   if (!m) return <div className="meta">{busy ? `AI(haiku)가 ${what}을 읽고 흐름을 정리하는 중… (10~30초)` : ok ? '흐름도를 만들지 못했습니다 ' : `${what}이 없습니다`}
-    {!busy && ok && <button className="sm" onClick={make}>다시 시도</button>}</div>
+    {!busy && ok && <Button onClick={make}>다시 시도</Button>}</div>
   return <>
     <FlowView d={m.data} />
     <div className="meta" style={{ marginTop: 8 }}>{when(m.at)} 에 AI(haiku)가 정리했습니다{m.stale && <b style={{ color: 'var(--t-todo)' }}> · {what}이 바뀌어 {busy || m.making ? '다시 만드는 중…' : '다시 만들어야 합니다'}</b>}{' '}
-      <button className="sm" disabled={busy || m.making} onClick={make} title="AI 로 다시 만듭니다 (haiku 사용)">{busy || m.making ? '만드는 중…' : '새로 만들기'}</button></div>
+      <Button disabled={busy || m.making} onClick={make} title="AI 로 다시 만듭니다 (haiku 사용)">{busy || m.making ? '만드는 중…' : '새로 만들기'}</Button></div>
   </>
 }

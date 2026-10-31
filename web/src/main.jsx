@@ -8,8 +8,9 @@ import Para from './Para'
 import Sched from './Sched'
 import SidePanel from './SidePanel'
 import { App as Ctx, grp, isDead, post, press, tilde, useApp, usePoll } from './lib'
+import { Button, Gallery, Pill } from './ui'
 
-const PAGES = { home: ['현황', Home], para: ['PARA', Para], history: ['세션 기록', History], pushes: ['Push 기록', Pushes], sched: ['예약 작업', Sched], issues: ['이슈·PR', Issues], mcp: ['MCP 서버', Mcp], settings: ['설정', Settings] }
+const PAGES = { home: ['현황', Home], para: ['PARA', Para], history: ['세션 기록', History], pushes: ['Push 기록', Pushes], sched: ['예약 작업', Sched], issues: ['이슈·PR', Issues], mcp: ['MCP 서버', Mcp], settings: ['설정', Settings], ui: ['부품 모음', Gallery] }  // ui: 메뉴에 없는 부품 모음 (#ui)
 // #페이지 또는 #페이지/하위 (예: #sched/trig_… 예약 작업 상세). 하위는 페이지에 sub 로 넘긴다
 const route = () => { const [p, ...sub] = location.hash.slice(1).split('/'); return PAGES[p] ? [p, decodeURIComponent(sub.join('/'))] : ['home', ''] }
 // 상단 메뉴: 현황은 로고로 간다. 기록 페이지는 History 아래로 묶는다 (설정은 오른쪽 ⚙)
@@ -88,9 +89,9 @@ function Version() {
   }
   if (!V?.version) return null
   return newer(V.installed, V.version)
-    ? <><span className="pill" style={{ color: 'var(--t-todo)' }} title="새 버전이 설치됐지만 지금 화면은 옛 버전이 띄우고 있습니다">v{V.version} → v{V.installed} 설치됨</span>
-      <button className="sm pri" disabled={busy} onClick={up} title={'대시보드를 바로 새 버전으로 바꿉니다. 바꾼 대시보드는 세션을 모두 꺼도 켜져 있습니다. ' + RELOAD}>
-        {busy ? '바꾸는 중…' : '새 버전으로 바꾸기'}</button></>
+    ? <><Pill color="var(--t-todo)" title="새 버전이 설치됐지만 지금 화면은 옛 버전이 띄우고 있습니다">v{V.version} → v{V.installed} 설치됨</Pill>
+      <Button variant="primary" disabled={busy} onClick={up} title={'대시보드를 바로 새 버전으로 바꿉니다. 바꾼 대시보드는 세션을 모두 꺼도 켜져 있습니다. ' + RELOAD}>
+        {busy ? '바꾸는 중…' : '새 버전으로 바꾸기'}</Button></>
     : <span className="meta" title="이 화면을 띄운 플러그인 버전">v{V.version}</span>
 }
 
@@ -171,15 +172,15 @@ function App() {
       <nav>{NAV.map(n => typeof n === 'string' ? <a key={n} href={'#' + n} className={pg === n ? 'on' : ''}>{PAGES[n][0]}</a>
         : <NavMenu key={n[0]} label={n[0]} keys={n[1]} pg={pg} />)}</nav>
       <div className="hr"><span key={msg.n} className="meta hmsg" title={msg.t}>{msg.t}</span>
-      <button className="sm" disabled={notiOn() || !window.Notification} title="세션이 입력 대기로 바뀌거나 끝나면 알립니다"
-        onClick={() => Notification.requestPermission().then(() => setNoti(n => n + 1))}>{notiOn() ? '알림 켜짐' : '알림 켜기'}</button>
+      <Button disabled={notiOn() || !window.Notification} title="세션이 입력 대기로 바뀌거나 끝나면 알립니다"
+        onClick={() => Notification.requestPermission().then(() => setNoti(n => n + 1))}>{notiOn() ? '알림 켜짐' : '알림 켜기'}</Button>
       <Usage />
       <Version />
       <a href="#settings" className={'gear' + (pg === 'settings' ? ' on' : '')} title="설정" aria-label="설정">⚙</a></div></header>
     {down && <div className="down">대시보드 서버에 닿지 않습니다. 대시보드는 Claude Code 세션(MCP 서버)이 띄우므로, 세션이 모두 꺼졌거나 옛 버전 세션만 남았을 수 있습니다. 세션을 하나 열면 1~2초 안에 다시 이어집니다.</div>}
     <main className={side ? '' : 'noside'}>
       <div id="dash"><Page sub={sub} /></div>
-      <div id="side"><Handle /><button className="sm" id="sideX" title="패널 닫기" onClick={() => setSide(null)}>✕</button>
+      <div id="side"><Handle /><Button id="sideX" title="패널 닫기" onClick={() => setSide(null)}>✕</Button>
         <div id="sidec">{side && <SidePanel />}</div></div>
     </main>
   </Ctx.Provider>

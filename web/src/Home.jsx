@@ -3,6 +3,7 @@ import { fitBox, textW, useCy } from './Graph'
 import { TaskList } from './TaskList'
 import { Dot, FILL, GINFO, LIVE, fmtTok, grp, modelName, post, press, tilde, tok, useApp, usePoll } from './lib'
 import { TodaySched } from './Sched'
+import { Button, Card } from './ui'
 
 // 세션 노드는 자리만 카드 크기로 잡고, 그 위에 카드(SessionCard)를 겹친다 (노드 이름표로는 줄마다 모양을 줄 수 없다)
 const NW = 300, NH = 148  // NH 는 .ncard 글자 크기·줄 간격(13px × 1.6, 제목 + 4줄)에 맞춘다. 글자를 키우면 같이 키운다
@@ -121,7 +122,7 @@ export default function Home() {
   const isOn = n => side?.type === 'session' && side.sid === n.sessionId
 
   return <div className="pg">
-    <section className="card"><div className="sh"><h2>상태별 노드</h2><div className="legend">
+    <Card><div className="sh"><h2>상태별 노드</h2><div className="legend">
       {LIVE.map(k => <span key={k}><Dot c={GINFO[k][1]} />{GINFO[k][0]}</span>)}
       <span><Dot c={FILL.project} sq />프로젝트</span><span><Dot c={FILL.agent} sq />서브에이전트</span>
       <span className="meta">빈 곳 두 번 누르기: 전체 보기</span></div></div>
@@ -136,10 +137,10 @@ export default function Home() {
       <div className="stats">
         {LIVE.map(k => tile(k, cnt[k], GINFO[k][0], GINFO[k][1]))}
         {tile('agent', G.nodes.filter(n => n.type === 'agent').length, '서브에이전트', FILL.agent)}
-      </div></section>
+      </div></Card>
 
-    <section className="card"><div className="sh"><h2 id="tblh">{statF
-      ? <>남은 작업 · {statF === 'agent' ? '서브에이전트가 있는 세션' : GINFO[statF][0]}만 보기 <button className="sm" onClick={() => setStatF('')}>필터 해제</button></>
+    <Card><div className="sh"><h2 id="tblh">{statF
+      ? <>남은 작업 · {statF === 'agent' ? '서브에이전트가 있는 세션' : GINFO[statF][0]}만 보기 <Button onClick={() => setStatF('')}>필터 해제</Button></>
       : '남은 작업'}</h2></div>
       {!TODO ? <div className="meta">불러오는 중…</div>
         : todo.length ? <TaskList ts={todo} className="todo" edit="status" lead={t => {
@@ -148,7 +149,7 @@ export default function Home() {
             : <><span className="meta" title={'끝난 세션 · ' + (t.title || '')}>[{nm}]</span><MoveTo t={t} to={ss} /></>} - </>
         }} />
         : <div className="meta">{statF ? '해당하는 세션의 남은 일이 없습니다' : '남은 일이 없습니다'}</div>}
-    </section>
+    </Card>
 
     <TodaySched />
 

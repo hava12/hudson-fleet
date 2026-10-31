@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { FlowView } from './Flow'
 import { TAGS, TASK, post, press, useApp } from './lib'
+import { Collapsible, Pill } from './ui'
 
 const SRC = { agent: '에이전트가 직접 기록', haiku: 'haiku 가 대화에서 정리', human: '사람이 고침' }
 const ORDER = ['todo', 'stopped', 'done', 'rejected']  // 묶음 순서: 아직 할 일이 위로
@@ -29,13 +30,13 @@ export function TaskRow({ t, edit, lead }) {
             onChange={e => save({ status: e.target.value })}>
             {Object.entries(TASK).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}
           </select>
-        : <span className="pill" style={{ color: TASK[t.status]?.[1] }}>{TASK[t.status]?.[0] || t.status}</span>}
+        : <Pill color={TASK[t.status]?.[1]}>{TASK[t.status]?.[0] || t.status}</Pill>}
       {edit === 'all'
         ? <select className="pill tgsel" value={t.tag || ''} title="태그 바꾸기" onChange={e => save({ tag: e.target.value })}>
             {!t.tag && <option value="">태그</option>}
             {TAGS.map(k => <option key={k}>{k}</option>)}
           </select>
-        : edit !== 'status' && t.tag && <span className="pill">{t.tag}</span>}
+        : edit !== 'status' && t.tag && <Pill>{t.tag}</Pill>}
       {edit && P?.length > 0 && <select className="pill psel" value={t.project_id || ''} title="프로젝트 바꾸기 (PARA)"
         onChange={e => save({ project: +e.target.value || 0 })}>
         <option value="">프로젝트 없음</option>
@@ -58,11 +59,11 @@ export function TaskRow({ t, edit, lead }) {
   )
 }
 
-// 작업 목록. 상태가 섞여 있으면 남은 일 → 중단 → 완료 → 반려로 묶고 끝난 묶음은 접는다 (<details> 라 펼침은 갱신에도 남는다)
+// 작업 목록. 상태가 섞여 있으면 남은 일 → 중단 → 완료 → 반려로 묶고 끝난 묶음은 접는다 (접는 칸은 HTML details 라 펼침이 갱신에도 남는다)
 export function TaskList({ ts, edit, lead, className = 'tasks' }) {
   const rows = l => <ul className={className}>{l.map(t => <TaskRow key={t.id} t={t} edit={edit} lead={lead?.(t)} />)}</ul>
   const groups = ORDER.map(k => [k, ts.filter(t => t.status === k)]).filter(([, l]) => l.length)
-  if (groups.length > 1) return groups.map(([k, l]) => <details key={k} className="tgrp" open={!!OPEN[k]}>
-    <summary style={{ color: TASK[k][1] }}>{TASK[k][0]} {l.length}</summary>{rows(l)}</details>)
+  if (groups.length > 1) return groups.map(([k, l]) => <Collapsible key={k} className="tgrp" open={!!OPEN[k]} summary={`${TASK[k][0]} ${l.length}`} summaryProps={{ style: { color: TASK[k][1] } }}>
+    {rows(l)}</Collapsible>)
   return rows(ts)
 }
