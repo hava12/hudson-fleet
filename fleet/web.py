@@ -18,8 +18,8 @@ from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, PORT, VERSION, claude, installed, installed_version, ver
 from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
-from .para import (agent_view, archive_project, delete_resource, has_project, make_project_flow, names, para, save_area, save_project,
-                   save_resource, search_resources)
+from .para import (agent_view, archive_project, delete_resource, has_project, make_project_flow, names, para, project_history, save_area,
+                   save_project, save_resource, search_resources)
 from .pushes import pushes
 from .routines import make_map, maps, refresh as refresh_routines, saved as saved_routines, session_schedules
 from .tasks import TASKS_SQL, add_task, move_task, norm_flow, saved_tasks, set_task, summarize
@@ -60,7 +60,10 @@ def agent_task(body):
         return ({"id": r}, 200) if isinstance(r, int) else ({"error": r}, 400)
     if op == "resource_search":
         return {"resources": search_resources(body.get("query"))}, 200
-    return {"error": "op 확인 (start·update·list·projects·project_archive·resource_save·resource_search)"}, 400
+    if op == "project_history":
+        h = isinstance(body.get("id"), int) and project_history(body["id"])
+        return (h, 200) if h else ({"error": f"없는 프로젝트 id 입니다: {body.get('id')}. project_list 로 확인하세요"}, 400)
+    return {"error": "op 확인 (start·update·list·projects·project_archive·resource_save·resource_search·project_history)"}, 400
 
 
 JIRA_KEY = re.compile(r"[A-Z][A-Z0-9_]+-\d+")

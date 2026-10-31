@@ -103,6 +103,33 @@ def agent_view():
     return out
 
 
+def project_history(pid):
+    """에이전트용 (MCP project_history): 프로젝트 하나의 기록 — 기획명세서의 진행 히스토리·기능별 플로우차트 재료.
+    여러 세션에 걸친 작업(오래된 것부터, 그 PC 날짜·흐름도 포함), 그 작업을 한 세션들의 push, 자료 제목. 없는 프로젝트면 None.
+    push 는 세션 기준이라 다른 저장소 것이 섞일 수 있다 — remote·cwd 로 가려 쓰게 함께 준다."""
+    c = db()
+    p = _rows(c, "SELECT p.id, p.name, p.done_when, p.status, p.start, p.end, a.name AS area FROM projects p"
+                 " LEFT JOIN areas a ON a.id = p.area_id WHERE p.id = ?", (pid,))
+    if not p:
+        c.close()
+        return None
+    tasks = _rows(c, "SELECT t.id, date(t.created_at, 'localtime') AS date, t.status, t.tag, t.text, t.note, t.details, t.flow,"
+                     " t.sid, s.cwd FROM session_tasks t LEFT JOIN sessions s USING (sid) WHERE t.project_id = ? ORDER BY t.created_at",
+                  (pid,))
+    sids = sorted({t.pop("sid") for t in tasks})
+    for t in tasks:  # JSON 칸은 풀어서 준다 (에이전트가 이스케이프된 글을 다시 풀지 않게)
+        t["details"] = json.loads(t["details"] or "[]")
+        t["flow"] = t["flow"] and json.loads(t["flow"])
+    pushes = _rows(c, f"SELECT date(ts, 'localtime') AS date, cwd, remote, ref, commits FROM pushes"
+                      f" WHERE sid IN ({','.join('?' * len(sids))}) AND commits != '[]' ORDER BY ts", sids) if sids else []
+    for x in pushes:
+        x["commits"] = json.loads(x["commits"])
+    resources = _rows(c, "SELECT id, date(created_at, 'localtime') AS date, title, summary FROM resources WHERE project_id = ? ORDER BY id",
+                      (pid,))
+    c.close()
+    return {"project": p[0], "tasks": tasks, "pushes": pushes, "resources": resources}
+
+
 def names():
     """작업 줄의 프로젝트 고르기 칸용: 프로젝트 전부 (id, 이름, 상태) — 끝난 프로젝트는 이미 붙은 작업에만 보인다."""
     c = db()

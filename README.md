@@ -111,6 +111,7 @@ npm run build   # → ../dist
 | `project_archive(id)` | 프로젝트를 끝남(보관)으로, 그 프로젝트의 남은 일은 반려로 정리. 사용자가 대화에서 동의했을 때만 |
 | `resource_save(title, summary, body, project?, area?)` | 자료 한 건. 사용자가 남기라고 했을 때와 프로젝트를 보관할 때 정리 한 장만. 요약은 100자 이내, 영역을 안 주면 프로젝트의 영역 |
 | `resource_search(query?)` | 자료를 낱말로 찾는다 (낱말마다 제목·요약·본문 어딘가에 든 것, 최근 5건, 본문 1500자까지) |
+| `project_history(id)` | 프로젝트 하나의 지난 기록 (읽기 전용) `{project, tasks, pushes, resources}`: 여러 세션에 걸친 작업(날짜·종류·상태·내용·결과·설명·흐름도·세션 폴더, 오래된 것부터), 그 세션들의 push 커밋(다른 저장소 것이 섞일 수 있어 `remote`·`cwd` 를 함께 준다), 자료 제목. 기획명세서 스킬(`skills/project-spec`)이 진행 히스토리·기능별 플로우차트를 채울 때 쓴다 |
 
 MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내고, DB 에는 직접 쓰지 않습니다. 서버가 없으면(리더가 바뀌는 중) 5초까지 다시 시도하고, 그래도 없으면 오류를 돌려줍니다 (그 기록은 남지 않습니다). 서버가 옛 버전이면 껐다 켜라고 알려 줍니다.
 
@@ -287,7 +288,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `GET /api/jira` · `GET /api/github` | 이슈·PR 페이지: 나에게 할당된 끝나지 않은 Jira 이슈 `{items}` · 열린 내 PR 과 리뷰 요청 PR `{mine, review}`. 꺼져 있거나 토큰이 없으면 `{error}` |
 | `POST /api/connect` | 연결 확인 `{service: github·jira}` → 저장된 토큰으로 내 계정 이름 `{ok, who}` 또는 `{error}` |
 | `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지, `secret`: 토큰이라 끝 4글자만) · 바꾸기 `{name, value}` |
-| `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list·projects·project_archive·resource_save·resource_search, sid, …}`. Origin 이 없는 요청만 |
+| `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list·projects·project_archive·resource_save·resource_search·project_history, sid, …}`. Origin 이 없는 요청만 |
 
 ## 보안
 

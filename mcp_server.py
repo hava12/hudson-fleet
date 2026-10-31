@@ -37,7 +37,7 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
    title 12자·detail 60자 안팎, 조건에 따라 갈리면 branch 에 "조건 → 처리"), outputs 는 사용자가 보게 되는 결과.
    쉬운 말로 쓰고, 코드 이름은 꼭 필요할 때만 괄호로 붙인다. 대시보드의 작업 줄을 펼치면 이 그림이 보인다.
 3. 이 도구들이 지연 로드(deferred) 상태면 먼저 ToolSearch 로
-   "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list,mcp__plugin_hudson-fleet_fleet__project_list,mcp__plugin_hudson-fleet_fleet__project_archive,mcp__plugin_hudson-fleet_fleet__resource_save,mcp__plugin_hudson-fleet_fleet__resource_search" 를 불러온다.
+   "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list,mcp__plugin_hudson-fleet_fleet__project_list,mcp__plugin_hudson-fleet_fleet__project_archive,mcp__plugin_hudson-fleet_fleet__resource_save,mcp__plugin_hudson-fleet_fleet__resource_search,mcp__plugin_hudson-fleet_fleet__project_history" 를 불러온다.
 4. 일하는 도중에 사용자가 덧붙인 요청도 규칙 1 을 따른다. 하던 일의 일부가 아니면 따로 task_start 한다
    (예: 노드 모양을 고치는 중에 "애니메이션도 넣어 줘" → 새 행). 바로 하지 않고 미루는 일도 task_start 만 해 두면 남은 일로 남는다.
    사용자에게 방법을 고르게 하거나 진행 여부를 묻는 제안을 했으면, 답을 기다리는 동안 그 제안도 task_start 로 남긴다
@@ -54,7 +54,8 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
    프로젝트의 완료 조건을 채운 것 같으면, 보관할지와 정리 한 장을 남길지 사용자에게 한 번에 묻고 동의하면
    project_archive 와 resource_save 를 부른다. 보관하면 그 프로젝트의 남은 일은 반려로 정리되므로, 남은 일이 있으면
    물을 때 함께 알린다.
-   일을 시작할 때 같은 주제의 자료가 있을 법하면 resource_search 로 먼저 찾아본다."""
+   일을 시작할 때 같은 주제의 자료가 있을 법하면 resource_search 로 먼저 찾아본다.
+9. 프로젝트의 지난 기록(여러 세션의 작업·흐름도·push·자료)이 필요하면 project_history(id) 로 읽는다 — 기획명세서를 만들 때 등."""
 
 DETAILS = {"type": "array", "items": {"type": "string"}, "maxItems": 3}  # 3-Step-Desc (fleet/tasks.py MAX_DETAILS)
 LINES = {"type": "array", "items": {"type": "string"}, "maxItems": 6}
@@ -107,6 +108,12 @@ TOOLS = [
                      "required": ["title", "summary", "body"]}},
     {"name": "resource_search", "description": "자료를 낱말로 찾는다 (낱말마다 제목·요약·본문 어딘가에 든 것, 최근 5건, 본문 1500자까지).",
      "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "띄어 쓴 낱말들. 비우면 최근 자료"}}}},
+    {"name": "project_history", "description": "프로젝트 하나의 지난 기록 (읽기 전용): 정보(이름·완료 조건·영역·상태),"
+                                               " 여러 세션에 걸친 작업(날짜·종류·상태·내용·결과·설명·흐름도·세션 폴더, 오래된 것부터),"
+                                               " 그 작업을 한 세션들의 push 커밋(다른 저장소 것이 섞일 수 있어 remote·cwd 로 가린다), 자료 제목."
+                                               " 기획명세서의 진행 히스토리·기능별 플로우차트를 만들 때 쓴다.",
+     "inputSchema": {"type": "object", "properties": {"id": {"type": "integer", "description": "프로젝트 id (project_list 로 찾는다)"}},
+                     "required": ["id"]}},
 ]
 
 
@@ -173,6 +180,9 @@ def call(name, args):
     if name == "resource_search":
         r = api({"op": "resource_search", "sid": sid, "query": args.get("query")})
         return (r["error"], True) if "error" in r else (json.dumps(r["resources"], ensure_ascii=False), False)
+    if name == "project_history":
+        r = api({"op": "project_history", "sid": sid, "id": args.get("id")})
+        return (r["error"], True) if "error" in r else (json.dumps(r, ensure_ascii=False), False)
     return f"없는 도구: {name}", True
 
 
