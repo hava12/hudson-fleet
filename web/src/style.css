@@ -1,8 +1,13 @@
 /* ── 이름표(디자인 토큰) ── 화면의 색·글자 크기·모서리는 여기 한 곳에서만 정한다. 아래 규칙과 화면 코드는 var(--이름) 만 쓴다.
-   색: 바탕 bg · 카드 card · 옅은 칸 soft · 선 line · 글자 fg · 흐린 글자 mute · 강조 acc(그 위 글자 on-acc)
+   색: 바탕 bg · 카드 card · 옅은 칸 soft · 선 line · 글자 fg · 흐린 글자 mute · 강조 acc(그 위 글자 on-acc) · 비활성 dis-bg(바탕)·dis-fg(글자)
        상태 ok(초록) · wait(주황) · bad(빨강) · idle(회색) · off(끝남) — 채운 칸 위 글자는 on-fill
+       상태 바탕 acc-bg·ok-bg·wait-bg·bad-bg(그 위 글자 on-acc-bg·on-bad-bg) · 강조 단추 올림 acc-hover·누름 acc-press · 보통 단추 누름 press
+       — 이 9개는 Figma 변수와 이름이 같고, 값은 M3 규칙(올림 8%·누름 10% 섞기, 바탕은 상태 색 18%)으로 위 색에서 계산해 두 화면에 함께 맞는다
    글자 크기 5칸: fs-xs 12 · fs-s 13 · fs-m 15(본문) · fs-l 18 · fs-xl 20 / 모서리 4칸: r-xs 2 · r-s 4 · r-m 8 · r-full(동그랗게) */
-:root{--warn:#b45309;--del:#6c707e;--bg:#f6f7f9;--fg:#0f172a;--mute:#475569;--line:#d5dce6;--card:#fff;--acc:#2563eb;--soft:#f1f5f9;--t-todo:#ca8a04;--t-stop:#ea580c;--t-done:#16a34a;--t-rej:#6c707e;--ok:#16a34a;--wait:#d97706;--bad:#dc2626;--idle:#64748b;--off:#a8a29e;--on-fill:#fff;--on-acc:#fff;--on-todo:#111;--node-proj:#475569;--node-agent:#7c3aed;--edge:#d6d3d1;--fs-xs:12px;--fs-s:13px;--fs-m:15px;--fs-l:18px;--fs-xl:20px;--r-xs:2px;--r-s:4px;--r-m:8px;--r-full:999px}
+:root{--warn:#b45309;--del:#6c707e;--bg:#f6f7f9;--fg:#0f172a;--mute:#475569;--line:#d5dce6;--card:#fff;--acc:#2563eb;--soft:#f1f5f9;--t-todo:#ca8a04;--t-stop:#ea580c;--t-done:#16a34a;--t-rej:#6c707e;--ok:#16a34a;--wait:#d97706;--bad:#dc2626;--idle:#64748b;--off:#a8a29e;--on-fill:#fff;--on-acc:#fff;--on-todo:#111;--node-proj:#475569;--node-agent:#7c3aed;--edge:#d6d3d1;--fs-xs:12px;--fs-s:13px;--fs-m:15px;--fs-l:18px;--fs-xl:20px;--r-xs:2px;--r-s:4px;--r-m:8px;--r-full:999px;--dis-bg:color-mix(in srgb,var(--fg) 12%,transparent);--dis-fg:color-mix(in srgb,var(--fg) 38%,transparent);
+  --acc-hover:color-mix(in srgb,var(--acc),var(--on-acc) 8%);--acc-press:color-mix(in srgb,var(--acc),var(--on-acc) 10%);--press:color-mix(in srgb,var(--card),var(--fg) 10%);
+  --acc-bg:color-mix(in srgb,var(--acc) 18%,var(--card));--on-acc-bg:color-mix(in srgb,var(--acc),var(--fg) 40%);--ok-bg:color-mix(in srgb,var(--ok) 18%,var(--card));
+  --wait-bg:color-mix(in srgb,var(--wait) 18%,var(--card));--bad-bg:color-mix(in srgb,var(--bad) 18%,var(--card));--on-bad-bg:color-mix(in srgb,var(--bad),var(--fg) 40%)}
 @media (prefers-color-scheme:dark){:root{--warn:#fbbf24;--del:#868a91;--bg:#0b1120;--fg:#f1f5f9;--mute:#b4c0cf;--line:#2c3a50;--card:#111827;--acc:#60a5fa;--soft:#1e293b;--t-todo:#facc15;--t-stop:#fb923c;--t-done:#4ade80;--t-rej:#94a3b8;--on-acc:#0b1120;--node-proj:#334155;--edge:#57534e}}
 *{box-sizing:border-box}body{margin:0;font:var(--fs-m)/1.6 -apple-system,system-ui,"Apple SD Gothic Neo",sans-serif;background:var(--bg);color:var(--fg)}
 /* 상단 줄: 글자를 꺾지 않는다. 1000px 아래에서는 메뉴가 둘째 줄로 내려간다 (메뉴가 넷이라 휴대폰 폭에도 들어간다).
@@ -17,6 +22,9 @@ header .sm{white-space:nowrap}.hr{margin-left:auto;display:flex;flex-wrap:wrap;j
 header h1{font-size:var(--fs-m);margin:0 16px 0 0;letter-spacing:-.01em;white-space:nowrap}header h1 span{color:var(--acc)}
 input,button,select{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:var(--r-m);background:var(--card);color:var(--fg)}
 button{cursor:pointer}button:hover{background:var(--soft)}button.pri{background:var(--acc);color:var(--on-acc);border:0}button.sm{padding:2px 8px;font-size:var(--fs-s)}
+button.pri:hover:enabled{background:var(--acc-hover)}button:active:enabled{background:var(--press)}button.pri:active:enabled{background:var(--acc-press)}  /* Figma Button Hover·Pressed */
+:is(button,a,[tabindex]):focus-visible{outline:2px solid var(--fg)}input:focus,select:focus{outline:0;border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}  /* Figma Focus: 단추는 글자색 2px 테두리, 입력칸은 강조색 2px */
+button:disabled{background:var(--dis-bg);color:var(--dis-fg);border-color:transparent;cursor:default}
 #root{display:flex;flex-direction:column;height:100vh}  /* 상단 줄이 두 줄이 돼도 본문이 남은 높이를 채운다 */
 main{display:grid;grid-template-columns:minmax(0,1fr) var(--sidew,minmax(360px,38%));flex:1;min-height:0}  /* minmax(0,…): 넓은 표가 화면 밖으로 밀지 않고 안에서 가로로 민다 */
 *{scrollbar-width:none}*::-webkit-scrollbar{display:none}  /* 스크롤 막대만 숨긴다. 휠·터치 스크롤은 그대로 */
