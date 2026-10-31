@@ -1,5 +1,4 @@
 import { Fragment, useState } from 'react'
-import { FlowMaker } from './Flow'
 import { TaskList } from './TaskList'
 import { TaskSum, Tip, post, press, tilde, useApp, usePoll, when } from './lib'
 import { Button, Card, Collapsible, Pill, Table } from './ui'
@@ -41,20 +40,21 @@ function SpecBar({ p, save }) {
   const s = p.spec || {}
   const pick = () => { const f = prompt('명세서가 읽을 코드 폴더 (절대 경로). 비우면 작업 기록에서 고릅니다', s.auto ? '' : s.folder || ''); if (f !== null) save({ id: p.id, folder: f }) }
   const make = async () => { const x = await post('/api/project-spec', { id: p.id }); if (x.error) setMsg(x.error); bump() }
+  const exists = s.exists && !s.making
   return <div className="meta" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
     <b>기획명세서</b><span title="명세서가 읽을 코드 폴더">{s.folder ? tilde(s.folder, G.home) + (s.auto ? ' (작업 기록에서 고름)' : '') : '코드 폴더를 찾지 못했습니다'}</span>
     <Button onClick={pick}>코드 폴더 바꾸기</Button>
-    <Button variant="primary" disabled={!s.folder || s.making} onClick={make}
+    <Button variant={exists ? undefined : 'primary'} disabled={!s.folder || s.making} onClick={make}
       title="프로젝트 폴더에서 Claude(Sonnet)가 project-spec 스킬로 명세서를 만들거나 고칩니다 (몇 분)">{s.making ? '만드는 중… (몇 분)' : '명세서 업데이트'}</Button>
-    {s.exists && <a className="lk" href={`/api/project-spec?id=${p.id}`} target="_blank" rel="noopener">명세서 열기</a>}
+    {exists && <Button variant="primary" onClick={() => openSpec(p.id)}>명세서 열기</Button>}
     {s.file && <span title="저장 위치 — 설정(⚙)의 HUDSON_FLEET_SPEC_DIR 에서 바꿉니다">저장 {tilde(s.file, G.home)}</span>}
     {s.at && <span>마지막 수정 {when(s.at)}</span>}
     {s.error && <span style={{ color: 'var(--t-todo)' }}>{s.error}</span>}</div>
 }
 
-let flowOpen = true  // 프로젝트 Flow 칸의 접힘 — 다른 프로젝트를 펼쳐도 이어 간다
+// 명세서 바로가기: 대시보드 서버가 명세서 폴더의 파일을 새 탭으로 연다 (/api/project-spec?id=)
+const openSpec = id => open('/api/project-spec?id=' + id, '_blank', 'noopener')
 function ProjTable({ ps, as, save }) {
-  const { bump } = useApp()
   const [open, setOpen] = useState(0)  // 작업 목록을 펼친 프로젝트 id
   const edit = p => {
     const name = prompt('프로젝트 이름', p.name), done_when = name && prompt('완료 조건 (한 줄)', p.done_when)
@@ -70,6 +70,7 @@ function ProjTable({ ps, as, save }) {
     {ps.map(({ tasks, ...p }) => <Fragment key={p.id}><tr>
       <td style={{ whiteSpace: 'normal' }}><a className="lk" {...press(() => setOpen(open === p.id ? 0 : p.id))} aria-expanded={open === p.id}>{p.name}</a>
         <span className="tid" title="에이전트가 작업을 기록할 때 적는 번호"> #{p.id}</span>
+        {p.spec?.exists && <Button style={{ marginLeft: 6 }} title={'기획명세서 열기 · ' + when(p.spec.at) + ' 수정'} onClick={() => openSpec(p.id)}>명세서</Button>}
         <div className="meta">완료 조건: {p.done_when}</div></td>
       <td><AreaSel as={as} v={p.area_id} set={v => save({ ...p, area_id: v })} /></td>
       <td><select className="pill tsel" value={p.status} style={{ color: ST[p.status][1] }} title="끝남으로 바꾸면 보관 칸으로 갑니다 (남은 일은 반려로 정리)"
@@ -79,9 +80,7 @@ function ProjTable({ ps, as, save }) {
       <td><TaskSum ts={tasks} />{tasks.length > 0 && <span className="meta"> · 세션 {new Set(tasks.map(t => t.sid)).size}개</span>}</td>
       <td className="acts"><Button onClick={() => edit(p)}>고치기</Button>
         <Button variant="danger" onClick={() => confirm(`"${p.name}" 프로젝트를 지울까요?\n적힌 작업·자료는 프로젝트 없음으로 남습니다.`) && save({ id: p.id, delete: true })}>삭제</Button></td></tr>
-      {open === p.id && <tr><td colSpan="6" style={{ whiteSpace: 'normal' }}><SpecBar p={p} save={save} />{tasks.length > 0 && <Collapsible className="sec" open={flowOpen} onToggle={e => { flowOpen = e.target.open }}
-          style={{ marginBottom: 10 }} summary={<><h4 style={{ display: 'inline-block', margin: '4px 0' }}>Flow</h4> <span className="meta">AI 가 이 프로젝트의 작업 기록을 정리한 흐름 — 무엇을 만들고 어떻게 동작하나</span></>}>
-          <FlowMaker key={p.id} m={p.flow} url="/api/project-flow" body={{ id: p.id }} ok done={bump} what="작업 기록" /></Collapsible>}
+      {open === p.id && <tr><td colSpan="6" style={{ whiteSpace: 'normal' }}><SpecBar p={p} save={save} />
         {tasks.length
         ? <TaskList ts={tasks} edit="status" lead={t => <span className="meta">[{t.session || t.sid.slice(0, 8)}]</span>} />
         : <span className="meta">아직 이 프로젝트로 기록된 작업이 없습니다. 에이전트가 작업을 기록할 때 #{p.id} 를 적으면 여기에 모입니다</span>}</td></tr>}

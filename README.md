@@ -94,7 +94,7 @@ npm run build   # → ../dist
 | `src/Para.jsx` | PARA: 프로젝트·영역·자료·보관 네 칸 탭, PARA 설명 툴팁(`lib.jsx` 의 `Tip`) |
 | `src/Mcp.jsx` | MCP 서버 그래프 |
 | `src/Sched.jsx` | 예약 작업 (Claude 루틴 · 세션 안 예약) · 루틴 상세(흐름도) · 현황의 오늘 예약 작업 |
-| `src/Flow.jsx` | 흐름도(Flow) 그리기 — 예약 작업·프로젝트(AI 가 정리, 저장본)·작업(에이전트가 남김)이 같이 쓴다 |
+| `src/Flow.jsx` | 흐름도(Flow) 그리기 — 예약 작업(AI 가 정리, 저장본)·작업(에이전트가 남김)이 같이 쓴다 |
 | `src/SidePanel.jsx` | 오른쪽 패널: 프로젝트 · 세션 · MCP 서버 · 끝난 세션 |
 | `src/TaskList.jsx` | 작업 목록 `TaskList` → `TaskRow` (key=작업 id, 펼침은 줄마다 `useState`). 상태가 섞이면 남은 일을 위로 묶고 완료·반려는 접는다. 남은 작업·세션 패널(기록할 작업·세션 기록) 3곳이 함께 씀 |
 | `src/Graph.jsx` | cytoscape 띄우기(`useCy`)와 높이 맞추기 |
@@ -111,8 +111,8 @@ npm run build   # → ../dist
 | `project_archive(id)` | 프로젝트를 끝남(보관)으로, 그 프로젝트의 남은 일은 반려로 정리. 사용자가 대화에서 동의했을 때만 |
 | `resource_save(title, summary, body, project?, area?)` | 자료 한 건. 사용자가 남기라고 했을 때와 프로젝트를 보관할 때 정리 한 장만. 요약은 100자 이내, 영역을 안 주면 프로젝트의 영역 |
 | `resource_search(query?)` | 자료를 낱말로 찾는다 (낱말마다 제목·요약·본문 어딘가에 든 것, 최근 5건, 본문 1500자까지) |
-| `project_folder(id, folder)` | 프로젝트의 폴더(기획명세서를 만든 곳)를 적는다. 대시보드 프로젝트 화면의 [명세서 업데이트] 가 이 폴더에서 `project-spec` 스킬을 다시 돌린다 |
-| `project_history(id)` | 프로젝트 하나의 지난 기록 (읽기 전용) `{project, tasks, pushes, resources}`: 여러 세션에 걸친 작업(날짜·종류·상태·내용·결과·설명·흐름도·세션 폴더, 오래된 것부터), 그 세션들의 push 커밋(다른 저장소 것이 섞일 수 있어 `remote`·`cwd` 를 함께 준다), 자료 제목. 기획명세서 스킬(`skills/project-spec`)이 진행 히스토리·기능별 플로우차트를 채울 때 쓴다 |
+| `project_folder(id, folder)` | 기획명세서가 읽은 코드 폴더를 적는다. 대시보드 프로젝트 화면의 [명세서 업데이트] 가 이 폴더에서 `project-spec` 스킬을 다시 돌린다 (적지 않으면 작업 기록에서 고른다) |
+| `project_history(id)` | 프로젝트 하나의 지난 기록 (읽기 전용) `{project, tasks, pushes, resources, spec_file}`: 여러 세션에 걸친 작업(날짜·종류·상태·내용·결과·설명·흐름도·세션 폴더, 오래된 것부터), 그 세션들의 push 커밋(다른 저장소 것이 섞일 수 있어 `remote`·`cwd` 를 함께 준다), 자료 제목. 기획명세서 스킬(`skills/project-spec`)이 진행 히스토리·기능별 플로우차트를 채울 때 쓴다 |
 
 MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내고, DB 에는 직접 쓰지 않습니다. 서버가 없으면(리더가 바뀌는 중) 5초까지 다시 시도하고, 그래도 없으면 오류를 돌려줍니다 (그 기록은 남지 않습니다). 서버가 옛 버전이면 껐다 켜라고 알려 줍니다.
 
@@ -145,7 +145,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
   - 끝남으로 바꾸면 그 프로젝트의 남은 일은 반려(비고: 프로젝트 끝남)로 정리됩니다. 남은 일이 있으면 확인 창이 뜨고, 남길 일은 먼저 작업 줄의 프로젝트 칸에서 다른 프로젝트로 옮깁니다.
   - Jira 와는 묶지 않습니다(이슈·PR 화면과 맡기기는 따로 동작). 에픽 단위로 관리하려면 이름에 에픽 키를 적습니다(예: `BVVB-1300 출석 알림`) — 에이전트가 이름을 보고 고릅니다.
   - 에이전트는 작업을 기록할 때 프로젝트 번호를 적습니다. 번호 없이 적으면 서버가 진행 중인 프로젝트 목록을 돌려주므로, 세션이 열린 뒤 만든 프로젝트도 에이전트가 알고 바로잡습니다.
-  - 프로젝트 이름을 누르면 그 프로젝트로 기록된 작업이 세션 이름과 함께 펼쳐집니다. 맨 위에는 **Flow**(AI(haiku)가 작업 기록을 정리한 "무엇을 만들고 어떻게 동작하나" 흐름도, 끝나지 않은 단계는 `(남은 일)`)가 접고 펴는 칸으로 붙습니다. 처음 펼칠 때 한 번 만들어 DB 에 저장하고, 작업이 늘거나 바뀐 뒤 펼치면 다시 만듭니다([새로 만들기] 도 있음).
+  - 프로젝트 이름을 누르면 그 프로젝트로 기록된 작업이 세션 이름과 함께 펼쳐집니다. 맨 위에는 기획명세서 줄(코드 폴더 · [코드 폴더 바꾸기] · [명세서 업데이트] · [명세서 열기] · 저장 위치)이 붙습니다. 명세서가 있으면 프로젝트 이름 옆 [명세서] 로 펼치지 않고 바로 엽니다.
   - 작업 줄에 `· Flow` 가 붙어 있으면, 에이전트가 그 일을 끝낼 때 남긴 흐름도가 있다는 뜻입니다. 문장을 누르면 설명 줄 아래에 펼쳐집니다(세션 패널·세션 기록·남은 작업 어디서나).
 - **A · 영역(Areas)**: 끝나지 않고 계속 지킬 책임. 이름과 유지할 상태 한 줄만 적고, 영역마다 진행 중인 프로젝트를 보여 줍니다. 더는 책임지지 않으면 [보관] 합니다.
 - **R · 자료(Resources)**: 나중에 다시 쓸 참고. 에이전트가 MCP(`resource_save`)로 남깁니다 — 사용자가 "자료로 남겨"라고 할 때와, 프로젝트를 보관할 때 정리 한 장(무엇을 정했고 왜, 다음에 알아야 할 것)만. 에이전트가 스스로 수시로 남기지 않으므로 쌓여도 쓰레기통이 되지 않습니다. 화면에서는 낱말로 찾고 지웁니다.
@@ -203,6 +203,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 | `HUDSON_FLEET_SUMMARY_MODEL` | `haiku` | 작업 정리에 쓰는 모델 |
 | `HUDSON_FLEET_RETENTION_DAYS` | `0` | 1분 지표(samples) 보관 일수. `0` 이면 지우지 않음 |
 | `HUDSON_FLEET_TERMINAL` | `Ghostty` | 끝난 세션을 다시 열 터미널 앱: `Ghostty` 또는 `Terminal` |
+| `HUDSON_FLEET_SPEC_DIR` | `~/Documents/hudson-fleet-specs` | 기획명세서를 저장할 폴더. 파일 이름은 `<프로젝트 이름>-기획명세서.html` (설정 화면에서 바꿀 수 있음) |
 | `HUDSON_FLEET_GIST` | (비움) | 프로필 카드를 30분마다 덮어쓸 Gist id. 비우면 끔 |
 | `HUDSON_FLEET_GIST_USER` | (비움) | Gist 를 올릴 `gh` 계정. 비우면 `gh` 의 현재 계정 |
 | `HUDSON_FLEET_GITHUB_ON` · `HUDSON_FLEET_JIRA_ON` | `0` | 연결 사용 여부. 설정(⚙) → **연결** 칸의 '사용' 확인란. 켜야 입력 칸이 보이고 쓰입니다. 꺼도 넣어 둔 값은 남습니다 |
@@ -218,7 +219,6 @@ SQLite 파일 하나에 저장합니다 (`HUDSON_FLEET_DB`).
 |---|---|
 | `sessions` | 세션 1행. 상태(work·wait·idle·closed)와 그 상태가 된 시각, 종료 이유, 토큰 |
 | `session_tasks` | 세션의 기록할 작업 N행. 표시 순서(`sort`), 분류(todo·done·stopped·rejected), 태그(`tag`, 일의 종류), 설명 줄(`details`, JSON 배열 최대 3줄), 비고(`note`), 기록 주체(agent·haiku·human), 프로젝트(`project_id`), 에이전트가 남긴 흐름도(`flow`, JSON) |
-| `project_maps` | 프로젝트마다 AI 가 작업 기록을 정리한 Flow(JSON), 만든 시각, 그때 넘긴 작업 기록의 해시(바뀌면 다시 만들려고) |
 | `areas` | 영역: 이름(겹치지 않음), 유지할 상태 한 줄, 보관한 시각(`archived_at`) |
 | `projects` | 프로젝트: 이름, 영역, 완료 조건, 상태(pending·active·done — done 이 보관), 시작일·끝난 날 (0.5.27 까지 만든 DB 에는 지운 Jira 에픽 연결의 칸이 쓰이지 않은 채 남아 있음) |
 | `resources` | 자료: 제목, 한 줄 요약(100자), 본문, 프로젝트·영역, 남긴 세션, 만든 시각 |
@@ -270,9 +270,8 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 |---|---|
 | `GET /api/sessions?status=closed\|work\|wait\|idle&limit=50` | 세션과 작업 목록 (지운 기록은 빠짐) |
 | `POST /api/session/delete` | 끝난 세션 기록 지우기 `{sid}` (soft delete). 끝난 세션이 아니거나 이미 지웠으면 `{error}` |
-| `POST /api/project-spec` | [명세서 업데이트]: 프로젝트 폴더에서 Claude(Sonnet)를 뒤에서 실행해 `project-spec` 스킬로 `<폴더이름>-기획명세서.html` 을 만들거나 고친다 `{id}` → `{ok}` 또는 `{error}`. 상태는 `GET /api/para` 의 프로젝트마다 `spec: {folder, exists, at, making, error}`, 폴더는 `POST /api/project {id, folder}` 로 적는다 |
+| `POST /api/project-spec` | [명세서 업데이트]: 코드 폴더(직접 정한 폴더, 없으면 작업 기록에서 고른 폴더)에서 Claude(Sonnet)를 뒤에서 실행해 `project-spec` 스킬로 설정의 명세서 폴더에 `<프로젝트 이름>-기획명세서.html` 을 만들거나 고친다 `{id}` → `{ok}` 또는 `{error}`. 상태는 `GET /api/para` 의 프로젝트마다 `spec: {folder, exists, at, making, error}`, 폴더는 `POST /api/project {id, folder}` 로 적는다 |
 | `GET /api/project-spec?id=` | 그 프로젝트의 기획명세서 HTML ([명세서 열기]) |
-| `POST /api/project-flow` | 프로젝트 하나의 Flow 를 AI 로 (다시) 만들어 저장 `{id}` → `{ok}` 또는 `{error}` (haiku 사용). 저장본은 `GET /api/para` 의 프로젝트마다 `flow: {data, at, stale, making}` |
 | `POST /api/routine-map` | 루틴 하나의 흐름도를 AI 로 (다시) 만들어 저장 `{id}` → `{ok}` 또는 `{error}` (haiku 사용) |
 | `GET /api/schedules` · `POST /api/schedules/refresh` | 예약 작업: 루틴 저장본 `{routines: {at, items}, sessions, maps}` (maps: 루틴 id → 저장된 흐름도) · 루틴을 claude.ai 에서 새로 받아 저장 (haiku 사용, 못 받으면 저장본에 `error`) |
 | `GET /api/pushes?limit=200&sid=` | 세션에서 실행한 git push — Claude 의 Bash 와 사용자의 `!` 명령, 세션 밖 터미널은 빠짐 (시각·레포·브랜치·커밋 메시지·세션). `sid` 를 주면 그 세션 것만. 대화 기록이 지워져도 DB 에 남습니다 |

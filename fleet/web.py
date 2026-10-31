@@ -18,7 +18,7 @@ from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, PORT, VERSION, claude, installed, installed_version, ver
 from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
-from .para import (agent_view, archive_project, delete_resource, has_project, make_project_flow, make_spec, names, para, project_history,
+from .para import (agent_view, archive_project, delete_resource, has_project, make_spec, names, para, project_history,
                    save_area, save_project, save_resource, search_resources, set_folder, spec_file)
 from .pushes import pushes
 from .routines import make_map, maps, refresh as refresh_routines, saved as saved_routines, session_schedules
@@ -256,8 +256,6 @@ class H(BaseHTTPRequestHandler):
             return self.send({"error": err} if err else {"ok": True})
         if self.path == "/api/project-spec":  # {id} — [명세서 업데이트]: 프로젝트 폴더에서 project-spec 스킬을 뒤에서 돌린다 (Sonnet)
             return self.send(make_spec(body.get("id")))
-        if self.path == "/api/project-flow":  # {id} — 그 프로젝트의 Flow 를 AI 로 (다시) 만든다 (haiku 사용)
-            return self.send(make_project_flow(body.get("id")))
         if self.path == "/api/resource":  # {id} — 자료 지우기 (자료는 에이전트가 MCP 로 남긴다)
             return self.send({"ok": True} if delete_resource(body.get("id")) else {"error": "자료를 찾지 못했습니다"})
         if self.path == "/api/upgrade":  # [새 버전으로 바꾸기] — 설치된 새 버전의 server.py 를 세션과 따로 띄우고 자리를 넘긴다
