@@ -18,8 +18,8 @@ from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, PORT, VERSION, claude, installed, installed_version, ver
 from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
-from .para import (agent_view, archive_project, delete_resource, has_project, make_project_flow, names, para, project_history, save_area,
-                   save_project, save_resource, search_resources)
+from .para import (agent_view, archive_project, delete_resource, has_project, make_project_flow, make_spec, names, para, project_history,
+                   save_area, save_project, save_resource, search_resources, set_folder, spec_file)
 from .pushes import pushes
 from .routines import make_map, maps, refresh as refresh_routines, saved as saved_routines, session_schedules
 from .tasks import TASKS_SQL, add_task, move_task, norm_flow, saved_tasks, set_task, summarize
@@ -60,10 +60,13 @@ def agent_task(body):
         return ({"id": r}, 200) if isinstance(r, int) else ({"error": r}, 400)
     if op == "resource_search":
         return {"resources": search_resources(body.get("query"))}, 200
+    if op == "project_folder":  # 스킬이 명세서를 만든 폴더를 적는다 — 대시보드 [명세서 업데이트] 가 이 폴더에서 스킬을 돌린다
+        err = set_folder(body["id"], body.get("folder")) if isinstance(body.get("id"), int) else "프로젝트 id 확인"
+        return ({"error": err}, 400) if err else ({"ok": True}, 200)
     if op == "project_history":
         h = isinstance(body.get("id"), int) and project_history(body["id"])
         return (h, 200) if h else ({"error": f"없는 프로젝트 id 입니다: {body.get('id')}. project_list 로 확인하세요"}, 400)
-    return {"error": "op 확인 (start·update·list·projects·project_archive·resource_save·resource_search·project_history)"}, 400
+    return {"error": "op 확인 (start·update·list·projects·project_archive·resource_save·resource_search·project_history·project_folder)"}, 400
 
 
 JIRA_KEY = re.compile(r"[A-Z][A-Z0-9_]+-\d+")
@@ -148,6 +151,10 @@ class H(BaseHTTPRequestHandler):
             return self.send(graph())
         if u.path == "/api/para":  # 프로젝트 페이지: 영역·프로젝트와 각 프로젝트에 적힌 작업
             return self.send(para())
+        if u.path == "/api/project-spec":  # ?id= — 그 프로젝트 폴더의 기획명세서 HTML 을 연다 ([명세서 열기])
+            row = next((p for p in para()["projects"] if str(p["id"]) == q.get("id")), None)
+            f = row and row.get("folder") and spec_file(row["folder"])
+            return self.send(f.read_bytes(), "text/html") if f and f.is_file() else self.send({"error": "명세서가 없습니다"}, code=404)
         if u.path == "/api/projects":  # 작업 줄의 프로젝트 고르기 칸
             return self.send(names())
         if u.path == "/api/config":
@@ -247,6 +254,8 @@ class H(BaseHTTPRequestHandler):
         if self.path in ("/api/area", "/api/project"):  # 영역·프로젝트 만들기·고치기·보관·지우기 (fleet/para.py)
             err = (save_area if self.path == "/api/area" else save_project)(body)
             return self.send({"error": err} if err else {"ok": True})
+        if self.path == "/api/project-spec":  # {id} — [명세서 업데이트]: 프로젝트 폴더에서 project-spec 스킬을 뒤에서 돌린다 (Sonnet)
+            return self.send(make_spec(body.get("id")))
         if self.path == "/api/project-flow":  # {id} — 그 프로젝트의 Flow 를 AI 로 (다시) 만든다 (haiku 사용)
             return self.send(make_project_flow(body.get("id")))
         if self.path == "/api/resource":  # {id} — 자료 지우기 (자료는 에이전트가 MCP 로 남긴다)

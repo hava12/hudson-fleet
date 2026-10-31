@@ -65,6 +65,8 @@ def schema(c):
     # 0.5.27 까지 만든 DB 에는 지운 Jira 에픽 연결의 kind·epic·jira_status 칸이 남아 있다 (쓰지 않음, epic 은 UNIQUE 라 못 지운다)
     c.execute("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY, name TEXT, area_id INT, done_when TEXT, status TEXT,"
               " start TEXT, end TEXT)")
+    if "folder" not in {r[1] for r in c.execute("PRAGMA table_info(projects)")}:  # 기획명세서를 만드는 프로젝트 폴더 ([명세서 업데이트])
+        c.execute("ALTER TABLE projects ADD COLUMN folder TEXT")
     if "archived_at" not in {r[1] for r in c.execute("PRAGMA table_info(areas)")}:  # 더는 책임지지 않는 영역 (보관 칸으로)
         c.execute("ALTER TABLE areas ADD COLUMN archived_at TEXT")
     # 자료: 에이전트가 MCP 로 남긴다 (사용자가 남기라고 할 때 · 프로젝트를 보관할 때 정리 한 장). sid 는 남긴 세션

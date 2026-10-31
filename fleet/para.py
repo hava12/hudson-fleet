@@ -6,9 +6,13 @@
 에이전트는 작업을 기록할 때 프로젝트 번호를 적는다 (session_tasks.project_id). 사람은 작업 줄의 프로젝트 칸에서 고친다."""
 import hashlib
 import json
+import os
 import sqlite3
 import subprocess
-from datetime import date
+import threading
+import time
+from datetime import date, datetime, timezone
+from pathlib import Path
 
 from .config import now_iso
 from .db import db
@@ -34,6 +38,7 @@ def para():
         row = c.execute("SELECT hash, at, data FROM project_maps WHERE id = ?", (p["id"],)).fetchone()
         p["flow"] = row and {"data": json.loads(row[2]), "at": row[1], "stale": row[0] != _hash(flow_input(p, p["tasks"])),
                              "making": p["id"] in _making}
+        p["spec"] = spec_info(p)
     resources = _rows(c, "SELECT r.*, p.name AS project, a.name AS area, coalesce(s.my_title, s.title, s.name) AS session"
                          " FROM resources r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN areas a ON a.id = r.area_id"
                          " LEFT JOIN sessions s ON s.sid = r.sid ORDER BY r.id DESC")
@@ -90,6 +95,67 @@ def make_project_flow(pid):
     c.execute("INSERT OR REPLACE INTO project_maps VALUES (?,?,?,?)", (pid, _hash(text), now_iso(), json.dumps(data, ensure_ascii=False)))
     c.commit()
     c.close()
+    return {"ok": True}
+
+
+# ── 기획명세서: [명세서 업데이트] 를 누르면 프로젝트 폴더에서 Claude(Sonnet)를 뒤에서 실행해 project-spec 스킬을 돌린다.
+# 결과는 그 폴더의 <폴더이름>-기획명세서.html (스킬이 정한 이름). 몇 분 걸리므로 스레드로 돌리고, 화면은 만드는 중·오류를 본다 ──
+SPEC_MODEL = "sonnet"
+SPEC_TOOLS = ("Read,Write,Edit,Glob,Grep,Skill,Bash(git log:*),Bash(git -C:*),Bash(ls:*),Bash(wc:*),"
+              "mcp__plugin_hudson-fleet_fleet__project_list,mcp__plugin_hudson-fleet_fleet__project_history")
+SPEC_TIMEOUT = 30 * 60
+_spec = {}  # 프로젝트 id → {"making": 시작 시각} 또는 {"error": 마지막 실패 이유}
+
+
+def spec_file(folder):
+    return Path(folder) / f"{Path(folder).name}-기획명세서.html"
+
+
+def spec_info(p):
+    """화면용: 폴더, 명세서 파일이 있는지·고친 시각, 만드는 중인지, 마지막 오류."""
+    f = p.get("folder") and spec_file(p["folder"])
+    st = _spec.get(p["id"], {})
+    at = f and f.is_file() and datetime.fromtimestamp(f.stat().st_mtime, timezone.utc).isoformat(timespec="seconds")
+    return {"folder": p.get("folder"), "exists": bool(at), "at": at or None, "making": "making" in st, "error": st.get("error")}
+
+
+def set_folder(pid, folder):
+    """프로젝트 폴더를 적는다 (대시보드에서 사람이, 또는 스킬이 MCP project_folder 로). 잘못되면 오류 문장, 되면 None."""
+    folder = os.path.expanduser(str(folder or "").strip())
+    if folder and not (os.path.isabs(folder) and os.path.isdir(folder)):
+        return f"없는 폴더입니다: {folder}"
+    c = db()
+    n = c.execute("UPDATE projects SET folder = ? WHERE id = ?", (os.path.realpath(folder) if folder else None, pid)).rowcount
+    c.commit()
+    c.close()
+    return None if n else "프로젝트를 찾지 못했습니다"
+
+
+def make_spec(pid):
+    """[명세서 업데이트]: 프로젝트 폴더에서 Claude 로 project-spec 스킬을 돌린다 (뒤에서, 끝나면 _spec 을 정리)."""
+    row = _one("SELECT name, folder FROM projects WHERE id = ?", (pid,))
+    if not row:
+        return {"error": "프로젝트를 찾지 못했습니다"}
+    name, folder = row
+    if not folder or not os.path.isdir(folder):
+        return {"error": "먼저 이 프로젝트의 폴더를 지정하세요"}
+    if "making" in _spec.get(pid, {}):
+        return {"error": "이미 만드는 중입니다"}
+    started, out = time.time(), spec_file(folder)
+    prompt = (f"hudson-fleet:project-spec 스킬로 hudson-fleet 프로젝트 #{pid}({name})의 기획명세서를 이 폴더에 만들거나 고친다."
+              f" 파일은 {out.name}. 대시보드 버튼으로 실행된 비대화 작업이라 사용자에게 묻지 말고, 모르는 것은 '확인 필요'로 남긴다.")
+    _spec[pid] = {"making": started}
+
+    def run():
+        try:
+            r = subprocess.run(["claude", "-p", prompt, "--model", SPEC_MODEL, "--permission-mode", "acceptEdits",
+                                "--allowedTools", SPEC_TOOLS], cwd=folder, capture_output=True, text=True, timeout=SPEC_TIMEOUT)
+            ok = out.is_file() and out.stat().st_mtime >= started
+            _spec[pid] = {} if ok else {"error": "명세서 파일이 바뀌지 않았습니다: " + ((r.stdout or r.stderr).strip()[-300:] or "출력 없음")}
+        except (OSError, subprocess.TimeoutExpired) as e:
+            _spec[pid] = {"error": "Claude 를 실행하지 못했습니다: " + str(e)[:200]}
+
+    threading.Thread(target=run, daemon=True).start()
     return {"ok": True}
 
 
@@ -191,6 +257,8 @@ def save_project(b):
     """{id?, name, done_when, area_id, status, delete?} — 잘못되면 오류 문장, 되면 None.
     이름과 완료 조건이 있어야 만든다 (완료 조건을 못 적으면 프로젝트가 아니라 영역이다). status=done 이 곧 보관이고, 남은 일은 반려로 정리한다.
     지우면 그 프로젝트에 적힌 작업·자료는 프로젝트 없음으로 남는다."""
+    if "folder" in b and b.get("id"):  # [폴더 지정] — 폴더만 바꾼다
+        return set_folder(b["id"], b["folder"])
     today, area = date.today().isoformat(), _area(b.get("area_id"))
     name, done_when, st = (str(b.get(k) or "").strip() for k in ("name", "done_when", "status"))
     c = db()

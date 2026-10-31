@@ -33,6 +33,23 @@ function NewForm({ as, save }) {
     <button className="sm pri" disabled={!f.name.trim() || !f.done_when.trim()}>만들기</button></form>
 }
 
+// 기획명세서: [명세서 업데이트] 를 누르면 프로젝트 폴더에서 Claude(Sonnet)가 project-spec 스킬로 명세서를 만들거나 고친다
+// (fleet/para.py make_spec, 몇 분). 폴더는 처음 한 번 지정하고, 스킬로 만들면 에이전트가 MCP project_folder 로 적는다
+function SpecBar({ p, save }) {
+  const { setMsg, bump } = useApp()
+  const s = p.spec || {}
+  const pick = () => { const f = prompt('명세서를 만들 프로젝트 폴더 (절대 경로)', s.folder || ''); if (f !== null) save({ id: p.id, folder: f }) }
+  const make = async () => { const x = await post('/api/project-spec', { id: p.id }); if (x.error) setMsg(x.error); bump() }
+  return <div className="meta" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+    <b>기획명세서</b><span>{s.folder || '폴더를 지정하지 않았습니다'}</span>
+    <button className="sm" onClick={pick}>폴더 지정</button>
+    <button className="sm pri" disabled={!s.folder || s.making} onClick={make}
+      title="프로젝트 폴더에서 Claude(Sonnet)가 project-spec 스킬로 명세서를 만들거나 고칩니다 (몇 분)">{s.making ? '만드는 중… (몇 분)' : '명세서 업데이트'}</button>
+    {s.exists && <a className="lk" href={`/api/project-spec?id=${p.id}`} target="_blank" rel="noopener">명세서 열기</a>}
+    {s.at && <span>마지막 수정 {when(s.at)}</span>}
+    {s.error && <span style={{ color: 'var(--t-todo)' }}>{s.error}</span>}</div>
+}
+
 let flowOpen = true  // 프로젝트 Flow 칸의 접힘 — 다른 프로젝트를 펼쳐도 이어 간다
 function ProjTable({ ps, as, save }) {
   const { bump } = useApp()
@@ -60,7 +77,7 @@ function ProjTable({ ps, as, save }) {
       <td><TaskSum ts={tasks} />{tasks.length > 0 && <span className="meta"> · 세션 {new Set(tasks.map(t => t.sid)).size}개</span>}</td>
       <td className="acts"><button className="sm" onClick={() => edit(p)}>고치기</button>
         <button className="sm danger" onClick={() => confirm(`"${p.name}" 프로젝트를 지울까요?\n적힌 작업·자료는 프로젝트 없음으로 남습니다.`) && save({ id: p.id, delete: true })}>삭제</button></td></tr>
-      {open === p.id && <tr><td colSpan="6" style={{ whiteSpace: 'normal' }}>{tasks.length > 0 && <details className="sec" open={flowOpen} onToggle={e => { flowOpen = e.target.open }}
+      {open === p.id && <tr><td colSpan="6" style={{ whiteSpace: 'normal' }}><SpecBar p={p} save={save} />{tasks.length > 0 && <details className="sec" open={flowOpen} onToggle={e => { flowOpen = e.target.open }}
           style={{ marginBottom: 10 }}><summary><h4 style={{ display: 'inline-block', margin: '4px 0' }}>Flow</h4> <span className="meta">AI 가 이 프로젝트의 작업 기록을 정리한 흐름 — 무엇을 만들고 어떻게 동작하나</span></summary>
           <FlowMaker key={p.id} m={p.flow} url="/api/project-flow" body={{ id: p.id }} ok done={bump} what="작업 기록" /></details>}
         {tasks.length
