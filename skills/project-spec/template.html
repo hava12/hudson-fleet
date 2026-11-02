@@ -8,9 +8,13 @@
 --accent:#8db4f0;--done:#6fcf9f;--done-bg:#183026;--wip:#f0b86a;--wip-bg:#3a2a17;--plan:#a3abb8;--plan-bg:#242a34;color-scheme:dark}}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 "Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif}
 .wrap{max-width:980px;margin:0 auto;padding:40px 16px 80px;display:grid;gap:24px}
+header{display:grid;gap:8px} .panel{display:grid;gap:24px;min-width:0} [hidden]{display:none!important}
 section{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:24px;display:grid;gap:12px;min-width:0}
 h1{margin:0;font-size:clamp(28px,5vw,40px)} h2{margin:0;font-size:22px} h3{margin:8px 0 0;font-size:16px}
 .meta,.muted{color:var(--muted);font-size:13px} p{margin:0}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-top:8px}
+.tabs button{font:inherit;font-weight:600;padding:8px 18px;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;background:none;color:var(--muted);cursor:pointer;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);background:var(--paper);border-color:var(--line)}
 nav ul{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0}
 nav a{display:block;padding:3px 10px;border:1px solid var(--line);border-radius:999px;color:var(--ink);text-decoration:none;font-size:13px}
 .scroll{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:14px}
@@ -27,16 +31,26 @@ details.fold{border:1px solid var(--line);border-radius:8px;padding:0 14px}
 details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold[open]{padding-bottom:14px;display:grid;gap:10px}
 .btns{display:flex;gap:8px} .btns button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);cursor:pointer}
 </style></head><body><div class="wrap">
-<!-- project-spec 스킬의 뼈대. 장 순서·id·class 는 바꾸지 않는다. { } 와 … 와 예시 줄은 실제 내용으로 바꾼다.
-     부록을 넣지 않으면 그 section 과 목차 링크를 지운다. 장마다 쓰는 법은 SKILL.md 의 같은 번호 장을 본다. -->
-<header><div class="meta">기획명세서 · v0.1 · 기준일 YYYY-MM-DD</div><h1>{프로젝트}</h1><p>{한 줄 정의}</p>
+<!-- project-spec 스킬의 뼈대. 탭 두 개(기획 편·개발 편)와 장 순서·id·class 는 바꾸지 않는다.
+     { } 와 … 와 예시 줄은 실제 내용으로 바꾼다. 부록을 넣지 않으면 그 section 과 목차 링크를 지운다.
+     장마다 쓰는 법은 SKILL.md 의 같은 편·같은 번호 장을 본다. -->
+<header><div class="meta">기획명세서 · v0.1</div><h1>{프로젝트}</h1><p>{한 줄 정의}</p>
+<div class="tabs" role="tablist" aria-label="편">
+<button type="button" role="tab" id="tab-plan" aria-controls="plan" aria-selected="true">기획 편</button>
+<button type="button" role="tab" id="tab-dev" aria-controls="dev" aria-selected="false">개발 편</button>
+</div></header>
+
+<!-- ━━━━━━━━━━ 기획 편: 무엇을, 누가, 어떤 규칙으로 ━━━━━━━━━━
+     만들지 않았으면 이 탭 안을 모두 지우고 다음 한 줄만 남긴다:
+     <section><p class="muted">아직 만들지 않았어요. 스킬을 다시 실행해 "기획 편"을 고르면 채워집니다.</p></section> -->
+<div class="panel" role="tabpanel" id="plan" aria-labelledby="tab-plan">
+<p class="meta">기획 편 · 기준일 YYYY-MM-DD</p>
 <nav><ul>
 <li><a href="#overview">개요</a></li><li><a href="#terms">용어</a></li><li><a href="#roles">역할·권한</a></li>
 <li><a href="#screens">화면</a></li><li><a href="#features">기능 명세</a></li><li><a href="#policies">정책</a></li>
 <li><a href="#flows">플로우차트</a></li><li><a href="#states">상태 변화</a></li><li><a href="#errors">예외·오류</a></li>
-<li><a href="#architecture">아키텍처</a></li><li><a href="#erd">ERD</a></li><li><a href="#history">히스토리</a></li>
-<li><a href="#open-issues">미결 사항</a></li><li><a href="#api">부록 A. API</a></li><li><a href="#code">부록 B. 코드 구조</a></li>
-</ul></nav></header>
+<li><a href="#plan-open">미결 사항</a></li>
+</ul></nav>
 
 <section id="overview"><h2>1. 개요</h2>
 <div class="scroll"><table><tr><th>항목</th><th>내용</th></tr>
@@ -106,7 +120,23 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <tr><td>E-01</td><td>…</td><td>"…"</td><td>…</td><td>F-01</td><td><code>파일:줄</code></td></tr></table></div>
 </section>
 
-<section id="architecture"><h2>10. 시스템 아키텍처</h2>
+<section id="plan-open"><h2>10. 미결 사항</h2>
+<div class="scroll"><table><tr><th>번호</th><th>확인할 것</th><th>나온 곳</th><th>물어볼 사람</th><th>상태</th></tr>
+<tr><td>Q-01</td><td>성공 기준</td><td>1장 개요</td><td>기획</td><td><span class="chip wip">열림</span></td></tr></table></div>
+</section>
+</div>
+
+<!-- ━━━━━━━━━━ 개발 편: 어떻게 만들었나 ━━━━━━━━━━
+     만들지 않았으면 이 탭 안을 모두 지우고 다음 한 줄만 남긴다:
+     <section><p class="muted">아직 만들지 않았어요. 스킬을 다시 실행해 "개발 편"을 고르면 채워집니다.</p></section> -->
+<div class="panel" role="tabpanel" id="dev" aria-labelledby="tab-dev" hidden>
+<p class="meta">개발 편 · 기준일 YYYY-MM-DD</p>
+<nav><ul>
+<li><a href="#architecture">아키텍처</a></li><li><a href="#erd">ERD</a></li><li><a href="#history">히스토리</a></li>
+<li><a href="#dev-open">미결 사항</a></li><li><a href="#api">부록 A. API</a></li><li><a href="#code">부록 B. 코드 구조</a></li>
+</ul></nav>
+
+<section id="architecture"><h2>1. 시스템 아키텍처</h2>
 <h3>연결 구조</h3>
 <div class="scroll"><pre class="mermaid">flowchart LR
   U["사용자 브라우저"] -- "HTTPS" --> S["서버"]
@@ -128,7 +158,7 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <tr><td>배포 환경</td><td>…</td></tr><tr><td>환경 변수(이름만)</td><td><code>…</code></td></tr><tr><td>보안 장치</td><td>…</td></tr></table></div>
 </section>
 
-<section id="erd"><h2>11. ERD</h2>
+<section id="erd"><h2>2. ERD</h2>
 <div class="scroll"><pre class="mermaid">erDiagram
   PROJECT ||--o{ TASK : "가진다"
   PROJECT {
@@ -144,7 +174,7 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <tr><td><code>id</code></td><td>INTEGER</td><td>PK</td><td>…</td></tr></table></div>
 </section>
 
-<section id="history"><h2>12. 진행 히스토리</h2>
+<section id="history"><h2>3. 진행 히스토리</h2>
 <div class="scroll"><table><tr><th>날짜</th><th>한 일</th><th>근거</th></tr>
 <tr><td>YYYY-MM-DD</td><td>…</td><td><code>#id</code> · <code>abc1234</code></td></tr></table></div>
 <h3>다음 할 일</h3>
@@ -152,9 +182,9 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <tr><td>…</td><td>개발</td><td><span class="chip plan">예정</span></td></tr></table></div>
 </section>
 
-<section id="open-issues"><h2>13. 미결 사항</h2>
+<section id="dev-open"><h2>4. 미결 사항</h2>
 <div class="scroll"><table><tr><th>번호</th><th>확인할 것</th><th>나온 곳</th><th>물어볼 사람</th><th>상태</th></tr>
-<tr><td>Q-01</td><td>성공 기준</td><td>1장 개요</td><td>기획</td><td><span class="chip wip">열림</span></td></tr></table></div>
+<tr><td>Q-02</td><td>…</td><td>2장 ERD</td><td>개발</td><td><span class="chip wip">열림</span></td></tr></table></div>
 </section>
 
 <section id="api"><h2>부록 A. API 명세</h2>
@@ -177,21 +207,47 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <div class="scroll"><table><tr><th>위치</th><th>무엇이 문제인가</th><th>근거</th></tr>
 <tr><td><code>파일:줄</code></td><td>…</td><td>…</td></tr></table></div>
 </section>
+</div>
 
 <p class="muted">도식이 글로만 보이면 인터넷 연결을 확인하세요(mermaid 를 불러와 그립니다).</p>
 </div>
 <script type="module">
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
 mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default" });
-// 보이는 도식만 그리고, 접힌 칸 안의 도식은 펼칠 때 그린다(접힌 채 그리면 크기를 못 재 깨진다).
+// 보이는 도식만 그린다. 접힌 칸·숨은 탭 안의 도식은 크기를 잴 수 없어 깨지므로 펼치거나 탭을 열 때 그린다.
 // 여러 개를 한꺼번에 펼쳐도 한 번에 하나씩 그린다(동시에 그리면 일부가 오류로 깨진다)
 let queue = Promise.resolve();
 const draw = (nodes) => { if (nodes.length) queue = queue.then(() => mermaid.run({ nodes })).catch(() => {}); };
-const visible = (root) => [...root.querySelectorAll("pre.mermaid:not([data-processed])")].filter((p) => !p.closest("details:not([open])"));
-draw(visible(document));
+const visible = (root) => [...root.querySelectorAll("pre.mermaid:not([data-processed])")].filter((p) => !p.closest("details:not([open]), [hidden]"));
 document.querySelectorAll("details").forEach((d) => d.addEventListener("toggle", () => d.open && draw(visible(d))));
 // 모두 펼치기·접기: 버튼이 있는 장 안의 접는 칸만 연다
 document.querySelectorAll("[data-all]").forEach((b) => b.addEventListener("click", () => {
   b.closest("section").querySelectorAll("details").forEach((d) => { d.open = b.dataset.all === "open"; });
 }));
+// 탭(기획 편·개발 편): 누르거나 ←·→ 키로 바꾼다. 주소의 #(장 id, plan, dev)가 가리키는 탭을 연다
+const tabs = [...document.querySelectorAll('[role="tab"]')];
+const show = (id) => {
+  tabs.forEach((t) => {
+    const on = t.getAttribute("aria-controls") === id;
+    t.setAttribute("aria-selected", String(on));
+    t.tabIndex = on ? 0 : -1;
+    document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+  });
+  draw(visible(document.getElementById(id)));
+};
+tabs.forEach((t, i) => {
+  t.addEventListener("click", () => show(t.getAttribute("aria-controls")));
+  t.addEventListener("keydown", (e) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    if (step) { const n = tabs[(i + step + tabs.length) % tabs.length]; n.focus(); n.click(); }
+  });
+});
+const fromHash = () => {
+  const el = location.hash && document.getElementById(location.hash.slice(1));
+  const panel = el && el.closest('[role="tabpanel"]');
+  show(panel ? panel.id : tabs[0].getAttribute("aria-controls"));
+  if (panel && el !== panel) el.scrollIntoView();
+};
+addEventListener("hashchange", fromHash);
+fromHash();
 </script></body></html>
