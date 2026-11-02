@@ -1,162 +1,244 @@
 ---
 name: project-spec
-description: 지금 작업 중인 프로젝트를 읽고 기획명세서를 HTML 한 파일로 만든다. 구성은 개요, 기능 명세, 기능별 플로우차트, 시스템 아키텍처, ERD, 진행 히스토리 6장이다. 결과 파일은 스킬을 실행한 폴더에 생긴다. "기획명세서 만들어 줘", "명세서 뽑아 줘", "ERD 포함해서 프로젝트 정리해 줘", "spec 문서 만들어" 같은 요청에 쓴다.
+description: 지금 작업 중인 프로젝트의 코드·문서·작업 기록을 읽고 기획명세서를 HTML 한 파일로 만든다. 본문은 개요, 용어 정의, 역할과 권한, 화면, 기능 명세, 정책, 기능별 플로우차트, 상태 변화, 예외와 오류, 시스템 아키텍처, ERD, 진행 히스토리, 미결 사항 13장이고, 필요하면 부록(API 명세, 코드 구조)을 붙인다. 결과 파일은 스킬을 실행한 폴더(hudson-fleet 프로젝트면 설정의 명세서 폴더)에 생긴다. "기획명세서 만들어 줘", "명세서 뽑아 줘", "ERD 포함해서 프로젝트 정리해 줘", "spec 문서 만들어", "코드 구조까지 정리해 줘" 같은 요청에 쓴다.
 ---
 
 # 기획명세서 만들기
 
-## 결과물
-- 실행한 폴더(현재 작업 폴더)에 `<폴더이름>-기획명세서.html` 하나를 만든다. 사용자가 대상 폴더를 따로 말하면 그 폴더를 조사하고 그 폴더에 만든다. 외부 파일 없이 혼자 열리는 HTML이다.
-- hudson-fleet 프로젝트면 `project_history` 가 주는 `spec_file` 경로(대시보드 설정의 명세서 폴더)에 만든다. 조사는 그대로 현재 작업 폴더에서 한다.
-- 같은 이름이 이미 있으면 먼저 읽는다. 진행 히스토리는 이어 쓰고, 문서 버전(v0.1 → v0.2)을 올린 뒤 덮어쓴다.
-- 도식은 mermaid로 그린다. 인터넷이 없으면 도식 대신 원문이 보이므로, 그때 쓸 안내 문구를 넣어 둔다.
+코드를 읽어 "무엇을, 누가, 어떤 규칙으로 하는가"를 사람이 읽는 문서로 바꾼다.
+처음 보는 사람이 이 문서만 읽고 프로젝트를 설명할 수 있으면 성공이다.
 
-## 절대 규칙
-- **코드와 문서에서 확인한 사실만 쓴다.** 추측으로 채우지 않는다. 모르는 것은 칸에 `확인 필요`라고 적고 마지막에 모아서 알린다.
+진행 순서: **1단계 조사 → 2단계 장 쓰기 → 3단계 HTML 만들기 → 4단계 점검과 보고.** 조사를 끝낸 뒤에 쓴다.
+
+## 한눈에 보기
+
+| 장 | 보여주는 것 | 재료(어디서 찾나) |
+|---|---|---|
+| 1. 개요 | 한 줄 정의, 대상, 목적, 성공 기준, 범위, 현재 상태 | `README*`, `CLAUDE.md`, `docs/`, fleet 완료 조건 |
+| 2. 용어 정의 | 낱말의 뜻, 코드 이름, 같은 뜻의 다른 이름 | 엔티티·enum 이름, 화면 문구, 문서 |
+| 3. 역할과 권한 | 누가 어떤 기능을 쓸 수 있나 | 로그인·권한 검사 코드, 라우트 가드 |
+| 4. 화면 | 화면 목록, 화면마다 구성 요소와 동작 | 라우트, 화면 컴포넌트 |
+| 5. 기능 명세 | 기능별 동작·근거·상태 | 화면·API·명령·이벤트 처리 코드, 시험 코드 |
+| 6. 정책 | 제한·시간·기간·개수·금액 같은 규칙 | 상수, 설정 파일, 검증 코드 |
+| 7. 기능별 플로우차트 | 기능마다 시작 → 단계 → 분기 → 결과 | 코드 흐름, fleet 작업의 흐름도 |
+| 8. 상태 변화 | 대상별 상태와 바뀌는 조건 | 상태 enum, 상태를 바꾸는 코드 |
+| 9. 예외와 오류 | 실패할 때 사용자가 보는 것과 처리 | 오류 문구, 예외 처리 코드 |
+| 10. 시스템 아키텍처 | 연결 그림, 기술 스택, 구성요소, 의존성, 배포·보안 | 진입점, 빌드·배포 설정, 패키지·잠금 파일 |
+| 11. ERD | 표와 관계, 열 정의 | 마이그레이션, `schema.sql`, ORM 엔티티 |
+| 12. 진행 히스토리 | 날짜별로 한 일, 다음 할 일 | fleet 기록, `git log`, `CHANGELOG*` |
+| 13. 미결 사항 | `확인 필요`로 남긴 것 모음 | 쓰는 중에 생긴 빈칸 |
+| 부록 A. API 명세 | 주소·보내는 값·받는 값·권한 | 컨트롤러, 라우트 |
+| 부록 B. 코드 구조 | 폴더 지도, 호출 관계, 핵심 로직, 살펴볼 곳 | 소스 전체 |
+
+- 본문 13장은 **항상 둔다.** 재료가 없으면 장을 지우지 않고 `해당 없음`과 이유를 한 줄 쓴다. 장 번호가 문서마다 같아야 서로 비교할 수 있다.
+- 부록은 넣는 조건(2단계의 각 부록)을 채울 때만 둔다.
+
+### 번호 붙이기
+
+장끼리 서로 가리킬 수 있게 항목마다 번호를 붙인다. 번호는 한 번 붙이면 문서를 고칠 때도 바꾸지 않는다.
+
+| 번호 | 대상 | 처음 나오는 곳 | 가리키는 곳 |
+|---|---|---|---|
+| `S-01` | 화면 | 4장 | 5장 화면 칸 |
+| `F-01` | 기능 | 5장 | 3·6·7·9장, 부록 B |
+| `P-01` | 정책 | 6장 | 5장 내용 칸 |
+| `E-01` | 예외·오류 | 9장 | — |
+| `Q-01` | 미결 사항 | 13장 | 본문의 빈칸 `확인 필요(Q-01)` |
+
+## 지킬 규칙
+
+- **코드와 문서에서 확인한 사실만 쓴다.** 추측으로 채우지 않는다. 모르는 칸에는 `확인 필요(Q-번호)`를 적고 13장에 올린다.
 - **비밀 값은 쓰지 않는다.** `.env`, 키, 토큰, 비밀번호, 개인정보는 이름만 적고 값은 적지 않는다.
-- 근거를 남긴다. 기능과 표는 어느 파일에서 확인했는지 `파일경로:줄`로 적는다.
-- 질문은 꼭 필요할 때만, 한 번에 3개 이내로 한다(예: 대상 이용자, 범위에서 뺄 것). 코드로 알 수 있는 것은 묻지 않는다.
-- 글은 쉬운 공문서 쓰기 규칙을 따른다. 짧은 문장과 개조식 표로 쓰고, 코드 이름은 꼭 필요할 때만 괄호로 붙인다.
+- **근거를 남긴다.** 기능과 표의 사실은 어디서 확인했는지 `파일경로:줄`로 적는다.
+- **같은 사실은 한 곳에만 쓴다.** 다른 장에서는 번호로 가리킨다. 예: 기능 명세에 제한 수치를 다시 쓰지 않고 `P-03`.
+- **질문은 꼭 필요할 때만, 한 번에 3개 이내로 한다.** 코드로 알 수 있는 것은 묻지 않는다. 물을 것은 코드에 남지 않는 것이다: 목적, 성공 기준, 범위에서 뺄 것, 우선순위. 대시보드 버튼처럼 묻지 말라는 실행이면 묻지 않고 `확인 필요`로 남긴다.
+- **글은 쉬운 공문서 쓰기 규칙을 따른다.** 짧은 문장과 개조식 표로 쓴다. 코드 이름은 꼭 필요할 때만 괄호로 붙인다.
 
-## 1단계: 조사 (쓰기 전에 끝낸다)
-1. 개요 재료: `README*`, `CLAUDE.md`, `docs/`, 패키지 파일(`package.json`, `build.gradle`, `pyproject.toml` 등)
-2. 기능 재료: 화면·라우트·컨트롤러·API·명령·이벤트 처리 코드, 설정 파일, 시험 코드(시험 이름이 곧 기능 규칙인 경우가 많다)
-3. 아키텍처 재료: 진입점, 서버·워커·큐·배치, 배포 설정(`Dockerfile`, `wrangler.*`, `*.yaml`, CI), 외부 서비스 호출, 환경 변수 이름
-   - 언어·프레임워크 재료: 확장자별 파일, 빌드 설정(`tsconfig.json`, `build.gradle`의 plugins, `pyproject.toml`), 런타임 버전(`.nvmrc`, `engines`, Java toolchain, `.python-version`), 프레임워크 설정 파일
-   - 의존성 재료: 패키지 파일과 잠금 파일(`package-lock.json`, `gradle.lockfile`, `poetry.lock` 등)의 버전, HTML의 CDN `<script>`·importmap 주소, 소스의 `import` 문
-4. ERD 재료: 마이그레이션·`schema.sql`·ORM 엔티티(JPA `@Entity`, Prisma, TypeORM, Django models 등)·DB 생성 코드. DB가 없으면 데이터가 어디에 있는지(파일·메모리·외부 서비스) 확인한다
-5. 히스토리 재료: **hudson-fleet 기록이 있으면 먼저 쓴다.**
+## 결과물
+
+- 실행한 폴더(현재 작업 폴더)에 `<폴더이름>-기획명세서.html` 하나를 만든다. 사용자가 대상 폴더를 따로 말하면 그 폴더를 조사하고 그 폴더에 만든다.
+- hudson-fleet 프로젝트면 `project_history` 가 주는 `spec_file` 경로(대시보드 설정의 명세서 폴더)에 만든다. 조사는 그대로 현재 작업 폴더에서 한다.
+- 외부 파일 없이 혼자 열리는 HTML 이다. 뼈대는 이 스킬 폴더의 `template.html` 이다(3단계).
+- 같은 이름의 파일이 이미 있으면:
+  1. 먼저 읽는다.
+  2. 번호(`S`·`F`·`P`·`E`·`Q`)는 그대로 두고, 새로 생긴 것만 다음 번호를 붙인다.
+  3. 진행 히스토리는 이어 쓴다. 미결 사항은 지우지 않고, 풀린 것은 상태를 `해결`로 바꾸고 답을 한 줄 붙인다.
+  4. 옛 구성(6장)이면 새 13장 구성으로 옮긴다. 기능 번호 `F-xx`는 그대로 쓴다.
+  5. 문서 버전(v0.1 → v0.2)을 올린 뒤 덮어쓴다.
+
+## 1단계: 조사
+
+"한눈에 보기"의 재료 칸을 모두 훑는다. 아래는 따로 챙길 것이다.
+
+1. **진행 기록 — hudson-fleet 기록이 있으면 먼저 쓴다.**
    - `project_list`로 이 프로젝트를 고르고(이름·완료 조건으로 판단, 애매하면 사용자에게 한 번 묻는다) `project_history(id)`를 부른다. 도구가 지연 로드면 ToolSearch로 `select:mcp__plugin_hudson-fleet_fleet__project_list,mcp__plugin_hudson-fleet_fleet__project_history`
-   - 받는 것: 프로젝트 정보(완료 조건 → 개요의 목표·범위), 작업(날짜·상태·결과·흐름도 → 진행 히스토리·기능 명세의 상태), push 커밋(`remote`·`cwd`가 이 저장소인 것만), 자료(결정 근거)
-   - 그다음 `git log --date=short --pretty='%ad %s' -n 200`, `CHANGELOG*`로 빈 곳을 채운다. fleet이 없으면 이것만 쓴다
-6. 이 대화에서 사용자가 정한 사항(범위, 정책, 결정)도 재료다. 출처를 `대화(날짜)`로 적는다
+   - 받는 것과 쓰는 곳: 완료 조건 → 1장 목적·성공 기준·범위 / 작업(날짜·상태·결과·흐름도) → 12장, 5장 상태, 7장 초안 / push 커밋(`remote`·`cwd`가 이 저장소인 것만) → 12장 / 자료 → 결정 근거
+   - 그다음 `git log --date=short --pretty='%ad %s' -n 200`, `CHANGELOG*`로 빈 곳을 채운다. fleet 기록이 없으면 이것만 쓴다.
+2. **언어·프레임워크**: 확장자별 파일, 빌드 설정(`tsconfig.json`, `build.gradle`의 plugins, `pyproject.toml`), 런타임 버전(`.nvmrc`, `engines`, Java toolchain, `.python-version`), 프레임워크 설정 파일
+3. **의존성**: 패키지 파일과 잠금 파일(`package-lock.json`, `gradle.lockfile`, `poetry.lock` 등)의 버전, HTML의 CDN `<script>`·importmap 주소, 소스의 `import` 문
+4. **데이터**: DB가 없으면 데이터가 어디에 있는지(파일·메모리·외부 서비스) 확인한다.
+5. **이 대화에서 사용자가 정한 것**(범위, 정책, 결정)도 재료다. 출처를 `대화(날짜)`로 적는다.
 
-## 2단계: 6장 쓰기
+## 2단계: 장 쓰기
+
+장마다 **목적 → 형식 → 규칙** 순서로 적었다.
 
 ### 1. 개요
-- 한 줄 정의, 누구를 위한 것인지, 해결하는 문제
-- 범위: 포함하는 것과 하지 않는 것(명시된 것만)
-- 현재 상태(완료·개발 중·예정 개수), 기준일, 저장소 위치, 문서 버전
+- 목적: 프로젝트를 처음 보는 사람이 1분 안에 무엇인지 알게 한다.
+- 형식: `항목 | 내용` 표. 항목은 한 줄 정의, 대상, 목적(해결하는 문제), 성공 기준, 범위(포함), 범위(제외), 현재 상태, 기준일, 저장소 위치, 문서 버전.
+- 규칙:
+  - 범위는 문서·대화에 명시된 것만 쓴다.
+  - 성공 기준은 fleet 완료 조건이나 문서에 있으면 쓰고, 없으면 묻거나 `확인 필요`로 둔다.
+  - 현재 상태는 5장 상태별 개수(완료·개발 중·예정)를 칩으로 쓴다.
 
-### 2. 기능 명세
-표로 쓴다: `번호(F-01…) | 기능 | 내용(동작·규칙·수치) | 근거(파일:줄) | 상태`
-- 상태는 `완료`, `개발 중`, `예정` 셋만 쓴다. 칩으로 색을 구분한다.
-- 수치(제한, 시간, 크기, 개수)는 코드에 있는 값 그대로 쓴다.
-- 기능이 많으면 화면·도메인 단위로 묶고 소제목을 단다.
+### 2. 용어 정의
+- 목적: 같은 것을 여러 이름으로 부르는 혼란을 없앤다.
+- 형식: `용어 | 뜻 | 코드 이름 | 같은 뜻의 다른 이름` 표, 가나다순.
+- 규칙:
+  - 뜻은 업무 말로 쓴다. 코드를 몰라도 알 수 있어야 한다.
+  - 코드·화면·문서에서 다르게 부르면 다른 이름 칸에 모두 적는다. 문서 본문에서는 용어 칸의 이름만 쓴다.
 
-### 3. 기능별 플로우차트
-- 기능 명세의 번호마다 mermaid `flowchart TD` 하나를 그린다. 아주 단순한 기능 여럿은 하나로 묶어도 된다(묶은 번호를 제목에 적는다).
-- 흐름: 시작(누가·무엇이 시작하나) → 단계 → 조건 분기 → 결과(사용자가 보는 것)
-- 단계마다 어디서 일어나는지 붙인다: `[화면]`, `[서버]`, `[DB]`, `[외부]`
-- 도식 하나에 노드는 12개 이내로 한다. 도식 아래에 한 줄 설명을 붙인다.
-- fleet 작업의 흐름도(`flow`: trigger → steps → outputs)가 있으면 초안으로 쓰고, 코드와 대조해 지금 동작과 다른 곳을 고친다. 같은 기능의 흐름도가 여럿이면 최신 것을 기준으로 한다.
-- **접고 펼 수 있게** 만든다. 플로우차트마다 `<details class="flow"><summary>번호 기능 이름 · 상태 칩 · 한 줄 요약</summary> 도식·설명 </details>`로 감싸고 처음엔 접어 둔다. 장 맨 위에 `모두 펼치기`·`모두 접기` 버튼을 둔다.
-- 접힌 칸 안의 도식은 크기를 잴 수 없어 깨지므로, 펼칠 때 그린다(뼈대의 스크립트가 처리한다).
+### 3. 역할과 권한
+- 목적: 누가 무엇을 할 수 있는지 한 표로 보인다.
+- 형식: 표 위에 역할마다 한 줄 정의. 표는 `기능(F-xx) | 역할1 | 역할2 | …`, 칸에는 `○`(가능) `×`(불가) `△`(조건부, 조건은 표 아래에).
+- 규칙:
+  - 권한을 어디서 검사하는지(화면만인지, 서버도인지) 근거와 함께 적는다. 화면에서만 막으면 13장에 올린다.
+  - 로그인·역할 구분이 없으면 `역할 구분 없음`이라 쓰고, 접근을 막는 방법(예: 내 컴퓨터에서만 열림)을 적는다.
 
-### 4. 시스템 아키텍처
-- mermaid `flowchart LR` 하나: 사용자(브라우저·앱) → 서버·워커 → DB·저장소 → 외부 서비스. 화살표에 통신 방식(HTTPS, WebSocket, SQL, 큐)을 적는다
-- **언어·프레임워크 구성(기술 스택)**: 표 `영역 | 언어 | 프레임워크·런타임·주요 라이브러리 | 버전 | 근거(파일:줄)`
-  - 영역은 프론트(화면)·서버·DB·배포·인프라·개발·시험 순으로 쓰고, 없는 영역은 뺀다. 쓰지 않는 옛 구성은 맨 아래에 `쓰지 않음`으로 적는다
-  - 프레임워크를 쓰지 않으면 `없음(바닐라 JS)`처럼 적는다. 요구 버전이 정해져 있지 않으면 `정해지지 않음`과 확인한 환경의 버전을 함께 적는다
-- 표: `구성요소 | 맡는 일 | 기술·버전 | 위치(파일·폴더)`
-- **의존성 트리**: 접고 펼 수 있는 목록(`ul.dep` 안의 `details`)으로 그린다. 묶음은 펼쳐 두고(`open`), 하위 의존성이 있는 항목은 접어 둔다(펼치면 그 아래가 보인다). 트리 위에 `모두 펼치기`·`모두 접기` 버튼을 둔다. 묶음은 아래 순서로 하고, 없는 묶음은 뺀다.
-  - 화면(브라우저): CDN 라이브러리와 쓰는 하위 모듈, 외부 리소스
-  - 서버·런타임: 플랫폼·프레임워크·라이브러리
-  - 개발·시험: 빌드·배포 도구, 시험 도구(직접 의존성만 쓰고, 그 아래 주요 의존성은 한 단계만, 전체 개수를 덧붙인다)
-  - 외부 서비스: 호출하는 API 주소(도메인까지)
-  - 내부 모듈: 진입 파일부터 `import` 관계
-- 버전은 잠금 파일·URL에 적힌 정확한 값을 쓴다. 범위(^1.2)만 있으면 그대로 적고, 모르면 `확인 필요`
-- 배포 환경, 환경 변수 이름(값 없이), 보안 장치(인증, 권한, 제한)를 짧게 정리한다
+### 4. 화면
+- 목적: 화면마다 무엇이 있고 누르면 무슨 일이 생기는지 보인다.
+- 형식:
+  - 화면 목록 표: `번호(S-01) | 화면 | 주소·진입 경로 | 쓰는 역할 | 관련 기능(F-xx)`
+  - 화면마다 접는 칸 하나: 요약 줄은 `S-01 화면 이름 · 한 줄 설명`, 안에는 `요소 | 종류 | 하는 일 | 규칙` 표. 종류는 버튼·입력칸·표·목록·탭 등, 규칙은 필수 여부·기본값·글자 수·보이는 조건.
+- 규칙:
+  - 요소 이름은 화면에 보이는 문구 그대로 따옴표로 쓴다.
+  - 장 맨 위에 `모두 펼치기`·`모두 접기` 버튼을 둔다. 접는 칸은 처음에 접어 둔다.
+  - 화면이 없으면(CLI·MCP·배치만) 명령·도구 목록 표로 대신한다: `명령·도구 | 하는 일 | 입력 | 결과`.
 
-### 5. ERD
-- mermaid `erDiagram`으로 실제 표와 관계를 그린다. 관계 선에 짧은 한국어 이름을 붙인다.
-- 표마다 열 표를 붙인다: `열 | 형 | 제약(PK·FK·UNIQUE·NOT NULL·CHECK) | 설명`
-- 계획만 있고 아직 없는 표는 이름 끝에 `_planned`를 붙이고 그렇다고 적는다.
-- 저장하지 않는 데이터(대화, 위치, 개인정보 등)가 있으면 따로 적는다.
-- DB가 없으면 "DB 없음"이라고 쓰고, 데이터가 어디에 어떤 모양으로 있는지 표로 대신한다.
+### 5. 기능 명세
+- 목적: 이 프로젝트가 하는 일을 빠짐없이 나열한다.
+- 형식: `번호(F-01) | 기능 | 내용(동작·규칙) | 화면(S-xx) | 근거(파일:줄) | 상태` 표.
+- 규칙:
+  - 상태는 `완료`, `개발 중`, `예정` 셋만 쓴다. 칩으로 색을 구분한다.
+  - 수치 규칙은 6장에 두고 여기서는 `P-xx`로 가리킨다.
+  - 기능이 많으면 화면·도메인 단위로 묶고 소제목을 단다.
 
-### 6. 진행 히스토리
-- 표: `날짜 | 한 일 | 근거(커밋·작업 기록·대화)` — 오래된 것부터, 같은 날 비슷한 일은 한 줄로 묶는다. fleet 작업은 `#id`, 커밋은 짧은 해시로 적는다
-- 남은 일(`todo`)·중단(`stopped`) 작업은 `다음 할 일`로 옮긴다
-- 마지막에 `다음 할 일` 표: `할 일 | 맡은 사람(개발·운영 등) | 상태`
+### 6. 정책
+- 목적: 흩어진 숫자 규칙을 한곳에 모은다.
+- 형식: `번호(P-01) | 정책 | 값 | 적용 기능(F-xx) | 근거(파일:줄)` 표. 종류(시간·기간, 개수·크기, 금액, 접근)별로 묶는다.
+- 규칙:
+  - 값은 코드에 있는 그대로, 단위를 붙여 쓴다(30분, 5MB, 3회).
+  - 설정·환경 변수로 바꿀 수 있으면 그 이름과 기본값을 함께 적는다.
+
+### 7. 기능별 플로우차트
+- 목적: 기능이 실제로 도는 순서를 그림으로 보인다.
+- 형식: 기능 번호마다 mermaid `flowchart TD` 하나를 접는 칸에 넣는다. 요약 줄은 `F-01 기능 이름 · 상태 칩 · 한 줄 요약`, 도식 아래에 한 줄 설명.
+- 규칙:
+  - 흐름: 시작(누가·무엇이 시작하나) → 단계 → 조건 분기 → 결과(사용자가 보는 것)
+  - 단계마다 어디서 일어나는지 붙인다: `[화면]`, `[서버]`, `[DB]`, `[외부]`
+  - 도식 하나에 노드는 12개 이내. 아주 단순한 기능 여럿은 하나로 묶어도 된다(묶은 번호를 제목에 적는다).
+  - fleet 작업의 흐름도(`flow`: trigger → steps → outputs)가 있으면 초안으로 쓰고, 코드와 대조해 지금 동작과 다른 곳을 고친다. 같은 기능의 흐름도가 여럿이면 최신 것을 기준으로 한다.
+  - 장 맨 위에 `모두 펼치기`·`모두 접기` 버튼을 둔다. 접는 칸은 처음에 접어 둔다.
+
+### 8. 상태 변화
+- 목적: 작업·주문·결제처럼 상태가 바뀌는 대상이 어떤 길을 거치는지 보인다.
+- 형식: 대상마다 접는 칸 하나. 안에 mermaid `stateDiagram-v2` 하나와 `지금 상태 | 일어나는 일(누가·무엇을) | 다음 상태 | 근거` 표.
+- 규칙:
+  - 상태 이름은 2장 용어와 같게 쓰고, 코드 값은 괄호로 붙인다. 예: 할 일(`todo`)
+  - 들어올 길이 없는 상태, 끝이 아닌데 나갈 길이 없는 상태가 보이면 13장에 올린다.
+  - 상태 값이 없으면 `해당 없음`.
+
+### 9. 예외와 오류
+- 목적: 실패할 때 사용자가 무엇을 보고 시스템이 어떻게 하는지 보인다.
+- 형식: `번호(E-01) | 상황 | 사용자가 보는 것 | 시스템 처리 | 관련 기능(F-xx) | 근거` 표.
+- 규칙:
+  - 사용자가 보는 것은 화면 문구 그대로 따옴표로 쓴다.
+  - 시스템 처리는 다시 시도, 기록만 함, 되돌림, 무시 등으로 짧게 쓴다.
+  - 오류를 잡고 아무것도 하지 않는 곳이 보이면 처리 칸에 `알리지 않음`이라 쓰고 13장에 올린다.
+
+### 10. 시스템 아키텍처
+- 목적: 무엇이 무엇과 어떻게 이어지고, 무엇으로 만들었는지 보인다.
+- 형식(소제목 다섯 개):
+  1. **연결 구조**: mermaid `flowchart LR` 하나. 사용자(브라우저·앱) → 서버·워커 → DB·저장소 → 외부 서비스. 화살표에 통신 방식(HTTPS, WebSocket, SQL, 큐)을 적는다.
+  2. **기술 스택**: `영역 | 언어 | 프레임워크·런타임·주요 라이브러리 | 버전 | 근거(파일:줄)` 표
+     - 영역은 프론트(화면)·서버·DB·배포·인프라·개발·시험 순으로 쓰고, 없는 영역은 뺀다. 쓰지 않는 옛 구성은 맨 아래에 `쓰지 않음`으로 적는다.
+     - 프레임워크가 없으면 `없음(바닐라 JS)`처럼 적는다. 요구 버전이 없으면 `정해지지 않음`과 확인한 환경의 버전을 함께 적는다.
+  3. **구성요소**: `구성요소 | 맡는 일 | 기술·버전 | 위치(파일·폴더)` 표
+  4. **의존성 트리**: 접고 펴는 목록(`ul.dep` 안의 `details`). 묶음은 펼쳐 두고(`open`), 하위 의존성이 있는 항목은 접어 둔다. 트리 위에 `모두 펼치기`·`모두 접기` 버튼. 묶음 순서(없는 것은 뺀다):
+     - 화면(브라우저): CDN 라이브러리와 쓰는 하위 모듈, 외부 리소스
+     - 서버·런타임: 플랫폼·프레임워크·라이브러리
+     - 개발·시험: 빌드·배포 도구, 시험 도구. 직접 의존성만 쓰고, 그 아래 주요 의존성은 한 단계만, 전체 개수를 덧붙인다.
+     - 외부 서비스: 호출하는 API 주소(도메인까지)
+     - 내부 모듈: 진입 파일부터 `import` 관계
+  5. **배포·환경 변수·보안**: 배포 환경, 환경 변수 이름(값 없이), 보안 장치(인증, 권한, 제한)를 `항목 | 내용` 표로 짧게.
+- 규칙: 버전은 잠금 파일·URL에 적힌 정확한 값을 쓴다. 범위(`^1.2`)만 있으면 그대로 적고, 모르면 `확인 필요`.
+
+### 11. ERD
+- 목적: 데이터가 어떤 표에 어떤 관계로 저장되는지 보인다.
+- 형식: mermaid `erDiagram` 하나, 그 아래 표마다 `열 | 형 | 제약(PK·FK·UNIQUE·NOT NULL·CHECK) | 설명` 표.
+- 규칙:
+  - 실제 표와 관계만 그린다. 관계 선에 짧은 한국어 이름을 붙인다.
+  - 계획만 있고 아직 없는 표는 이름 끝에 `_planned`를 붙이고 그렇다고 적는다.
+  - 저장하지 않는 데이터(대화, 위치, 개인정보 등)가 있으면 따로 적는다.
+  - DB가 없으면 `DB 없음`이라고 쓰고, 데이터가 어디에 어떤 모양으로 있는지 표로 대신한다.
+
+### 12. 진행 히스토리
+- 목적: 언제 무엇을 했고 다음에 무엇을 할지 보인다.
+- 형식: `날짜 | 한 일 | 근거(커밋·작업 기록·대화)` 표, 그 아래 `다음 할 일` 표 `할 일 | 맡은 사람(개발·운영 등) | 상태`.
+- 규칙:
+  - 오래된 것부터 쓰고, 같은 날 비슷한 일은 한 줄로 묶는다. fleet 작업은 `#id`, 커밋은 짧은 해시로 적는다.
+  - 남은 일(`todo`)·중단(`stopped`) 작업은 `다음 할 일`로 옮긴다.
+
+### 13. 미결 사항
+- 목적: 문서의 빈칸을 한곳에 모아 누가 채울지 정한다.
+- 형식: `번호(Q-01) | 확인할 것 | 나온 곳(장·번호) | 물어볼 사람(기획·개발·운영) | 상태(열림·해결)` 표.
+- 규칙:
+  - 본문의 `확인 필요`마다 이 표에 한 줄이 있어야 한다.
+  - 상태는 칩으로 쓴다: 열림은 `wip`, 해결은 `done`.
+
+### 부록 A. API 명세
+- 넣는 때: 화면이나 다른 서비스가 부르는 API가 있을 때.
+- 형식: `메서드 | 주소 | 하는 일 | 보내는 값 | 받는 값 | 권한 | 근거` 표, 영역별로 묶는다.
+- 규칙: 값은 이름과 형만 쓴다(예: `id: 숫자`). 예시 값에 개인정보를 쓰지 않는다.
+
+### 부록 B. 코드 구조
+- 넣는 때: 사용자가 코드 구조·코드 분석을 요청했을 때, 또는 이미 있는 명세서에 이 부록이 있을 때.
+- 형식(소제목 네 개):
+  1. **폴더 지도**: `폴더·파일 | 맡는 일 | 줄 수` 표
+  2. **호출 관계**: mermaid `flowchart LR` 하나. 진입점부터 주요 모듈까지, 노드 15개 이내.
+  3. **핵심 로직**: `기능(F-xx) | 도는 길` 표. 도는 길은 `진입 파일:줄 → 거치는 함수 → 저장 위치` 한 줄.
+  4. **살펴볼 곳**: `위치 | 무엇이 문제인가 | 근거` 표. 같은 일을 하는 코드가 여러 곳에 있음, 아주 큰 파일, 시험 없는 금전·보안 코드, 쓰이지 않는 코드처럼 확인한 것만 쓴다.
 
 ## 3단계: HTML 만들기
-아래 뼈대를 쓴다. 색은 토큰으로만 정하고 밝은·어두운 화면을 둘 다 맞춘다. 표·도식은 가로로 넘치면 그 칸 안에서만 스크롤되게 한다.
 
-```html
-<!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{프로젝트} 기획명세서</title>
-<style>
-:root{--bg:#f5f6f8;--paper:#fff;--ink:#1c2028;--muted:#5f6775;--line:#dde1e7;--accent:#2d5fa8;
---done:#2f7d5b;--done-bg:#e3f2ea;--wip:#9a5b12;--wip-bg:#fbeedd;--plan:#6b7280;--plan-bg:#eceef1}
-@media (prefers-color-scheme:dark){:root{--bg:#12151b;--paper:#191d25;--ink:#e6e9ef;--muted:#9aa3b2;--line:#2b313c;
---accent:#8db4f0;--done:#6fcf9f;--done-bg:#183026;--wip:#f0b86a;--wip-bg:#3a2a17;--plan:#a3abb8;--plan-bg:#242a34;color-scheme:dark}}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 "Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif}
-.wrap{max-width:980px;margin:0 auto;padding:40px 16px 80px;display:grid;gap:24px}
-section{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:24px;display:grid;gap:12px;min-width:0}
-h1{margin:0;font-size:clamp(28px,5vw,40px)} h2{margin:0;font-size:22px} .meta,.muted{color:var(--muted);font-size:13px}
-nav ul{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0}
-nav a{display:block;padding:3px 10px;border:1px solid var(--line);border-radius:999px;color:var(--ink);text-decoration:none;font-size:13px}
-.scroll{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:14px}
-th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line)} th{color:var(--muted);font-size:12px;white-space:nowrap}
-code{font:12.5px ui-monospace,Menlo,monospace;background:var(--bg);padding:1px 5px;border-radius:4px}
-.chip{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
-.done{color:var(--done);background:var(--done-bg)} .wip{color:var(--wip);background:var(--wip-bg)} .plan{color:var(--plan);background:var(--plan-bg)}
-pre.mermaid{background:var(--bg);border-radius:8px;padding:12px;margin:0;min-width:520px}
-.dep,.dep ul{list-style:none;margin:0;padding:0} .dep{font:13px/1.8 ui-monospace,Menlo,monospace;background:var(--bg);border-radius:8px;padding:12px 16px;overflow-x:auto}
-.dep ul{padding-left:20px} .dep li{position:relative;padding-left:16px;border-left:1px solid var(--line)} .dep li:last-child{border-left-color:transparent}
-.dep li::before{content:"";position:absolute;left:-1px;top:0;width:12px;height:.9em;border-left:1px solid var(--line);border-bottom:1px solid var(--line)}
-.dep summary{cursor:pointer} .dep .ver{color:var(--muted)}
-details.flow{border:1px solid var(--line);border-radius:8px;padding:0 14px}
-details.flow summary{cursor:pointer;padding:10px 0;font-weight:600} details.flow[open]{padding-bottom:14px}
-.btns{display:flex;gap:8px} .btns button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);cursor:pointer}
-</style></head><body><div class="wrap">
-<header><div class="meta">기획명세서 · v0.1 · 기준일 YYYY-MM-DD</div><h1>{프로젝트}</h1><p>{한 줄 정의}</p>
-<nav><ul><li><a href="#overview">개요</a></li><li><a href="#features">기능 명세</a></li><li><a href="#flows">기능별 플로우차트</a></li>
-<li><a href="#architecture">시스템 아키텍처</a></li><li><a href="#erd">ERD</a></li><li><a href="#history">진행 히스토리</a></li></ul></nav></header>
-<section id="overview"><h2>1. 개요</h2>…</section>
-<section id="flows"><h2>3. 기능별 플로우차트</h2>
-<div class="btns"><button type="button" data-all="open" data-for="flow">모두 펼치기</button><button type="button" data-all="close" data-for="flow">모두 접기</button></div>
-<details class="flow"><summary>F-01 로그인 · <span class="chip done">완료</span> · 한 줄 요약</summary><div class="scroll"><pre class="mermaid">…</pre></div><p class="muted">설명</p></details>
-</section>
-<section id="architecture"><h2>4. 시스템 아키텍처</h2>…
-<div class="btns"><button type="button" data-all="open" data-for="dep">모두 펼치기</button><button type="button" data-all="close" data-for="dep">모두 접기</button></div>
-<ul class="dep"><li><details open><summary>화면(브라우저)</summary><ul>
-  <li><details><summary>three.js <span class="ver">0.180.0</span></summary><ul><li>build/three.module.js</li></ul></details></li>
-  <li>Web Audio API</li></ul></details></li></ul>
-</section>
-<!-- features · erd · history 도 section 모양 -->
-<p class="muted">도식이 글로만 보이면 인터넷 연결을 확인하세요(mermaid 를 불러와 그립니다).</p>
-</div>
-<script type="module">
-import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
-mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default" });
-// 보이는 도식만 그리고, 접힌 플로우차트는 펼칠 때 그린다(접힌 채 그리면 크기를 못 재 깨진다).
-// 여러 개를 한꺼번에 펼쳐도 한 번에 하나씩 그린다(동시에 그리면 일부가 오류로 깨진다)
-let queue = Promise.resolve();
-const draw = (nodes) => { if (nodes.length) queue = queue.then(() => mermaid.run({ nodes })).catch(() => {}); };
-const pending = (root) => [...root.querySelectorAll("pre.mermaid:not([data-processed])")];
-draw(pending(document).filter((p) => !p.closest("details:not([open])")));
-document.querySelectorAll("details.flow").forEach((d) => d.addEventListener("toggle", () => d.open && draw(pending(d))));
-document.querySelectorAll("[data-all]").forEach((b) => b.addEventListener("click", () => {
-  document.querySelectorAll(b.dataset.for === "dep" ? ".dep details" : "details.flow").forEach((d) => { d.open = b.dataset.all === "open"; });
-}));
-</script></body></html>
-```
+1. 이 스킬 폴더(스킬을 불러올 때 알려 주는 기준 폴더)의 `template.html`을 읽어 뼈대로 쓴다.
+2. 장 순서·`id`·`class`는 바꾸지 않는다. `{ }`와 `…`와 예시 줄을 실제 내용으로 바꾼다.
+3. 부록을 넣지 않으면 그 `section`과 목차 링크를 지운다.
+4. 뼈대에 이미 들어 있는 것(손대지 않는다):
+   - 밝은·어두운 화면 색 토큰
+   - 표·도식이 가로로 넘치면 그 칸 안에서만 스크롤
+   - 접는 칸(`details.fold`) 안의 도식은 펼칠 때 그리기. 접힌 채 그리면 크기를 잴 수 없어 깨진다.
+   - `모두 펼치기`·`모두 접기` 버튼은 그 버튼이 있는 장의 접는 칸만 연다.
+   - 인터넷이 없어 도식 대신 원문이 보일 때의 안내 문구
 
 mermaid를 쓸 때 지킬 것(어기면 도식이 깨진다):
 - 노드 id는 영문·숫자로 짓고, 보이는 글은 큰따옴표 안에 쓴다: `A["로그인 [서버]"]`
-- 글 안에 `"`, `<`, `>`는 쓰지 않는다. 줄바꿈은 `<br/>`만 쓴다
-- `erDiagram`의 열 설명은 큰따옴표 안에 쓴다: `TEXT id PK "무작위 번호"`
-- `pre.mermaid` 안의 `&`, `<`, `>`는 HTML 문자(`&amp;` 등)로 바꾼다
+- 글 안에 `"`, `<`, `>`는 쓰지 않는다. 줄바꿈은 `<br/>`만 쓴다.
+- `pre.mermaid` 안의 `&`, `<`는 `&amp;`, `&lt;`로 바꾼다. 줄바꿈은 `&lt;br/&gt;`로 쓴다. 화살표(`-->`)의 `>`는 그대로 써도 된다.
+- `erDiagram`의 열은 한 줄에 하나씩, 설명은 큰따옴표 안에 쓴다: `TEXT id PK "무작위 번호"`
+- `stateDiagram-v2`의 상태 id는 영문으로 짓고, 보이는 이름은 `state "할 일" as todo`로 붙인다.
 
 ## 4단계: 점검과 보고
-1. 파일을 쓴 뒤 다시 읽어 6장이 모두 있는지 확인한다. 기능 명세 번호와 플로우차트 번호도 서로 맞는지 확인한다.
-2. 비밀 값이 들어가지 않았는지 `key|secret|token|password` 같은 낱말로 훑는다.
-3. `humanize-korean:humanize-scan` 스킬이 있으면 본문 문장을 점검해 고친다(표 칸 낱말·코드 이름은 빼고).
-4. fleet 프로젝트로 만들었으면 `project_folder(id, 실행 폴더)`를 불러 조사한 코드 폴더를 적는다. 대시보드 프로젝트 화면의 [명세서 업데이트] 버튼이 이 폴더에서 이 스킬을 다시 돌린다(버튼으로 실행되면 사용자에게 묻지 않는다)
-5. 사용자에게 이렇게 알린다:
+
+1. **장 확인**: 파일을 다시 읽어 13장과 넣은 부록이 모두 있는지 확인한다.
+2. **번호 확인**:
+   - 5장의 `F` 번호가 7장에 모두 있다.
+   - 다른 장이 가리키는 `S`·`F`·`P`·`E`·`Q` 번호가 실제로 있다.
+   - 본문의 `확인 필요`마다 `Q` 번호가 붙어 있고 13장에 있다.
+3. **비밀 값 확인**: `key|secret|token|password` 같은 낱말로 훑는다.
+4. **문장 점검**: `humanize-korean:humanize-scan` 스킬이 있으면 본문 문장을 점검해 고친다(표 칸 낱말·코드 이름은 빼고).
+5. **fleet 기록**: fleet 프로젝트로 만들었으면 `project_folder(id, 실행 폴더)`를 불러 조사한 코드 폴더를 적는다. 대시보드 프로젝트 화면의 [명세서 업데이트] 버튼이 이 폴더에서 이 스킬을 다시 돌린다(버튼으로 실행되면 사용자에게 묻지 않는다).
+6. **사용자에게 알리기**:
    - 파일의 전체 경로와 여는 명령(`! open <경로>`)
-   - 장별 개수(기능 N개, 플로우차트 N개, 표 N개)
-   - `확인 필요`로 남긴 항목 목록
+   - 장별 개수: 화면 N, 기능 N, 정책 N, 플로우차트 N, 상태 대상 N, 오류 N, 미결 사항 N
+   - 열린 미결 사항 목록
