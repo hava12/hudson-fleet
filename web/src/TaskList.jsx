@@ -30,7 +30,7 @@ export function TaskRow({ t, edit, lead }) {
             onChange={e => save({ status: e.target.value })}>
             {Object.entries(TASK).map(([k, [l]]) => <option key={k} value={k}>{l}</option>)}
           </select>
-        : <Pill color={TASK[t.status]?.[1]}>{TASK[t.status]?.[0] || t.status}</Pill>}
+        : <Pill tone={TASK[t.status]?.[2]}>{TASK[t.status]?.[0] || t.status}</Pill>}
       {edit === 'all'
         ? <select className="pill tgsel" value={t.tag || ''} title="태그 바꾸기" onChange={e => save({ tag: e.target.value })}>
             {!t.tag && <option value="">태그</option>}

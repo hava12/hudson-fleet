@@ -12,7 +12,7 @@ export default function SidePanel() {
   if (side.type === 'mcp') {
     const m = side.m
     return <><h3>{m.name}</h3><div className="meta">{m.group}</div>
-      <h4>상태</h4><Pill dot={MST[m.ok][1]}>{MST[m.ok][0]}</Pill>
+      <h4>상태</h4><Pill tone={MST[m.ok][2]}>{MST[m.ok][0]}</Pill>
       <div className="meta" style={{ marginTop: 6 }}>{m.state}</div>
       <h4>연결 대상</h4><pre>{m.target}</pre></>
   }
@@ -64,7 +64,7 @@ function SessionPanel({ sid, agent }) {
     bump()
   }
   return <>{head}
-    <div className="meta"><Pill dot={GINFO[grp(s.status)][1]}>{GINFO[grp(s.status)][0]}</Pill> {s.kind === 'background' ? '백그라운드' : s.app || '?'} · {when(s.startedAt)} 시작 · {tilde(s.cwd, G.home)}</div>
+    <div className="meta"><Pill tone={GINFO[grp(s.status)][2]}>{GINFO[grp(s.status)][0]}</Pill> {s.kind === 'background' ? '백그라운드' : s.app || '?'} · {when(s.startedAt)} 시작 · {tilde(s.cwd, G.home)}</div>
     <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
       {s.kind === 'background' && <Button onClick={async () => { setLog('불러오는 중…'); setLog((await get('/api/logs?id=' + encodeURIComponent(s.bgId))).text) }}>로그</Button>}
       <Button variant="danger" onClick={() => stopSession(s)}>종료하기</Button></div>

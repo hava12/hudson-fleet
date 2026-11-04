@@ -7,11 +7,11 @@ export const tok = v => v.startsWith('var(') ? getComputedStyle(document.documen
 // 상태값(interactive 의 status, background 의 state) → 화면 분류
 const GROUP = { busy: 'work', running: 'work', blocked: 'wait', waiting: 'wait', needs_input: 'wait', idle: 'idle',
   stopped: 'done', completed: 'done', done: 'done', failed: 'fail' }
-export const GINFO = { work: ['작업 중', 'var(--ok)'], wait: ['입력 대기', 'var(--wait)'], idle: ['쉬는 중', 'var(--idle)'], done: ['끝남', 'var(--off)'], fail: ['실패', 'var(--bad)'] }
+export const GINFO = { work: ['작업 중', 'var(--ok)', 'success'], wait: ['입력 대기', 'var(--wait)', 'warning'], idle: ['쉬는 중', 'var(--idle)'], done: ['끝남', 'var(--off)'], fail: ['실패', 'var(--bad)', 'danger'] }  // [이름, 색, 꼬리표 Tone]
 export const grp = st => GROUP[st] || 'idle', isDead = st => ['done', 'fail'].includes(grp(st))  // 끝난 세션: 흐리게, 종료 메뉴 숨김
 export const FILL = { project: 'var(--node-proj)', agent: 'var(--node-agent)' }
-// 작업 상태 색: 남은 일은 노랑으로 눈에 띄게, 중단은 주황으로 남은 일과 구분 (style.css 의 --t-*)
-export const TASK = { done: ['완료', 'var(--t-done)'], stopped: ['중단', 'var(--t-stop)'], todo: ['남은 일', 'var(--t-todo)'], rejected: ['반려', 'var(--t-rej)'] }
+// 작업 상태 색: 남은 일은 노랑으로 눈에 띄게, 중단은 주황으로 남은 일과 구분 (style.css 의 --t-*). 셋째 칸은 꼬리표 Tone (Figma Pill)
+export const TASK = { done: ['완료', 'var(--t-done)', 'success'], stopped: ['중단', 'var(--t-stop)', 'warning'], todo: ['남은 일', 'var(--t-todo)', 'info'], rejected: ['반려', 'var(--t-rej)'] }
 export const TAGS = ['개발', '디자인', '기획', '테스트', '문서', '디버그', '데이터', '운영', '기타']  // fleet/tasks.py TAGS 와 같은 순서
 export const LIVE = ['work', 'wait', 'idle']  // 메인 화면은 살아 있는 세션만 — 끝남·실패는 게시글에서만
 export const fmtTok = n => n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? Math.round(n / 1e3) + 'K' : String(n || 0)

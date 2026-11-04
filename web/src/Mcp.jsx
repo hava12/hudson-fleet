@@ -3,7 +3,7 @@ import { fitBox, textW, useCy } from './Graph'
 import { Dot, FILL, get, tok, useApp } from './lib'
 import { Button, Card } from './ui'
 
-export const MST = { ok: ['연결됨', 'var(--ok)'], auth: ['인증 필요', 'var(--wait)'], fail: ['연결 실패', 'var(--bad)'], pending: ['승인 대기', 'var(--idle)'] }
+export const MST = { ok: ['연결됨', 'var(--ok)', 'success'], auth: ['인증 필요', 'var(--wait)', 'warning'], fail: ['연결 실패', 'var(--bad)', 'danger'], pending: ['승인 대기', 'var(--idle)'] }  // [이름, 색, 꼬리표 Tone]
 const STYLE = [
   { selector: 'node', style: { shape: 'round-rectangle', label: 'data(label)', width: 'data(w)', height: 28, 'font-size': () => tok('var(--fs-xs)'), color: e => tok(e.data('kind') === 'root' ? 'var(--on-acc)' : 'var(--on-fill)'), 'text-valign': 'center', 'text-halign': 'center',
     'background-color': e => tok(e.data('kind') === 'root' ? 'var(--acc)' : e.data('kind') === 'group' ? FILL.project : MST[e.data('ok')][1]) } },

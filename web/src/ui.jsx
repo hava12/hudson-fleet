@@ -1,7 +1,5 @@
 // 공통 부품 — Figma 'hudson-fleet design system' 의 부품과 이름·속성을 맞춘다. 모양은 style.css 규칙(.sm·.pri·.pill·.card·.tbl)이 정한다.
 // 화면 코드는 button.sm·.pill·.card·.tbl·<details> 를 직접 쓰지 않고 이 부품을 쓴다 (vite.config.js 의 ui-check 가 빌드 때 막는다)
-import { Dot } from './lib'
-
 const cx = (...a) => a.filter(Boolean).join(' ') || undefined
 const STYLE = { primary: 'pri', danger: 'danger' }
 
@@ -10,10 +8,14 @@ const STYLE = { primary: 'pri', danger: 'danger' }
 export const Button = ({ variant, size = 'small', className, ...p }) =>
   <button className={cx(size === 'small' && 'sm', STYLE[variant], className)} {...p} />
 
-// Pill — 꼬리표. color 는 글자색, dot 은 앞에 붙는 상태 점 색 (둘 다 var(--이름표)).
-// Figma Pill 의 Tone(Success 등, 채운 바탕)은 아직 코드에 없다 — 지금 화면은 옅은 바탕 + 색 글자
-export const Pill = ({ color, dot, style, className, children, ...p }) =>
-  <span className={cx('pill', className)} style={color ? { ...style, color } : style} {...p}>{dot && <Dot c={dot} />}{children}</span>
+// Pill — 꼬리표. Figma Pill 의 Tone(Neutral·Success·Warning·Danger·Info) → tone (기본 neutral). 바탕을 채우고, 색만으로 알리지 않게
+// Success 는 체크, Warning·Danger 는 느낌표 아이콘을 붙인다 (Figma 와 같은 Lucide 모양). 색은 style.css 의 .pill.<tone>
+const ALERT = <><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></>
+const ICON = { success: <path d="M20 6 9 17l-5-5" />, warning: ALERT, danger: ALERT }
+export const Pill = ({ tone, className, children, ...p }) =>
+  <span className={cx('pill', tone !== 'neutral' && tone, className)} {...p}>
+    {ICON[tone] && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICON[tone]}</svg>}
+    {children}</span>
 
 // Card — 흰(어두운 화면은 진한) 바탕 칸
 export const Card = ({ className, ...p }) => <section className={cx('card', className)} {...p} />
@@ -34,16 +36,14 @@ export function Gallery() {
       {['small', 'medium'].map(s => <div key={s} style={row}>
         {['default', 'primary', 'danger'].map(v => <Button key={v} variant={v} size={s}>{v} · {s}</Button>)}
         <Button size={s} disabled>disabled</Button></div>)}</Card>
-    <Card><div className="sh"><h2>Pill</h2><span className="meta">color · dot</span></div>
-      <div style={row}><Pill>기본</Pill><Pill color="var(--t-todo)">남은 일</Pill><Pill color="var(--t-stop)">중단</Pill>
-        <Pill color="var(--t-done)">완료</Pill><Pill color="var(--t-rej)">반려</Pill>
-        <Pill dot="var(--ok)">작업 중</Pill><Pill dot="var(--wait)">입력 대기</Pill><Pill dot="var(--bad)">실패</Pill></div></Card>
+    <Card><div className="sh"><h2>Pill</h2><span className="meta">tone — 작업 상태: 남은 일 info · 중단 warning · 완료 success · 반려 neutral</span></div>
+      <div style={row}>{['neutral', 'success', 'warning', 'danger', 'info'].map(t => <Pill key={t} tone={t}>{t}</Pill>)}</div></Card>
     <Card><div className="sh"><h2>Collapsible</h2><span className="meta">open · className="sec" 는 내용을 16px 들여 쓴다</span></div>
       <Collapsible summary="접힌 칸">내용</Collapsible>
       <Collapsible open className="sec" summary={<h4 style={{ display: 'inline-block' }}>펼친 칸 (sec)</h4>}><div className="meta">09:12 → 11:40 · 기록할 작업 3건</div></Collapsible></Card>
     <Card><div className="sh"><h2>Table</h2><span className="meta">th 머리 줄 · td 본문 줄</span></div>
       <Table><tr><th>이름</th><th>상태</th><th>시각</th></tr>
-        <tr><td>세션 카드 빛 띠 고치기</td><td><Pill color="var(--t-done)">완료</Pill></td><td>10/31 14:20</td></tr>
-        <tr><td>Figma 변수 내보내기</td><td><Pill color="var(--t-todo)">남은 일</Pill></td><td>11/01 09:05</td></tr></Table></Card>
+        <tr><td>세션 카드 빛 띠 고치기</td><td><Pill tone="success">완료</Pill></td><td>10/31 14:20</td></tr>
+        <tr><td>Figma 변수 내보내기</td><td><Pill tone="info">남은 일</Pill></td><td>11/01 09:05</td></tr></Table></Card>
   </div>
 }

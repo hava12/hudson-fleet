@@ -17,13 +17,13 @@ function cronText(c) {
   return c
 }
 
-const RESULT = { SUCCEEDED: ['성공', 'var(--t-done)'], FAILED: ['실패', 'var(--bad)'] }
+const RESULT = { SUCCEEDED: ['성공', 'var(--t-done)', 'success'], FAILED: ['실패', 'var(--bad)', 'danger'] }  // [이름, 색, 꼬리표 Tone]
 const STOP = { device_absent: '실행할 기기가 연결돼 있지 않아 멈춤' }  // 루틴이 멈춘 이유 (suspension_reason)
 const STALE = 3600e3  // 저장본이 이보다 오래됐으면 페이지를 열 때 새로 받는다
 
 const nextRun = r => r.enabled && r.cron ? when(r.next) : '—'
 const lastRun = r => r.last ? <>{when(r.last)} <span style={{ color: RESULT[r.result]?.[1] }}>{RESULT[r.result]?.[0] || r.result}</span>{r.why && ` · ${r.why}`}</> : '—'
-const OnOff = ({ r }) => <Pill color={r.enabled ? 'var(--t-done)' : 'var(--mute)'}>{r.enabled ? '켜짐' : '꺼짐'}</Pill>
+const OnOff = ({ r }) => <Pill tone={r.enabled ? 'success' : undefined}>{r.enabled ? '켜짐' : '꺼짐'}</Pill>
 
 // 예약 작업 상세 (#sched/<id>): 설정 한눈에 → Flow(접고 펴기, 다른 루틴을 열어도 접힘 상태를 이어 간다) → 지시문 전문
 let flowOpen = true
@@ -67,16 +67,16 @@ export function TodaySched() {
   // 루틴 한 건 = 한 줄: 오늘 이미 돌았으면 결과, 아니면 오늘 예정 시각 (받은 목록이 오래돼 예정 시각이 지났으면 '지남')
   const rows = S.routines.items.flatMap(r => {
     const ran = isToday(r.last) && !(r.enabled && isToday(r.next) && r.next > r.last)
-    if (ran) return [{ t: r.last, name: r.name, href: '#sched/' + r.id, st: RESULT[r.result] || [r.result, ''] }]
+    if (ran) return [{ t: r.last, name: r.name, href: '#sched/' + r.id, st: [RESULT[r.result]?.[0] || r.result, RESULT[r.result]?.[2]] }]
     if (!r.enabled || !isToday(r.next)) return []
-    return [{ t: r.next, name: r.name, href: '#sched/' + r.id, st: new Date(r.next) > now ? ['예정', 'var(--acc)'] : ['지남', 'var(--mute)'] }]
-  }).concat(S.sessions.filter(j => isToday(j.next) && j.next > now).map(j => ({ t: j.next, name: `${j.session} · ${j.prompt}`, href: '', st: ['세션 예약', 'var(--mute)'] })))
+    return [{ t: r.next, name: r.name, href: '#sched/' + r.id, st: new Date(r.next) > now ? ['예정', 'info'] : ['지남'] }]
+  }).concat(S.sessions.filter(j => isToday(j.next) && j.next > now).map(j => ({ t: j.next, name: `${j.session} · ${j.prompt}`, href: '', st: ['세션 예약'] })))
     .sort((a, b) => new Date(a.t) - new Date(b.t))
   return <Card><div className="sh"><h2>오늘 예약 작업</h2>
     <a className="lk meta" href="#sched" style={{ fontWeight: 400 }}>예약 작업 전체 보기 →</a>
     {S.routines.at && <span className="meta" title="예약 작업 페이지에서 새로 받으면 바뀝니다">{when(S.routines.at)} 에 받은 목록 기준</span>}</div>
     {rows.length ? <ul className="tsl">{rows.map((x, i) => <li key={i}><time>{hm(x.t)}</time>
-      <Pill color={x.st[1]} title={x.st[0] === '지남' ? '예정 시각이 지났습니다. 예약 작업 페이지에서 새로 받으면 결과가 보입니다' : undefined}>{x.st[0]}</Pill>
+      <Pill tone={x.st[1]} title={x.st[0] === '지남' ? '예정 시각이 지났습니다. 예약 작업 페이지에서 새로 받으면 결과가 보입니다' : undefined}>{x.st[0]}</Pill>
       {x.href ? <a className="lk" href={x.href}>{x.name}</a> : <span>{x.name}</span>}</li>)}</ul>
       : <div className="meta">{S.routines.at ? '오늘 도는 예약 작업이 없습니다' : '예약 작업 목록을 아직 받지 않았습니다 — 예약 작업 페이지를 열면 받습니다'}</div>}
   </Card>

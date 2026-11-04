@@ -89,7 +89,7 @@ function Version() {
   }
   if (!V?.version) return null
   return newer(V.installed, V.version)
-    ? <><Pill color="var(--t-todo)" title="새 버전이 설치됐지만 지금 화면은 옛 버전이 띄우고 있습니다">v{V.version} → v{V.installed} 설치됨</Pill>
+    ? <><Pill tone="warning" title="새 버전이 설치됐지만 지금 화면은 옛 버전이 띄우고 있습니다">v{V.version} → v{V.installed} 설치됨</Pill>
       <Button variant="primary" disabled={busy} onClick={up} title={'대시보드를 바로 새 버전으로 바꿉니다. 바꾼 대시보드는 세션을 모두 꺼도 켜져 있습니다. ' + RELOAD}>
         {busy ? '바꾸는 중…' : '새 버전으로 바꾸기'}</Button></>
     : <span className="meta" title="이 화면을 띄운 플러그인 버전">v{V.version}</span>

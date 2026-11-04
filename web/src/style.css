@@ -65,6 +65,10 @@ h2{font-size:var(--fs-m);margin:0;color:var(--mute);font-weight:600;letter-spaci
 .tbl td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:top}.tbl tr:last-child td{border-bottom:0}
 .tbl td{white-space:nowrap}.tbl input,.tbl select:not(.pill){padding:3px 8px;font-size:var(--fs-s)}  /* 표 안 입력 칸은 작게 — 글자 줄과 높이를 맞춘다 */
 .pill{display:inline-flex;align-items:center;padding:1px 8px;border-radius:var(--r-full);font-size:var(--fs-s);background:var(--soft);white-space:nowrap}
+/* 꼬리표 Tone (Figma Pill). 어두운 화면은 Figma 그대로 상태 색 글자, 밝은 화면(코드만)은 대비 4.5:1 을 넘게 글자색 쪽으로 40% 섞는다 */
+.pill svg{width:12px;height:12px;margin-right:4px;flex-shrink:0}.pill.danger{background:var(--bad-bg);color:var(--on-bad-bg)}.pill.info{background:var(--acc-bg);color:var(--on-acc-bg)}
+.pill.success{background:var(--ok-bg);color:color-mix(in srgb,var(--ok),var(--fg) 40%)}.pill.warning{background:var(--wait-bg);color:color-mix(in srgb,var(--wait),var(--fg) 40%)}
+@media (prefers-color-scheme:dark){.pill.success{color:var(--ok)}.pill.warning{color:var(--wait)}}
 a.lk{color:var(--fg);font-weight:600;cursor:pointer;text-decoration:none}a.lk:hover{color:var(--acc)}
 .acts{white-space:nowrap}.acts button{margin-right:4px}.danger{color:var(--bad)}
 #side{overflow:hidden;border-left:1px solid var(--line);background:var(--card);position:relative;display:flex;flex-direction:column;min-width:0}

@@ -68,7 +68,7 @@ export function Pushes() {
 }
 
 // ── 이슈·PR: 나에게 할당된 Jira 이슈, 내 PR·리뷰 요청 PR (설정 ⚙ → 연결). API 를 아끼려고 자동 갱신 없이 [새로 고침] ──
-const JCAT = { new: 'var(--t-todo)', indeterminate: 'var(--acc)', done: 'var(--t-done)' }  // Jira 상태 분류 → 색
+const JCAT = { indeterminate: 'info', done: 'success' }  // Jira 상태 분류 → 꼬리표 Tone (할 일 new 는 기본)
 const Ext = ({ u, t }) => <a className="lk" href={u} target="_blank" rel="noopener">{t}</a>
 const Off = ({ e }) => <div className="meta">{e} <a className="lk" href="#settings">설정으로 가기</a></div>
 // 내 PR·리뷰 요청 두 표의 칸 폭을 고정해 제목 칸이 같은 자리에서 시작하게
@@ -110,7 +110,7 @@ export function Issues() {
       {!J ? <div className="meta">불러오는 중…</div> : J.error ? <Off e={J.error} /> : <Table>
         <tr><th>키</th><th>제목</th><th>상태</th><th>프로젝트</th><th>업데이트</th><th /></tr>
         {J.items.map(i => <Fragment key={i.key}><tr><td><Ext u={i.url} t={i.key} /></td><td style={{ whiteSpace: 'normal' }}>{i.title}</td>
-          <td><Pill color={JCAT[i.cat]}>{i.status}</Pill></td>
+          <td><Pill tone={JCAT[i.cat]}>{i.status}</Pill></td>
           <td className="meta">{i.project} · {i.type}</td><td className="meta">{when(i.updated)}</td>
           <td><Button onClick={() => setOpen(open === i.key ? '' : i.key)}>{open === i.key ? '닫기' : '맡기기'}</Button></td></tr>
           {open === i.key && <tr><td colSpan="6"><Assign k={i.key} /></td></tr>}</Fragment>)}
@@ -125,7 +125,7 @@ export function Issues() {
 }
 
 // ── 설정: 환경 변수. 쓸 때마다 읽는 값은 화면에서 바꾼다 (DB settings 표) ──
-const SRC = { screen:['화면에서 바꿈', 'var(--acc)'], env: ['환경 변수', ''], default: ['기본값', ''] }
+const SRC = { screen: ['화면에서 바꿈', 'info'], env: ['환경 변수'], default: ['기본값'] }  // [이름, 꼬리표 Tone]
 // 고칠 수 있는 값: 입력 칸 + 저장. 비우고 저장하면 환경 변수·기본값으로 돌아간다
 // 토큰(secret)은 칸을 미리 채우지 않고(서버도 끝 4글자만 준다), 빈 칸 저장 대신 [지우기] 로 지운다
 function SettingValue({ c, done, w }) {  // w: 입력 칸 폭 — 연결 칸은 모두 같은 폭으로
@@ -185,7 +185,7 @@ export function Settings() {
     <Table style={{ tableLayout: 'fixed', minWidth: 900 }}>
       <tr><th style={{ width: 360 }}>이름</th><th style={{ width: 320 }}>지금 값</th><th>설명</th></tr>
       {cs.filter(c => !LINK_NAMES.has(c.name)).map(c => <tr key={c.name}>
-        <td><code>{c.name}</code> <Pill style={{ fontSize: 'var(--fs-xs)' }} color={SRC[c.src]?.[1]}>{SRC[c.src]?.[0]}</Pill></td>
+        <td><code>{c.name}</code> <Pill style={{ fontSize: 'var(--fs-xs)' }} tone={SRC[c.src]?.[1]}>{SRC[c.src]?.[0]}</Pill></td>
         <td style={{ whiteSpace: 'normal', wordBreak: 'break-all' }}><SettingValue key={c.src + c.value} c={c} done={() => setN(n + 1)} /></td>
         <td className="meta" style={{ whiteSpace: 'normal' }}>{c.desc}</td></tr>)}
     </Table>
