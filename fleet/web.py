@@ -154,7 +154,11 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/api/project-spec":  # ?id= — 그 프로젝트 폴더의 기획명세서 HTML 을 연다 ([명세서 열기])
             row = next((p for p in para()["projects"] if str(p["id"]) == q.get("id")), None)
             f = row and spec_file(row)
-            return self.send(f.read_bytes(), "text/html") if f and f.is_file() else self.send({"error": "명세서가 없습니다"}, code=404)
+            try:
+                html = f.read_bytes() if f and f.is_file() else None
+            except PermissionError:  # macOS 는 터미널 앱에 문서·다운로드 폴더 권한이 없으면 막는다
+                return self.send({"error": f"macOS 가 이 폴더를 막아 명세서를 읽지 못했습니다: {f.parent}. 설정(⚙)에서 명세서 저장 폴더를 바꾸고 파일을 그 폴더로 옮기세요"}, code=403)
+            return self.send(html, "text/html") if html else self.send({"error": "명세서가 없습니다"}, code=404)
         if u.path == "/api/projects":  # 작업 줄의 프로젝트 고르기 칸
             return self.send(names())
         if u.path == "/api/config":

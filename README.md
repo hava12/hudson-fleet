@@ -203,7 +203,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 | `HUDSON_FLEET_SUMMARY_MODEL` | `haiku` | 작업 정리에 쓰는 모델 |
 | `HUDSON_FLEET_RETENTION_DAYS` | `0` | 1분 지표(samples) 보관 일수. `0` 이면 지우지 않음 |
 | `HUDSON_FLEET_TERMINAL` | `Ghostty` | 끝난 세션을 다시 열 터미널 앱: `Ghostty` 또는 `Terminal` |
-| `HUDSON_FLEET_SPEC_DIR` | `~/Documents/hudson-fleet-specs` | 기획명세서를 저장할 폴더. 파일 이름은 `<프로젝트 이름>-기획명세서.html` (설정 화면에서 바꿀 수 있음) |
+| `HUDSON_FLEET_SPEC_DIR` | `~/hudson-fleet-specs` | 기획명세서를 저장할 폴더. 파일 이름은 `<프로젝트 이름>-기획명세서.html` (설정 화면에서 바꿀 수 있음) |
 | `HUDSON_FLEET_GIST` | (비움) | 프로필 카드를 30분마다 덮어쓸 Gist id. 비우면 끔 |
 | `HUDSON_FLEET_GIST_USER` | (비움) | Gist 를 올릴 `gh` 계정. 비우면 `gh` 의 현재 계정 |
 | `HUDSON_FLEET_GITHUB_ON` · `HUDSON_FLEET_JIRA_ON` | `0` | 연결 사용 여부. 설정(⚙) → **연결** 칸의 '사용' 확인란. 켜야 입력 칸이 보이고 쓰입니다. 꺼도 넣어 둔 값은 남습니다 |
