@@ -9,8 +9,8 @@ from functools import lru_cache
 from pathlib import Path
 
 from .config import CFG, INTERNAL, SESSIONS, claude
-from .db import db
-from .transcripts import model_of, overview, subagents, transcript
+from .db import db, my_title
+from .transcripts import model_of, overview, subagents, title_of, transcript
 
 
 _mcp = {"at": 0, "data": []}
@@ -102,7 +102,7 @@ def graph():
         if s.get("pid") and (app := host_app(s["pid"])):
             s["app"] = Path(app).stem
         nodes["p:" + cwd] = {"type": "project", "label": os.path.basename(cwd) or cwd}
-        nodes["s:" + sid] = {"type": "session", "label": s.get("name") or s.get("id"),
+        nodes["s:" + sid] = {"type": "session", "label": s.get("name") or s.get("id"), "title": my_title(sid) or title_of(sid),
                              "status": s.get("status") or s.get("state", ""), **s, **model_of(sid)}
         edges.add(("p:" + cwd, "s:" + sid))
         for aid, desc, p in subagents(sid):

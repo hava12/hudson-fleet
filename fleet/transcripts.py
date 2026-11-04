@@ -39,6 +39,33 @@ def model_of(sid):
     return {}
 
 
+_titles = {}
+
+
+def title_of(sid):
+    """직접 붙인 제목(customTitle) 또는 AI 제목(aiTitle). 그래프가 5초마다 부르므로 지난번에 읽은 곳 뒤에 붙은 줄만 읽는다 (기록이 수백 MB)."""
+    p = transcript(sid)
+    if not p:
+        return ""
+    pos, custom, ai = _titles.get(p, (0, "", ""))
+    if p.stat().st_size < pos:  # 기록이 줄었다 — 처음부터
+        pos, custom, ai = 0, "", ""
+    with p.open("rb") as f:
+        f.seek(pos)
+        for line in f:
+            if not line.endswith(b"\n"):  # 아직 쓰는 중인 줄은 다음에
+                break
+            pos += len(line)
+            if b'Title"' in line:
+                try:
+                    rec = json.loads(line)
+                except ValueError:
+                    continue
+                custom, ai = rec.get("customTitle") or custom, rec.get("aiTitle") or ai
+    _titles[p] = (pos, custom, ai)
+    return custom or ai
+
+
 def subagents(sid):
     """[(agentId, 설명, jsonl 경로)] — 기록 위치: <sid>/subagents/agent-<id>.jsonl"""
     path = transcript(sid)
@@ -113,3 +140,21 @@ def token_rows(paths):
             seen.add(mid)  # 응답 하나가 내용 블록마다 기록돼 같은 usage 가 반복된다
             yield rec["timestamp"], u.get("input_tokens", 0) + u.get("cache_creation_input_tokens", 0) \
                 + u.get("output_tokens", 0)
+
+
+if __name__ == "__main__":  # 확인: python3 -m fleet.transcripts
+    import tempfile
+    from unittest import mock
+    f = Path(tempfile.mkdtemp()) / "t.jsonl"
+    with mock.patch(__name__ + ".transcript", lambda sid: f):
+        f.write_text('{"type":"user"}\n{"type":"ai-title","aiTitle":"첫 제목"}\n{"type":"ai-title","aiTi')
+        assert title_of("x") == "첫 제목"  # 쓰는 중인 줄은 건너뛴다
+        with f.open("a") as w:
+            w.write('tle":"새 제목"}\n')
+        assert title_of("x") == "새 제목"  # 다음에 그 줄부터 이어 읽는다
+        with f.open("a") as w:
+            w.write('{"type":"custom-title","customTitle":"내 제목"}\n{"type":"ai-title","aiTitle":"그 뒤 AI 제목"}\n')
+        assert title_of("x") == "내 제목"  # 직접 붙인 제목이 AI 제목보다 앞선다
+        f.write_text('{"type":"ai-title","aiTitle":"다시"}\n')
+        assert title_of("x") == "다시"  # 기록이 줄면 처음부터
+    print("ok")

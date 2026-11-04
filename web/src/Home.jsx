@@ -6,7 +6,7 @@ import { TodaySched } from './Sched'
 import { Button, Card } from './ui'
 
 // 세션 노드는 자리만 카드 크기로 잡고, 그 위에 카드(SessionCard)를 겹친다 (노드 이름표로는 줄마다 모양을 줄 수 없다)
-const NW = 300, NH = 148  // NH 는 .ncard 글자 크기·줄 간격(13px × 1.6, 제목 + 4줄)에 맞춘다. 글자를 키우면 같이 키운다
+const NW = 300, NH = 173  // NH 는 .ncard 글자 크기·줄 간격(13px × 1.6, 제목 + 5줄)에 맞춘다. 글자를 키우면 같이 키운다
 const STYLE = [
   { selector: 'node', style: { shape: 'round-rectangle', label: 'data(short)', width: 'data(w)', height: 'data(h)', 'font-size': () => tok('var(--fs-xs)'), color: () => tok('var(--on-fill)'), 'text-wrap': 'wrap', 'line-height': 1.5,
     'text-valign': 'center', 'text-halign': 'center', 'background-color': e => tok(e.data('type') === 'session' ? GINFO[grp(e.data('status'))][1] : FILL[e.data('type')]), 'border-width': 0 } },
@@ -27,8 +27,9 @@ function SessionCard({ e, n, u = {}, on, home, faded, agents, onOpen }) {
   return (
     <div className={`ncard ${grp(n.status)}${on ? ' on' : ''}${faded ? ' faded' : ''}${e ? '' : ' li'}`} {...onOpen && press(onOpen)}
       style={{ '--c': col, ...b && { left: b.x1, top: b.y1, width: NW, height: NH, transform: `scale(${e.cy().zoom()})` } }}>
-      <b><Dot c={col} /><span className="nm">{n.label}</span>{n.model && <span className="mdl">{modelName(n.model)}{n.effort ? ' · ' + n.effort : ''}</span>}</b>
+      <b><Dot c={col} /><span className="nm">{n.title || n.label}</span>{n.model && <span className="mdl">{modelName(n.model)}{n.effort ? ' · ' + n.effort : ''}</span>}</b>
       <dl>
+        {n.title && n.title !== n.label && <><dt>세션 이름</dt><dd>{n.label}</dd></>}
         <dt>실행 앱</dt><dd>{n.kind === 'background' ? '백그라운드' : n.app || '?'}</dd>
         <dt>실행 위치</dt><dd title={n.cwd}>{tilde(n.cwd, home)}</dd>
         {n.ctx > 0 && <><dt>컨텍스트</dt><dd><span className="bar"><i style={{ width: Math.min(r * 100, 100) + '%', background: r > .8 ? 'var(--warn)' : 'var(--c)' }} /></span>
