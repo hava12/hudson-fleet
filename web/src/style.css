@@ -49,7 +49,7 @@ h2{font-size:var(--fs-m);margin:0;color:var(--mute);font-weight:600;letter-spaci
 .ncard{position:absolute;transform-origin:0 0;pointer-events:none;z-index:5;box-sizing:border-box;background:var(--card);border:1px solid var(--line);
   border-top:3px solid var(--c);border-radius:var(--r-m);box-shadow:0 6px 20px rgba(0,0,0,.25);padding:10px 12px;font-size:var(--fs-s)}
 .ncard b{display:flex;align-items:center;gap:6px;font-size:var(--fs-s);margin-bottom:8px;white-space:nowrap}
-.ncard b .dot,.ncard .mdl{flex-shrink:0}.ncard .mdl{margin-left:auto;font-size:var(--fs-xs);font-weight:400;color:var(--mute)}
+.ncard b .dot{flex-shrink:0}
 .ncard .nm{min-width:0;overflow:hidden;text-overflow:ellipsis}  /* 긴 세션 이름(맡기기의 '키 제목')은 카드 안에서 … 으로 자른다 */
 .ncard dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0}.ncard dt{color:var(--mute)}
 .ncard dd{min-width:0;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

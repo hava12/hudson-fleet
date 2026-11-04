@@ -27,10 +27,10 @@ function SessionCard({ e, n, u = {}, on, home, faded, agents, onOpen }) {
   return (
     <div className={`ncard ${grp(n.status)}${on ? ' on' : ''}${faded ? ' faded' : ''}${e ? '' : ' li'}`} {...onOpen && press(onOpen)}
       style={{ '--c': col, ...b && { left: b.x1, top: b.y1, width: NW, height: NH, transform: `scale(${e.cy().zoom()})` } }}>
-      <b><Dot c={col} /><span className="nm">{n.title || n.label}</span>{n.model && <span className="mdl">{modelName(n.model)}{n.effort ? ' · ' + n.effort : ''}</span>}</b>
+      <b><Dot c={col} /><span className="nm">{n.title || n.label}</span></b>
       <dl>
         {n.title && n.title !== n.label && <><dt>세션 이름</dt><dd>{n.label}</dd></>}
-        <dt>실행 앱</dt><dd>{n.kind === 'background' ? '백그라운드' : n.app || '?'}</dd>
+        <dt>실행 앱</dt><dd>{n.kind === 'background' ? '백그라운드' : n.app || '?'}{n.model && <span className="meta"> · {modelName(n.model)}{n.effort ? ' · ' + n.effort : ''}</span>}</dd>
         <dt>실행 위치</dt><dd title={n.cwd}>{tilde(n.cwd, home)}</dd>
         {n.ctx > 0 && <><dt>컨텍스트</dt><dd><span className="bar"><i style={{ width: Math.min(r * 100, 100) + '%', background: r > .8 ? 'var(--warn)' : 'var(--c)' }} /></span>
           {Math.round(r * 100)}% <span className="meta">· {fmtTok(n.ctx)} / {fmtTok(n.ctxMax)}</span></dd></>}
