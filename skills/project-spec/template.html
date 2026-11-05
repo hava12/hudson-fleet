@@ -1,39 +1,65 @@
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{프로젝트} 기획명세서</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&family=Noto+Serif+KR:wght@400;700&display=swap">
 <style>
-:root{--bg:#f5f6f8;--paper:#fff;--ink:#1c2028;--muted:#5f6775;--line:#dde1e7;--accent:#2d5fa8;
---done:#2f7d5b;--done-bg:#e3f2ea;--wip:#9a5b12;--wip-bg:#fbeedd;--plan:#6b7280;--plan-bg:#eceef1}
-@media (prefers-color-scheme:dark){:root{--bg:#12151b;--paper:#191d25;--ink:#e6e9ef;--muted:#9aa3b2;--line:#2b313c;
---accent:#8db4f0;--done:#6fcf9f;--done-bg:#183026;--wip:#f0b86a;--wip-bg:#3a2a17;--plan:#a3abb8;--plan-bg:#242a34;color-scheme:dark}}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.7 "Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",sans-serif}
-.wrap{max-width:980px;margin:0 auto;padding:40px 16px 80px;display:grid;gap:24px}
-header{display:grid;gap:8px} .panel{display:grid;gap:24px;min-width:0} [hidden]{display:none!important}
-section{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:24px;display:grid;gap:12px;min-width:0}
-h1{margin:0;font-size:clamp(28px,5vw,40px)} h2{margin:0;font-size:22px} h3{margin:8px 0 0;font-size:16px}
-.meta,.muted{color:var(--muted);font-size:13px} p{margin:0}
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-top:8px}
-.tabs button{font:inherit;font-weight:600;padding:8px 18px;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;background:none;color:var(--muted);cursor:pointer;margin-bottom:-1px}
-.tabs button[aria-selected="true"]{color:var(--ink);background:var(--paper);border-color:var(--line)}
+:root{color-scheme:light;--desk:#dfe2e7;--bg:#eef0f4;--head:#e1e7f0;--paper:#fff;--ink:#16181d;--muted:#565d6a;--line:#b4bac5;--accent:#1f3a68;
+--mark:#fff3c4;--done:#2f7d5b;--wip:#9a5b12;--wip-bg:#fbeedd;--plan:#6b7280;
+--fs-title:38px;--fs-chapter:26px;--fs-topic:20px;--fs-item:17.5px;--fs-detail:15.5px;--fs-table:14.5px;--fs-note:14px;
+--serif:"Noto Serif KR",AppleMyungjo,Batang,serif;--sans:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+@media (max-width:600px){:root{--fs-title:30px;--fs-chapter:23px;--fs-topic:18.5px;--fs-item:16.5px;--fs-detail:15px;--fs-table:14px;--fs-note:13.5px}}
+body{margin:0;background:var(--desk);color:var(--ink);font:var(--fs-detail)/1.8 var(--serif);word-break:keep-all;overflow-wrap:break-word}
+h1,h2,h3,th,nav,summary,.tabs,.meta,.chip,.ref,.btns,.end,.gae b{font-family:var(--sans)}
+.wrap{box-sizing:border-box;width:min(988px,calc(100% - 32px));margin:32px auto 48px;padding:56px 64px 72px;display:grid;gap:24px;background:var(--paper);border:1px solid var(--line);box-shadow:0 2px 10px rgba(0,0,0,.12)}
+header{display:grid;gap:10px} .panel{min-width:0} .panel>*+*{margin-top:40px} [hidden]{display:none!important}
+section{padding-top:12px;display:grid;gap:12px;min-width:0}
+section,tr[id],li[id]{scroll-margin-top:64px} tr:target,li:target{background:var(--mark)}
+h1{order:1;margin:0;padding:20px 8px;background:var(--head);text-align:center;font-size:var(--fs-title);line-height:1.25;letter-spacing:.02em;border-top:3px solid var(--ink);border-bottom:1px solid var(--ink)}
+header>p{order:2;text-align:center;font-size:var(--fs-item)} header>.meta{order:3;text-align:right}
+h2{display:flex;align-items:center;gap:12px;margin:0;padding-bottom:8px;font-size:var(--fs-chapter);line-height:1.4;border-bottom:2px solid var(--accent)}
+h2 .no{display:inline-grid;place-items:center;min-width:38px;height:38px;padding:0 8px;box-sizing:border-box;background:var(--accent);color:var(--paper);font-size:.75em;white-space:nowrap}
+h3{margin:20px 0 0;font-size:var(--fs-topic);line-height:1.5} h3::before{content:"□ "}
+.meta,.muted{color:var(--muted);font-size:var(--fs-note)} p{margin:0}
+ul.gae{margin:0;padding-left:1.7em;list-style-type:"○ ";font-size:var(--fs-item)} .gae>li{margin:8px 0}
+.gae ul{margin:2px 0 0;padding-left:1.1em;list-style-type:"- ";font-size:var(--fs-detail)} .gae ul li{margin:2px 0}
+.note{color:var(--muted);font-size:var(--fs-note)} .note::before{content:"※ "} p.note{margin-left:1.9em}
+a.go{white-space:nowrap;color:var(--accent);text-underline-offset:2px;text-decoration-style:dotted}
+.jump{position:fixed;right:20px;bottom:20px;z-index:2;display:flex;gap:6px}
+.jump button{font:600 13px var(--sans);padding:6px 12px;border:1px solid var(--accent);background:var(--paper);color:var(--accent);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.ref{margin-left:6px;color:var(--muted);font-size:13px} .end{text-align:right;font-weight:700}
+.tabs{order:4;display:flex;gap:4px;border-bottom:2px solid var(--accent);margin-top:12px}
+.tabs button{font:inherit;font-weight:700;padding:8px 20px;border:1px solid var(--line);border-bottom:0;background:var(--bg);color:var(--muted);cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
 nav ul{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0}
-nav a{display:block;padding:3px 10px;border:1px solid var(--line);border-radius:999px;color:var(--ink);text-decoration:none;font-size:13px}
-.scroll{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:14px}
-th,td{text-align:left;vertical-align:top;padding:8px 10px;border-bottom:1px solid var(--line)} th{color:var(--muted);font-size:12px;white-space:nowrap}
-code{font:12.5px ui-monospace,Menlo,monospace;background:var(--bg);padding:1px 5px;border-radius:4px}
-.chip{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
-.done{color:var(--done);background:var(--done-bg)} .wip{color:var(--wip);background:var(--wip-bg)} .plan{color:var(--plan);background:var(--plan-bg)}
-pre.mermaid{background:var(--bg);border-radius:8px;padding:12px;margin:0;min-width:520px}
-.dep,.dep ul{list-style:none;margin:0;padding:0} .dep{font:13px/1.8 ui-monospace,Menlo,monospace;background:var(--bg);border-radius:8px;padding:12px 16px;overflow-x:auto}
+nav a{display:block;padding:3px 10px;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:13px}
+nav a.on{color:var(--accent);border-color:var(--accent);font-weight:600}
+@media (max-width:1099px){nav{position:sticky;top:0;z-index:1;padding:6px 0;background:var(--paper)} nav ul{flex-wrap:nowrap;overflow-x:auto} nav a{white-space:nowrap}}
+@media (min-width:1100px){.wrap{width:min(988px,calc(100% - 232px));margin-left:max(216px,calc(50% - 494px))}
+nav{position:fixed;top:32px;width:180px;margin-left:-260px;max-height:calc(100vh - 64px);overflow-y:auto;background:var(--paper);border:1px solid var(--line)}
+nav ul{flex-direction:column;flex-wrap:nowrap;gap:0}
+nav a{border:0;border-left:3px solid transparent;padding:5px 12px;color:var(--muted);font-size:14px}
+nav a:hover{color:var(--ink)}
+nav a.on{border-left-color:var(--accent);background:var(--head);font-weight:700}}
+.scroll{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:var(--fs-table);line-height:1.65;border-top:2px solid var(--ink);border-bottom:1px solid var(--ink)}
+th,td{text-align:left;vertical-align:top;padding:8px 10px;border:1px solid var(--line)} tr>:first-child{border-left:0} tr>:last-child{border-right:0}
+th{background:var(--head);font-size:var(--fs-note);text-align:center;white-space:nowrap}
+code{font:12.5px ui-monospace,Menlo,monospace;background:var(--bg);padding:1px 5px}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:0 6px;border:1px solid currentColor;white-space:nowrap}
+.done{color:var(--done)} .wip{color:var(--wip)} .plan{color:var(--plan)}
+pre.mermaid{box-sizing:border-box;width:fit-content;min-width:max(100%,520px);border:1px solid var(--line);padding:16px;margin:0;text-align:center}
+pre.mermaid .node polygon{fill:var(--wip-bg)!important;stroke:var(--wip)!important}
+.dep,.dep ul{list-style:none;margin:0;padding:0} .dep{font:13px/1.8 ui-monospace,Menlo,monospace;background:var(--bg);padding:12px 16px;overflow-x:auto}
 .dep ul{padding-left:20px} .dep li{position:relative;padding-left:16px;border-left:1px solid var(--line)} .dep li:last-child{border-left-color:transparent}
 .dep li::before{content:"";position:absolute;left:-1px;top:0;width:12px;height:.9em;border-left:1px solid var(--line);border-bottom:1px solid var(--line)}
 .dep summary{cursor:pointer} .dep .ver{color:var(--muted)}
-details.fold{border:1px solid var(--line);border-radius:8px;padding:0 14px}
-details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold[open]{padding-bottom:14px;display:grid;gap:10px}
-.btns{display:flex;gap:8px} .btns button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);cursor:pointer}
+details.fold{border:1px solid var(--line);padding:0 16px;min-width:0}
+details.fold summary{cursor:pointer;margin:0 -16px;padding:10px 16px;background:var(--bg);font-weight:700} details.fold[open]{padding-bottom:16px;display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+.btns{display:flex;gap:8px} .btns button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+@media (max-width:600px){body{background:var(--paper)} .wrap{width:auto;margin:0;padding:24px 16px 56px;border:0;box-shadow:none}}
 </style></head><body><div class="wrap">
 <!-- project-spec 스킬의 뼈대. 탭 두 개(기획 편·개발 편)와 장 순서·id·class 는 바꾸지 않는다.
-     { } 와 … 와 예시 줄은 실제 내용으로 바꾼다. 부록을 넣지 않으면 그 section 과 목차 링크를 지운다.
-     장마다 쓰는 법은 SKILL.md 의 같은 편·같은 번호 장을 본다. -->
+     { } 와 … 와 예시 줄은 실제 내용으로 바꾼다. 붙임을 넣지 않으면 그 section 과 목차 링크를 지운다.
+     장마다 쓰는 법은 SKILL.md 의 같은 편·같은 번호 장을, 글의 형식은 format.md 를 본다. -->
 <header><div class="meta">기획명세서 · v0.1</div><h1>{프로젝트}</h1><p>{한 줄 정의}</p>
 <div class="tabs" role="tablist" aria-label="편">
 <button type="button" role="tab" id="tab-plan" aria-controls="plan" aria-selected="true">기획 편</button>
@@ -52,27 +78,36 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <li><a href="#plan-open">미결 사항</a></li>
 </ul></nav>
 
-<section id="overview"><h2>1. 개요</h2>
-<div class="scroll"><table><tr><th>항목</th><th>내용</th></tr>
-<tr><td>한 줄 정의</td><td>…</td></tr><tr><td>대상</td><td>…</td></tr><tr><td>목적</td><td>…</td></tr>
-<tr><td>성공 기준</td><td>확인 필요(Q-01)</td></tr><tr><td>범위(포함)</td><td>…</td></tr><tr><td>범위(제외)</td><td>…</td></tr>
-<tr><td>현재 상태</td><td><span class="chip done">완료 N</span> <span class="chip wip">개발 중 N</span> <span class="chip plan">예정 N</span></td></tr>
-<tr><td>저장소</td><td><code>…</code></td></tr></table></div>
+<section id="overview"><h2><span class="no">1</span>개요</h2>
+<h3>목적</h3>
+<ul class="gae"><li>…
+<ul><li><b>(소제목)</b> …</li></ul></li></ul>
+<h3>대상</h3>
+<ul class="gae"><li>…</li></ul>
+<h3>범위</h3>
+<ul class="gae"><li><b>(포함)</b> …</li><li><b>(제외)</b> …</li></ul>
+<h3>성공 기준</h3>
+<ul class="gae"><li>…</li></ul>
+<p class="note">확인 필요: 수치 기준(Q-01)</p>
+<h3>현재 상태</h3>
+<ul class="gae"><li>기능 N개 중 완료 N개, 개발 중 N개, 예정 N개</li><li>저장소: <code>…</code></li></ul>
+<details class="fold"><summary>붙임 1. {제목}</summary>
+<div class="scroll"><table><tr><th>…</th><th>…</th></tr><tr><td>…</td><td>…</td></tr></table></div></details>
 </section>
 
-<section id="terms"><h2>2. 용어 정의</h2>
+<section id="terms"><h2><span class="no">2</span>용어 정의</h2>
 <div class="scroll"><table><tr><th>용어</th><th>뜻</th><th>코드 이름</th><th>같은 뜻의 다른 이름</th></tr>
 <tr><td>작업</td><td>사용자가 맡긴 일 한 건</td><td><code>Task</code></td><td>할 일, 태스크</td></tr></table></div>
 </section>
 
-<section id="roles"><h2>3. 역할과 권한</h2>
+<section id="roles"><h2><span class="no">3</span>역할과 권한</h2>
 <p>{역할1}: 한 줄 정의 · {역할2}: 한 줄 정의</p>
 <div class="scroll"><table><tr><th>기능</th><th>{역할1}</th><th>{역할2}</th></tr>
 <tr><td>F-01 …</td><td>○</td><td>×</td></tr></table></div>
 <p class="muted">○ 가능 · × 불가 · △ 조건부(조건은 이 줄 아래에 적는다). 권한 검사 위치: …</p>
 </section>
 
-<section id="screens"><h2>4. 화면</h2>
+<section id="screens"><h2><span class="no">4</span>화면</h2>
 <div class="scroll"><table><tr><th>번호</th><th>화면</th><th>주소·진입 경로</th><th>쓰는 역할</th><th>관련 기능</th></tr>
 <tr><td>S-01</td><td>…</td><td><code>/…</code></td><td>…</td><td>F-01</td></tr></table></div>
 <div class="btns"><button type="button" data-all="open">모두 펼치기</button><button type="button" data-all="close">모두 접기</button></div>
@@ -81,28 +116,34 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <tr><td>"저장"</td><td>버튼</td><td>…</td><td>…</td></tr></table></div></details>
 </section>
 
-<section id="features"><h2>5. 기능 명세</h2>
+<section id="features"><h2><span class="no">5</span>기능 명세</h2>
 <h3>{묶음 이름}</h3>
-<div class="scroll"><table><tr><th>번호</th><th>기능</th><th>내용</th><th>화면</th><th>근거</th><th>상태</th></tr>
-<tr><td>F-01</td><td>…</td><td>… (P-01)</td><td>S-01</td><td><code>파일:줄</code></td><td><span class="chip done">완료</span></td></tr></table></div>
+<p class="note">이 묶음의 근거는 모두 <code>…</code>이고, 상태는 모두 완료임</p>
+<ul class="gae">
+<li><b>F-01 {기능 이름}</b><span class="ref">화면 S-01</span>
+<ul><li>…(P-01)</li></ul>
+<div class="note">임시안: …</div><div class="note">확인 필요: …(Q-02)</div></li>
+<li><b>F-02 {기능 이름}</b><span class="ref">화면 S-01 · <code>파일:줄</code></span> <span class="chip wip">개발 중</span>
+<ul><li>…</li></ul></li>
+</ul>
 </section>
 
-<section id="policies"><h2>6. 정책</h2>
+<section id="policies"><h2><span class="no">6</span>정책</h2>
 <div class="scroll"><table><tr><th>번호</th><th>정책</th><th>값</th><th>적용 기능</th><th>근거</th></tr>
 <tr><td>P-01</td><td>…</td><td>30분</td><td>F-01</td><td><code>파일:줄</code></td></tr></table></div>
 </section>
 
-<section id="flows"><h2>7. 기능별 플로우차트</h2>
+<section id="flows"><h2><span class="no">7</span>기능별 플로우차트</h2>
 <div class="btns"><button type="button" data-all="open">모두 펼치기</button><button type="button" data-all="close">모두 접기</button></div>
 <details class="fold"><summary>F-01 {기능 이름} · <span class="chip done">완료</span> · 한 줄 요약</summary>
 <div class="scroll"><pre class="mermaid">flowchart TD
-  A["사용자가 저장을 누름 [화면]"] --> B{"입력이 맞나 [서버]"}
+  A["사용자가 저장을 누름 [화면]"] --> B{{"입력이 맞나 [서버]"}}
   B -- "예" --> C["저장 [DB]"] --> D["저장됨 표시 [화면]"]
   B -- "아니오" --> E["오류 문구 표시 [화면]"]</pre></div>
 <p class="muted">설명 한 줄</p></details>
 </section>
 
-<section id="states"><h2>8. 상태 변화</h2>
+<section id="states"><h2><span class="no">8</span>상태 변화</h2>
 <div class="btns"><button type="button" data-all="open">모두 펼치기</button><button type="button" data-all="close">모두 접기</button></div>
 <details class="fold"><summary>{대상} 상태 · 상태 N개</summary>
 <div class="scroll"><pre class="mermaid">stateDiagram-v2
@@ -115,15 +156,16 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <tr><td>할 일(<code>todo</code>)</td><td>사용자가 끝냄</td><td>완료(<code>done</code>)</td><td><code>파일:줄</code></td></tr></table></div></details>
 </section>
 
-<section id="errors"><h2>9. 예외와 오류</h2>
+<section id="errors"><h2><span class="no">9</span>예외와 오류</h2>
 <div class="scroll"><table><tr><th>번호</th><th>상황</th><th>사용자가 보는 것</th><th>시스템 처리</th><th>관련 기능</th><th>근거</th></tr>
 <tr><td>E-01</td><td>…</td><td>"…"</td><td>…</td><td>F-01</td><td><code>파일:줄</code></td></tr></table></div>
 </section>
 
-<section id="plan-open"><h2>10. 미결 사항</h2>
+<section id="plan-open"><h2><span class="no">10</span>미결 사항</h2>
 <div class="scroll"><table><tr><th>번호</th><th>확인할 것</th><th>나온 곳</th><th>물어볼 사람</th><th>상태</th></tr>
 <tr><td>Q-01</td><td>성공 기준</td><td>1장 개요</td><td>기획</td><td><span class="chip wip">열림</span></td></tr></table></div>
 </section>
+<p class="end">끝.</p>
 </div>
 
 <!-- ━━━━━━━━━━ 개발 편: 어떻게 만들었나 ━━━━━━━━━━
@@ -133,10 +175,10 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <p class="meta">개발 편 · 기준일 YYYY-MM-DD</p>
 <nav><ul>
 <li><a href="#architecture">아키텍처</a></li><li><a href="#erd">ERD</a></li><li><a href="#history">히스토리</a></li>
-<li><a href="#dev-open">미결 사항</a></li><li><a href="#api">부록 A. API</a></li><li><a href="#code">부록 B. 코드 구조</a></li>
+<li><a href="#dev-open">미결 사항</a></li><li><a href="#api">붙임 A. API</a></li><li><a href="#code">붙임 B. 코드 구조</a></li>
 </ul></nav>
 
-<section id="architecture"><h2>1. 시스템 아키텍처</h2>
+<section id="architecture"><h2><span class="no">1</span>시스템 아키텍처</h2>
 <h3>연결 구조</h3>
 <div class="scroll"><pre class="mermaid">flowchart LR
   U["사용자 브라우저"] -- "HTTPS" --> S["서버"]
@@ -158,7 +200,7 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <tr><td>배포 환경</td><td>…</td></tr><tr><td>환경 변수(이름만)</td><td><code>…</code></td></tr><tr><td>보안 장치</td><td>…</td></tr></table></div>
 </section>
 
-<section id="erd"><h2>2. ERD</h2>
+<section id="erd"><h2><span class="no">2</span>ERD</h2>
 <div class="scroll"><pre class="mermaid">erDiagram
   PROJECT ||--o{ TASK : "가진다"
   PROJECT {
@@ -174,7 +216,7 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <tr><td><code>id</code></td><td>INTEGER</td><td>PK</td><td>…</td></tr></table></div>
 </section>
 
-<section id="history"><h2>3. 진행 히스토리</h2>
+<section id="history"><h2><span class="no">3</span>진행 히스토리</h2>
 <div class="scroll"><table><tr><th>날짜</th><th>한 일</th><th>근거</th></tr>
 <tr><td>YYYY-MM-DD</td><td>…</td><td><code>#id</code> · <code>abc1234</code></td></tr></table></div>
 <h3>다음 할 일</h3>
@@ -182,18 +224,18 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <tr><td>…</td><td>개발</td><td><span class="chip plan">예정</span></td></tr></table></div>
 </section>
 
-<section id="dev-open"><h2>4. 미결 사항</h2>
+<section id="dev-open"><h2><span class="no">4</span>미결 사항</h2>
 <div class="scroll"><table><tr><th>번호</th><th>확인할 것</th><th>나온 곳</th><th>물어볼 사람</th><th>상태</th></tr>
 <tr><td>Q-02</td><td>…</td><td>2장 ERD</td><td>개발</td><td><span class="chip wip">열림</span></td></tr></table></div>
 </section>
 
-<section id="api"><h2>부록 A. API 명세</h2>
+<section id="api"><h2><span class="no">붙임 A</span>API 명세</h2>
 <h3>{묶음 이름}</h3>
 <div class="scroll"><table><tr><th>메서드</th><th>주소</th><th>하는 일</th><th>보내는 값</th><th>받는 값</th><th>권한</th><th>근거</th></tr>
 <tr><td>GET</td><td><code>/api/…</code></td><td>…</td><td><code>id: 숫자</code></td><td>…</td><td>…</td><td><code>파일:줄</code></td></tr></table></div>
 </section>
 
-<section id="code"><h2>부록 B. 코드 구조</h2>
+<section id="code"><h2><span class="no">붙임 B</span>코드 구조</h2>
 <h3>폴더 지도</h3>
 <div class="scroll"><table><tr><th>폴더·파일</th><th>맡는 일</th><th>줄 수</th></tr>
 <tr><td><code>…</code></td><td>…</td><td>…</td></tr></table></div>
@@ -207,13 +249,19 @@ details.fold summary{cursor:pointer;padding:10px 0;font-weight:600} details.fold
 <div class="scroll"><table><tr><th>위치</th><th>무엇이 문제인가</th><th>근거</th></tr>
 <tr><td><code>파일:줄</code></td><td>…</td><td>…</td></tr></table></div>
 </section>
+<p class="end">끝.</p>
 </div>
 
 <p class="muted">도식이 글로만 보이면 인터넷 연결을 확인하세요(mermaid 를 불러와 그립니다).</p>
 </div>
 <script type="module">
 import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
-mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default" });
+// 도식 색은 문서 색 토큰을 그대로 쓴다
+const token = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base", flowchart: { nodeSpacing: 28, rankSpacing: 36, padding: 10, wrappingWidth: 260 }, er: { useMaxWidth: false },
+  themeVariables: { background: token("--paper"), primaryColor: token("--bg"), primaryBorderColor: token("--muted"),
+    primaryTextColor: token("--ink"), secondaryColor: token("--bg"), tertiaryColor: token("--paper"), lineColor: token("--muted"), textColor: token("--ink"), edgeLabelBackground: token("--paper"),
+    fontFamily: token("--sans"), fontSize: "14px" } });
 // 보이는 도식만 그린다. 접힌 칸·숨은 탭 안의 도식은 크기를 잴 수 없어 깨지므로 펼치거나 탭을 열 때 그린다.
 // 여러 개를 한꺼번에 펼쳐도 한 번에 하나씩 그린다(동시에 그리면 일부가 오류로 깨진다)
 let queue = Promise.resolve();
@@ -242,12 +290,66 @@ tabs.forEach((t, i) => {
     if (step) { const n = tabs[(i + step + tabs.length) % tabs.length]; n.focus(); n.click(); }
   });
 });
+// 번호(F-01 등)의 자리는 표 첫 칸이나 항목 이름이다. 줄을 나누지 않고, 본문의 같은 번호는 그 자리로 가는 연결로 바꾼다
+const place = (el, id) => { if (!document.getElementById(id)) el.id = id; };
+document.querySelectorAll("td").forEach((c) => {
+  const t = c.textContent.trim();
+  if (!/^[SFPEQ]-\d+$/.test(t)) return;
+  c.style.whiteSpace = "nowrap";
+  if (!c.previousElementSibling) place(c.parentElement, t);
+});
+document.querySelectorAll(".gae>li>b").forEach((b) => { const m = b.textContent.match(/^[SFPEQ]-\d+/); if (m) place(b.parentElement, m[0]); });
+const walker = document.createTreeWalker(document.querySelector(".wrap"), NodeFilter.SHOW_TEXT, {
+  acceptNode: (n) => (n.parentElement.closest("pre, code, a, summary, button") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) });
+const texts = [];
+while (walker.nextNode()) texts.push(walker.currentNode);
+texts.forEach((n) => {
+  const f = document.createDocumentFragment();
+  let last = 0;
+  for (const m of n.data.matchAll(/\b[SFPEQ]-\d+\b/g)) {
+    const to = document.getElementById(m[0]);
+    if (!to || to.contains(n)) continue; // 없는 번호와 자기 자리는 글자로 둔다
+    f.append(n.data.slice(last, m.index), Object.assign(document.createElement("a"), { href: "#" + m[0], className: "go", textContent: m[0] }));
+    last = m.index + m[0].length;
+  }
+  if (last) { f.append(n.data.slice(last)); n.replaceWith(f); }
+});
+// 목차 끝에 다른 편으로 가는 연결을 붙인다
+tabs.forEach((t) => {
+  const other = tabs.find((x) => x !== t);
+  document.getElementById(t.getAttribute("aria-controls")).querySelector("nav ul")?.insertAdjacentHTML("beforeend",
+    `<li><a href="#${other.getAttribute("aria-controls")}">${other.textContent} →</a></li>`);
+});
 const fromHash = () => {
   const el = location.hash && document.getElementById(location.hash.slice(1));
   const panel = el && el.closest('[role="tabpanel"]');
   show(panel ? panel.id : tabs[0].getAttribute("aria-controls"));
-  if (panel && el !== panel) el.scrollIntoView();
+  if (!panel) return;
+  for (let d = el.closest("details"); d; d = d.parentElement.closest("details")) d.open = true;
+  el.scrollIntoView();
 };
 addEventListener("hashchange", fromHash);
+// 떠 있는 이동 버튼: 번호로 옮겨 갔으면 읽던 곳으로 돌아가고, 언제든 맨 위로 간다
+document.body.insertAdjacentHTML("beforeend", '<div class="jump"><button type="button" hidden>← 읽던 곳으로</button><button type="button">↑ 맨 위로</button></div>');
+const [back, up] = document.querySelectorAll(".jump button");
+const trail = [];
+document.addEventListener("click", (e) => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a) return;
+  if (a.matches(".go")) { trail.push([document.querySelector('[role="tabpanel"]:not([hidden])').id, scrollY]); back.hidden = false; }
+  if (a.hash === location.hash) { e.preventDefault(); fromHash(); } // 같은 주소를 또 누르면 주소가 바뀌지 않아 직접 옮긴다
+});
+back.addEventListener("click", () => {
+  const [tab, y] = trail.pop();
+  show(tab);
+  scrollTo(0, y);
+  back.hidden = !trail.length;
+});
+up.addEventListener("click", () => scrollTo(0, 0));
 fromHash();
+// 목차에서 지금 읽는 장을 표시한다
+const spy = new IntersectionObserver((seen) => seen.forEach((e) => {
+  if (e.isIntersecting) document.querySelectorAll("nav a").forEach((a) => a.classList.toggle("on", a.hash === "#" + e.target.id));
+}), { rootMargin: "0px 0px -50% 0px" });
+document.querySelectorAll("section[id]").forEach((x) => spy.observe(x));
 </script></body></html>
