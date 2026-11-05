@@ -42,7 +42,7 @@ function SpecBar({ p, save }) {
   const make = async () => { const x = await post('/api/project-spec', { id: p.id }); if (x.error) setMsg(x.error); bump() }
   const exists = s.exists && !s.making
   return <div className="meta" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
-    <b>기획명세서</b><span title="명세서가 읽을 코드 폴더">{s.folder ? tilde(s.folder, G.home) + (s.auto ? ' (작업 기록에서 고름)' : '') : '코드 폴더를 찾지 못했습니다'}</span>
+    <b>기획명세서</b><span title="명세서가 읽을 코드 폴더">{s.folder ? tilde(s.folder, G.home) + (s.auto ? ' (작업 기록에서 고름)' : '') : "코드 폴더를 찾지 못했습니다. 새 프로젝트면 채팅에서 '기획명세서 만들어 줘'로 시작하세요"}</span>
     <Button onClick={pick}>코드 폴더 바꾸기</Button>
     <Button variant={exists ? undefined : 'primary'} disabled={!s.folder || s.making} onClick={make}
       title="프로젝트 폴더에서 Claude(Sonnet)가 project-spec 스킬로 명세서를 만들거나 고칩니다 (몇 분)">{s.making ? '만드는 중… (몇 분)' : '명세서 업데이트'}</Button>

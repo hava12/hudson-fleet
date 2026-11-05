@@ -66,6 +66,15 @@ def code_folder(p):
     return (row[0] if row and os.path.isdir(row[0]) else None), True
 
 
+def has_code(folder):
+    """README·LICENSE·숨김 파일 말고 다른 파일이 있나. 없으면 범위부터 정해야 하는 새 프로젝트다."""
+    # ponytail: 폴더 맨 위 이름만 본다. 뼈대(package.json 등)만 있어도 코드로 치고, 그때는 스킬이 범위를 '확인 필요'로 남긴다
+    try:
+        return any(not f.name.startswith(".") and not f.name.upper().startswith(("README", "LICENSE")) for f in Path(folder).iterdir())
+    except OSError:  # macOS 보호 폴더 등 — 여기서 막지 않고 실행에 맡긴다
+        return True
+
+
 def spec_info(p):
     """화면용: 코드 폴더(기록에서 골랐는지), 명세서 파일 경로·있는지·고친 시각, 만드는 중인지, 마지막 오류."""
     (folder, auto), f, st = code_folder(p), spec_file(p), _spec.get(p["id"], {})
@@ -97,6 +106,8 @@ def make_spec(pid):
     folder, _ = code_folder(p[0])
     if not folder or not os.path.isdir(folder):
         return {"error": "코드 폴더를 찾지 못했습니다 (작업 기록이 없음). [코드 폴더 바꾸기] 로 정하세요"}
+    if not has_code(folder):  # 버튼으로는 범위를 물을 수 없다
+        return {"error": "코드가 없는 새 프로젝트는 범위를 먼저 정해야 합니다. 채팅에서 '기획명세서 만들어 줘'로 시작하세요"}
     if "making" in _spec.get(pid, {}):
         return {"error": "이미 만드는 중입니다"}
     started, out = time.time(), spec_file(p[0])
@@ -311,6 +322,8 @@ def delete_resource(rid):
 
 
 if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m fleet.para
+    import tempfile
+
     from .tasks import add_task
     assert save_area({"name": ""}) and save_area({"name": "백엔드", "keep": "장애 0"}) is None
     assert save_area({"name": "백엔드"}) == "같은 이름의 영역이 있습니다"
@@ -357,4 +370,10 @@ if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m
     assert s["folder"] == os.getcwd() and s["auto"] and s["file"].endswith("/결제 교체-기획명세서.html") and not s["exists"]
     assert set_folder(q["id"], "/tmp") is None and not para()["projects"][0]["spec"]["auto"] and set_folder(q["id"], "/없는/폴더")
     assert spec_file({"id": 3, "name": "a/b: c"}).name == "a-b- c-기획명세서.html"
+    d = Path(tempfile.mkdtemp())
+    (d / "README.md").write_text("계획")
+    (d / ".git").mkdir()
+    assert set_folder(q["id"], str(d)) is None and "채팅" in make_spec(q["id"])["error"]  # 코드가 없으면 Claude 를 띄우지 않는다
+    (d / "main.py").write_text("")
+    assert has_code(d) and has_code(d / "없는 폴더")  # 읽지 못하면 실행에 맡긴다
     print("ok")

@@ -270,7 +270,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 |---|---|
 | `GET /api/sessions?status=closed\|work\|wait\|idle&limit=50` | 세션과 작업 목록 (지운 기록은 빠짐) |
 | `POST /api/session/delete` | 끝난 세션 기록 지우기 `{sid}` (soft delete). 끝난 세션이 아니거나 이미 지웠으면 `{error}` |
-| `POST /api/project-spec` | [명세서 업데이트]: 코드 폴더(직접 정한 폴더, 없으면 작업 기록에서 고른 폴더)에서 Claude(Sonnet)를 뒤에서 실행해 `project-spec` 스킬로 설정의 명세서 폴더에 `<프로젝트 이름>-기획명세서.html` 을 만들거나 고친다 `{id}` → `{ok}` 또는 `{error}`. 상태는 `GET /api/para` 의 프로젝트마다 `spec: {folder, exists, at, making, error}`, 폴더는 `POST /api/project {id, folder}` 로 적는다 |
+| `POST /api/project-spec` | [명세서 업데이트]: 코드 폴더(직접 정한 폴더, 없으면 작업 기록에서 고른 폴더)에서 Claude(Sonnet)를 뒤에서 실행해 `project-spec` 스킬로 설정의 명세서 폴더에 `<프로젝트 이름>-기획명세서.html` 을 만들거나 고친다 `{id}` → `{ok}` 또는 `{error}`. 코드가 없는 폴더(README·LICENSE·숨김 파일뿐)는 범위를 물을 수 없어 만들지 않고 채팅에서 시작하라고 안내한다. 상태는 `GET /api/para` 의 프로젝트마다 `spec: {folder, exists, at, making, error}`, 폴더는 `POST /api/project {id, folder}` 로 적는다 |
 | `GET /api/project-spec?id=` | 그 프로젝트의 기획명세서 HTML ([명세서 열기]) |
 | `POST /api/routine-map` | 루틴 하나의 흐름도를 AI 로 (다시) 만들어 저장 `{id}` → `{ok}` 또는 `{error}` (haiku 사용) |
 | `GET /api/schedules` · `POST /api/schedules/refresh` | 예약 작업: 루틴 저장본 `{routines: {at, items}, sessions, maps}` (maps: 루틴 id → 저장된 흐름도) · 루틴을 claude.ai 에서 새로 받아 저장 (haiku 사용, 못 받으면 저장본에 `error`) |
