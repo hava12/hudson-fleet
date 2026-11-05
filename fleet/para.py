@@ -145,7 +145,7 @@ def project_history(pid):
     여러 세션에 걸친 작업(오래된 것부터, 그 PC 날짜·흐름도 포함), 그 작업을 한 세션들의 push, 자료 제목. 없는 프로젝트면 None.
     push 는 세션 기준이라 다른 저장소 것이 섞일 수 있다 — remote·cwd 로 가려 쓰게 함께 준다."""
     c = db()
-    p = _rows(c, "SELECT p.id, p.name, p.done_when, p.status, p.start, p.end, a.name AS area FROM projects p"
+    p = _rows(c, "SELECT p.id, p.name, p.done_when, p.status, p.start, p.end, p.folder, a.name AS area FROM projects p"
                  " LEFT JOIN areas a ON a.id = p.area_id WHERE p.id = ?", (pid,))
     if not p:
         c.close()
@@ -164,6 +164,7 @@ def project_history(pid):
     resources = _rows(c, "SELECT id, date(created_at, 'localtime') AS date, title, summary FROM resources WHERE project_id = ? ORDER BY id",
                       (pid,))
     c.close()
+    p[0]["folder"] = code_folder(p[0])[0]
     return {"project": p[0], "tasks": tasks, "pushes": pushes, "resources": resources, "spec_file": str(spec_file(p[0]))}
 
 
@@ -376,4 +377,5 @@ if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m
     assert set_folder(q["id"], str(d)) is None and "채팅" in make_spec(q["id"])["error"]  # 코드가 없으면 Claude 를 띄우지 않는다
     (d / "main.py").write_text("")
     assert has_code(d) and has_code(d / "없는 폴더")  # 읽지 못하면 실행에 맡긴다
+    assert project_history(q["id"])["project"]["folder"] == os.path.realpath(d)  # 적합성 평가는 이 폴더를 읽는다
     print("ok")

@@ -109,7 +109,7 @@ TOOLS = [
                      "required": ["title", "summary", "body"]}},
     {"name": "resource_search", "description": "자료를 낱말로 찾는다 (낱말마다 제목·요약·본문 어딘가에 든 것, 최근 5건, 본문 1500자까지).",
      "inputSchema": {"type": "object", "properties": {"query": {"type": "string", "description": "띄어 쓴 낱말들. 비우면 최근 자료"}}}},
-    {"name": "project_history", "description": "프로젝트 하나의 지난 기록 (읽기 전용): 정보(이름·완료 조건·영역·상태),"
+    {"name": "project_history", "description": "프로젝트 하나의 지난 기록 (읽기 전용): 정보(이름·완료 조건·영역·상태·코드 폴더),"
                                                " 여러 세션에 걸친 작업(날짜·종류·상태·내용·결과·설명·흐름도·세션 폴더, 오래된 것부터),"
                                                " 그 작업을 한 세션들의 push 커밋(다른 저장소 것이 섞일 수 있어 remote·cwd 로 가린다), 자료 제목."
                                                " 기획명세서의 진행 히스토리·기능별 플로우차트를 만들 때 쓴다.",
