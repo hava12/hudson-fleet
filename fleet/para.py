@@ -85,13 +85,15 @@ def spec_info(p):
 
 # 문서 체크리스트: 제품 공정 순서대로 명세서에 무엇이 있나. 명세서 뼈대(project-brief·project-spec)의 장 id 와 번호 표시를 찾는다.
 # 표시가 없으면 그 장 안에 장 id 만 있어도 된다. 장 id 는 [명세서 열기] 주소 끝에 붙여 그 장으로 바로 간다
-DOCS = (  # (키, 이름, 장 id, 그 장에서 찾을 표시, 없을 때 채우는 방법)
-    ("brief", "사전 기획", "brief-problem", None, "채팅에서 '사전 기획 시작해 줘'"),
-    ("features", "기능 정의", "features", r"(?:<b>|<td>)(F-\d+)\b", "[명세서 업데이트] 또는 채팅에서 '기획명세서 만들어 줘'"),
-    ("screens", "화면 정의", "screens", r"<td>(S-\d+)</td>", "[명세서 업데이트] 또는 채팅에서 '기획명세서 만들어 줘'"),
-    ("mvp", "첫 판 범위", "overview", r"\(첫 판\)", "채팅에서 '첫 판 범위 잡아 줘'"),
-    ("design", "디자인 시안", "screens", r"https://(?:www\.)?figma\.com/[^\"'<\s]+", "Figma에 화면 번호(S-01) 이름으로 시안을 만들고 명세서 4장에 주소를 적음"),
-    ("dev", "개발 설계", "architecture", None, "[명세서 업데이트]"),
+DOCS = (  # (키, 이름, 무엇을 정하나, 장 id, 그 장에서 찾을 표시, 채우는 방법) — 화면의 ? 가이드도 이 표로 만든다
+    ("brief", "사전 기획", "왜, 누구를 위해 만드는가. 사람이 정하는 기준", "brief-problem", None,
+     "채팅에서 '사전 기획 시작해 줘'. 질문과 답이 오가야 해서 [명세서 업데이트]로는 채워지지 않음"),
+    ("features", "기능 정의", "만들 기능과 규칙", "features", r"(?:<b>|<td>)(F-\d+)\b", "[명세서 업데이트] 또는 채팅에서 '기획명세서 만들어 줘'"),
+    ("screens", "화면 정의", "화면 목록과 화면마다 요소", "screens", r"<td>(S-\d+)</td>", "[명세서 업데이트] 또는 채팅에서 '기획명세서 만들어 줘'"),
+    ("mvp", "첫 판 범위", "처음 출시할 기능", "overview", r"\(첫 판\)", "채팅에서 '첫 판 범위 잡아 줘'"),
+    ("design", "디자인 시안", "색과 모양을 입힌 화면", "screens", r"https://(?:www\.)?figma\.com/[^\"'<\s]+",
+     "Figma에 화면 번호(S-01) 이름으로 시안을 만들고 명세서 4장에 주소를 적음"),
+    ("dev", "개발 설계", "구조, 데이터, 코드 지도", "architecture", None, "[명세서 업데이트]"),
 )
 
 
@@ -111,10 +113,10 @@ def spec_docs(f):
     except OSError:  # 없거나 macOS 가 막은 폴더
         html = ""
     items = []
-    for key, name, sid, mark, how in DOCS:
+    for key, name, what, sid, mark, how in DOCS:
         sec = _section(html, sid)
         n = len(set(re.findall(mark, sec))) if mark and sec else 0
-        items.append({"key": key, "name": name, "id": sid, "ok": bool(n) if mark else sec is not None, "n": n, "how": how})
+        items.append({"key": key, "name": name, "what": what, "id": sid, "ok": bool(n) if mark else sec is not None, "n": n, "how": how})
     return {"items": items, "open": html.count('class="chip wip">열림<')}
 
 

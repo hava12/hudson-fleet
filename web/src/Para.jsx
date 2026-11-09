@@ -60,6 +60,9 @@ function Docs({ p }) {
   const next = d.items.find(x => !x.ok)
   return <div className="meta" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
     <b>문서</b>
+    <Tip><b>문서 체크리스트</b>는 제품을 만드는 순서대로 명세서에 무엇이 있는지 보여 줍니다. 사람이 정한 것(사전 기획, 대화)이 기준이고, 코드는 어디까지 만들었는지 확인하는 자료입니다.
+      <ul style={{ margin: '6px 0', paddingLeft: 18 }}>{d.items.map(x => <li key={x.key}><b>{x.name}</b>: {x.what}. {x.how}</li>)}</ul>
+      만든 뒤 기능을 더할 때는 채팅에서 '기능 하나 추가하고 싶어'라고 하면 명세서에 먼저 적고 만듭니다.</Tip>
     {d.items.map(x => x.ok
       ? <Pill key={x.key} tone="success" className="lk" title="명세서의 이 장 열기" {...press(() => openSpec(p.id, x.id))}>{x.name}{x.n > 1 ? ' ' + x.n : ''}</Pill>
       : <Pill key={x.key} tone={x === next ? 'info' : undefined} title={'없음 · ' + x.how}>{x.name}</Pill>)}
