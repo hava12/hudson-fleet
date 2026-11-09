@@ -148,6 +148,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 
 - **P · 프로젝트(Projects)**: 끝나는 때와 완료 조건이 있는 일. 사람이 만듭니다.
   - 이름과 완료 조건 한 줄이 있어야 만듭니다(완료 조건을 못 적으면 프로젝트가 아니라 영역). 상태(시작 전·진행 중·끝남)는 화면에서 바꾸고, 끝남으로 바꾸면 보관 칸으로 갑니다.
+  - 만들 때 코드 폴더(절대 경로, `~` 가능)를 함께 적을 수 있습니다. 없는 폴더면 바로 위 폴더가 있을 때만 새로 만들고, 비우면 작업 기록에서 고릅니다. 나중에는 프로젝트를 펼쳐 [코드 폴더 바꾸기]로 바꿉니다.
   - 끝남으로 바꾸면 그 프로젝트의 남은 일은 반려(비고: 프로젝트 끝남)로 정리됩니다. 남은 일이 있으면 확인 창이 뜨고, 남길 일은 먼저 작업 줄의 프로젝트 칸에서 다른 프로젝트로 옮깁니다.
   - Jira 와는 묶지 않습니다(이슈·PR 화면과 맡기기는 따로 동작). 에픽 단위로 관리하려면 이름에 에픽 키를 적습니다(예: `BVVB-1300 출석 알림`) — 에이전트가 이름을 보고 고릅니다.
   - 에이전트는 작업을 기록할 때 프로젝트 번호를 적습니다. 번호 없이 적으면 서버가 진행 중인 프로젝트 목록을 돌려주므로, 세션이 열린 뒤 만든 프로젝트도 에이전트가 알고 바로잡습니다.
@@ -293,7 +294,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `GET /api/para` | PARA 페이지: 영역·프로젝트(프로젝트마다 기록된 작업, 세션 이름 포함)·자료 전부 `{areas, projects, resources}` |
 | `GET /api/projects` | 작업 줄의 프로젝트 칸: 프로젝트 전부 `[{id, name, status}]` |
 | `POST /api/resource` | 자료 지우기 `{id}` (자료는 에이전트가 MCP 로만 남긴다) |
-| `POST /api/area` · `POST /api/project` | 영역 `{id?, name, keep, archive?, delete?}` · 프로젝트 `{id?, name, done_when, area_id, status, delete?}` 만들기·고치기·지우기. 잘못되면 `{error}` |
+| `POST /api/area` · `POST /api/project` | 영역 `{id?, name, keep, archive?, delete?}` · 프로젝트 `{id?, name, done_when, area_id, status, folder?, delete?}` 만들기·고치기·지우기(`folder` 는 만들 때만, 없으면 만듦). 잘못되면 `{error}` |
 | `GET /api/jira` · `GET /api/github` | 이슈·PR 페이지: 나에게 할당된 끝나지 않은 Jira 이슈 `{items}` · 열린 내 PR 과 리뷰 요청 PR `{mine, review}`. 꺼져 있거나 토큰이 없으면 `{error}` |
 | `POST /api/connect` | 연결 확인 `{service: github·jira}` → 저장된 토큰으로 내 계정 이름 `{ok, who}` 또는 `{error}` |
 | `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지, `secret`: 토큰이라 끝 4글자만) · 바꾸기 `{name, value}` |

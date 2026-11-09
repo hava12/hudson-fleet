@@ -263,8 +263,25 @@ def save_area(b):
     return None if n else "영역을 찾지 못했습니다"
 
 
+def _new_folder(raw):
+    """만들 때 적은 코드 폴더: (실제 경로 또는 None, 오류 문장). 없으면 만들되, 오타로 여러 층이 생기지 않게 상위 폴더가 있을 때만."""
+    folder = os.path.expanduser(str(raw or "").strip())
+    if not folder:
+        return None, None
+    if not os.path.isabs(folder):
+        return None, f"코드 폴더는 절대 경로로 적으세요 (예: ~/Project/새이름): {folder}"
+    if not os.path.isdir(folder):
+        if not os.path.isdir(os.path.dirname(folder.rstrip("/"))):
+            return None, f"상위 폴더가 없습니다: {os.path.dirname(folder.rstrip('/'))}"
+        try:
+            os.mkdir(folder)
+        except OSError as e:  # 같은 이름의 파일이 있거나 macOS 가 막은 폴더
+            return None, f"폴더를 만들지 못했습니다: {e}"
+    return os.path.realpath(folder), None
+
+
 def save_project(b):
-    """{id?, name, done_when, area_id, status, delete?} — 잘못되면 오류 문장, 되면 None.
+    """{id?, name, done_when, area_id, status, folder?, delete?} — 잘못되면 오류 문장, 되면 None. folder 는 만들 때만 받는다.
     이름과 완료 조건이 있어야 만든다 (완료 조건을 못 적으면 프로젝트가 아니라 영역이다). status=done 이 곧 보관이고, 남은 일은 반려로 정리한다.
     지우면 그 프로젝트에 적힌 작업·자료는 프로젝트 없음으로 남는다."""
     if set(b) == {"id", "folder"}:  # [코드 폴더 바꾸기] — 폴더만 바꾼다 (화면의 고치기·상태·영역은 프로젝트 전체를 보내므로 folder 가 섞여 온다)
@@ -293,8 +310,11 @@ def save_project(b):
         else:
             if not name or not done_when:
                 return "이름과 완료 조건을 넣으세요. 완료 조건을 한 줄로 못 적으면 프로젝트가 아니라 영역입니다"
-            n = c.execute("INSERT INTO projects (name, area_id, done_when, status, start) VALUES (?,?,?,?,?)",
-                          (name[:80], area, done_when[:120], "pending", today)).rowcount
+            folder, err = _new_folder(b.get("folder"))
+            if err:
+                return err
+            n = c.execute("INSERT INTO projects (name, area_id, done_when, status, start, folder) VALUES (?,?,?,?,?,?)",
+                          (name[:80], area, done_when[:120], "pending", today, folder)).rowcount
         c.commit()
     finally:
         c.close()
@@ -425,4 +445,11 @@ if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m
     g = spec_docs(sp)
     assert [x["key"] for x in g["items"] if x["ok"]] == ["features", "screens", "mvp"] and g["open"] == 1
     assert [x["n"] for x in g["items"]][1:3] == [2, 2]
+    # 만들 때 적은 코드 폴더 — 없으면 만들고(상위 폴더가 있을 때만), 비우면 작업 기록에서 고른다
+    nd = d / "새 앱"
+    assert save_project({"name": "폴더 시험", "done_when": "x", "folder": str(nd)}) is None and nd.is_dir()
+    assert para()["projects"][0]["folder"] == os.path.realpath(nd)
+    assert "절대 경로" in save_project({"name": "a", "done_when": "x", "folder": "상대/경로"})
+    assert "상위 폴더" in save_project({"name": "a", "done_when": "x", "folder": str(d / "없음" / "하위")})
+    assert save_project({"name": "폴더 없음", "done_when": "x", "folder": " "}) is None and para()["projects"][0]["folder"] is None
     print("ok")

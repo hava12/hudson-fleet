@@ -23,12 +23,15 @@ const AreaSel = ({ as, v, set }) => <select value={v || ''} onChange={e => set(e
   {as.filter(a => !a.archived_at || a.id === v).map(a => <option key={a.id} value={a.id}>{a.name}{a.archived_at ? ' (보관)' : ''}</option>)}</select>
 
 // 만들기: 완료 조건을 한 줄로 못 적으면 프로젝트가 아니라 영역이다. Jira 와는 묶지 않는다 — 에픽이면 이름에 키를 적는다
+// 코드 폴더는 선택. 적으면 서버가 없을 때 만들어 저장하고(fleet/para.py _new_folder), 비우면 작업 기록에서 고른다
 function NewForm({ as, save }) {
-  const [f, setF] = useState({ name: '', done_when: '', area_id: null })
+  const [f, setF] = useState({ name: '', done_when: '', area_id: null, folder: '' })
   const set = k => e => setF({ ...f, [k]: e.target.value })
   return <form className="uadd" onSubmit={e => { e.preventDefault(); save(f) }}>
     <input value={f.name} onChange={set('name')} placeholder="프로젝트 이름 (에픽이면 키도: BVVB-1300 출석 알림)" style={{ width: 300 }} />
     <input value={f.done_when} onChange={set('done_when')} placeholder="완료 조건: 무엇이 되면 끝인가 (한 줄)" style={{ flex: 1, minWidth: 240 }} />
+    <input value={f.folder} onChange={set('folder')} placeholder="코드 폴더 (선택): ~/Project/새이름" style={{ width: 240 }}
+      title="명세서와 적합성 평가가 읽을 폴더. 없으면 만듭니다(상위 폴더가 있을 때만). 비우면 작업 기록에서 고릅니다" />
     <AreaSel as={as} v={f.area_id} set={v => setF({ ...f, area_id: v })} />
     <Button variant="primary" disabled={!f.name.trim() || !f.done_when.trim()}>만들기</Button></form>
 }
