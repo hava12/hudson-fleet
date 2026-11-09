@@ -76,11 +76,46 @@ def has_code(folder):
 
 
 def spec_info(p):
-    """화면용: 코드 폴더(기록에서 골랐는지), 명세서 파일 경로·있는지·고친 시각, 만드는 중인지, 마지막 오류."""
+    """화면용: 코드 폴더(기록에서 골랐는지), 명세서 파일 경로·있는지·고친 시각, 만드는 중인지, 마지막 오류, 문서 체크리스트."""
     (folder, auto), f, st = code_folder(p), spec_file(p), _spec.get(p["id"], {})
     at = f.is_file() and datetime.fromtimestamp(f.stat().st_mtime, timezone.utc).isoformat(timespec="seconds")
     return {"folder": folder, "auto": auto, "file": str(f), "exists": bool(at), "at": at or None, "making": "making" in st,
-            "error": st.get("error")}
+            "error": st.get("error"), "docs": spec_docs(f)}
+
+
+# 문서 체크리스트: 제품 공정 순서대로 명세서에 무엇이 있나. 명세서 뼈대(project-brief·project-spec)의 장 id 와 번호 표시를 찾는다.
+# 표시가 없으면 그 장 안에 장 id 만 있어도 된다. 장 id 는 [명세서 열기] 주소 끝에 붙여 그 장으로 바로 간다
+DOCS = (  # (키, 이름, 장 id, 그 장에서 찾을 표시, 없을 때 채우는 방법)
+    ("brief", "사전 기획", "brief-problem", None, "채팅에서 '사전 기획 시작해 줘'"),
+    ("features", "기능 정의", "features", r"(?:<b>|<td>)(F-\d+)\b", "[명세서 업데이트] 또는 채팅에서 '기획명세서 만들어 줘'"),
+    ("screens", "화면 정의", "screens", r"<td>(S-\d+)</td>", "[명세서 업데이트] 또는 채팅에서 '기획명세서 만들어 줘'"),
+    ("mvp", "첫 판 범위", "overview", r"\(첫 판\)", "채팅에서 '첫 판 범위 잡아 줘'"),
+    ("design", "디자인 시안", "screens", r"https://(?:www\.)?figma\.com/[^\"'<\s]+", "Figma에 화면 번호(S-01) 이름으로 시안을 만들고 명세서 4장에 주소를 적음"),
+    ("dev", "개발 설계", "architecture", None, "[명세서 업데이트]"),
+)
+
+
+def _section(html, sid):
+    """장 하나: id 가 있는 곳부터 다음 장 앞까지. 없으면(만들지 않은 편은 장 대신 안내 한 줄뿐) None."""
+    i = html.find(f'id="{sid}"')
+    if i < 0:
+        return None
+    j = html.find("<section id=", i + 1)
+    return html[i:j if j > 0 else len(html)]
+
+
+def spec_docs(f):
+    """명세서 파일의 문서 체크리스트: 항목마다 있는지(ok)와 서로 다른 표시 수(n), 열린 미결 사항 수. 파일이 없으면 모두 빈칸."""
+    try:
+        html = f.read_text(errors="ignore")
+    except OSError:  # 없거나 macOS 가 막은 폴더
+        html = ""
+    items = []
+    for key, name, sid, mark, how in DOCS:
+        sec = _section(html, sid)
+        n = len(set(re.findall(mark, sec))) if mark and sec else 0
+        items.append({"key": key, "name": name, "id": sid, "ok": bool(n) if mark else sec is not None, "n": n, "how": how})
+    return {"items": items, "open": html.count('class="chip wip">열림<')}
 
 
 def set_folder(pid, folder):
@@ -107,7 +142,7 @@ def make_spec(pid):
     if not folder or not os.path.isdir(folder):
         return {"error": "코드 폴더를 찾지 못했습니다 (작업 기록이 없음). [코드 폴더 바꾸기] 로 정하세요"}
     if not has_code(folder):  # 버튼으로는 범위를 물을 수 없다
-        return {"error": "코드가 없는 새 프로젝트는 범위를 먼저 정해야 합니다. 채팅에서 '기획명세서 만들어 줘'로 시작하세요"}
+        return {"error": "코드가 없는 새 프로젝트는 질문과 답으로 범위를 먼저 정해야 합니다. 채팅에서 '사전 기획 시작해 줘'로 시작하세요"}
     if "making" in _spec.get(pid, {}):
         return {"error": "이미 만드는 중입니다"}
     started, out = time.time(), spec_file(p[0])
@@ -378,4 +413,13 @@ if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m
     (d / "main.py").write_text("")
     assert has_code(d) and has_code(d / "없는 폴더")  # 읽지 못하면 실행에 맡긴다
     assert project_history(q["id"])["project"]["folder"] == os.path.realpath(d)  # 적합성 평가는 이 폴더를 읽는다
+    # 문서 체크리스트 — 장 id 와 번호 표시로 판정. 다른 장의 번호는 세지 않는다
+    sp = d / "s.html"
+    assert not any(x["ok"] for x in spec_docs(sp)["items"]) and spec_docs(sp)["open"] == 0  # 파일이 없으면 모두 빈칸
+    sp.write_text('<section id="overview"><li><b>(첫 판)</b> F-09</li></section><section id="screens"><td>S-01</td><td>S-02</td><td>S-01</td></section>'
+                  '<section id="features"><li><b>F-01 저장</b></li><li><b>F-02 삭제</b> S-03</li></section>'
+                  '<section id="plan-open"><span class="chip wip">열림</span><span class="chip done">해결</span></section>')
+    g = spec_docs(sp)
+    assert [x["key"] for x in g["items"] if x["ok"]] == ["features", "screens", "mvp"] and g["open"] == 1
+    assert [x["n"] for x in g["items"]][1:3] == [2, 2]
     print("ok")

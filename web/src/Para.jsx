@@ -42,7 +42,7 @@ function SpecBar({ p, save }) {
   const make = async () => { const x = await post('/api/project-spec', { id: p.id }); if (x.error) setMsg(x.error); bump() }
   const exists = s.exists && !s.making
   return <div className="meta" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
-    <b>기획명세서</b><span title="명세서가 읽을 코드 폴더">{s.folder ? tilde(s.folder, G.home) + (s.auto ? ' (작업 기록에서 고름)' : '') : "코드 폴더를 찾지 못했습니다. 새 프로젝트면 채팅에서 '기획명세서 만들어 줘'로 시작하세요"}</span>
+    <b>기획명세서</b><span title="명세서가 읽을 코드 폴더">{s.folder ? tilde(s.folder, G.home) + (s.auto ? ' (작업 기록에서 고름)' : '') : "코드 폴더를 찾지 못했습니다. 새 프로젝트면 채팅에서 '사전 기획 시작해 줘'로 시작하세요"}</span>
     <Button onClick={pick}>코드 폴더 바꾸기</Button>
     <Button variant={exists ? undefined : 'primary'} disabled={!s.folder || s.making} onClick={make}
       title="프로젝트 폴더에서 Claude(Sonnet)가 project-spec 스킬로 명세서를 만들거나 고칩니다 (몇 분)">{s.making ? '만드는 중… (몇 분)' : '명세서 업데이트'}</Button>
@@ -52,8 +52,23 @@ function SpecBar({ p, save }) {
     {s.error && <span style={{ color: 'var(--t-todo)' }}>{s.error}</span>}</div>
 }
 
-// 명세서 바로가기: 대시보드 서버가 명세서 폴더의 파일을 새 탭으로 연다 (/api/project-spec?id=)
-const openSpec = id => open('/api/project-spec?id=' + id, '_blank', 'noopener')
+// 문서 체크리스트: 제품 공정 순서로 명세서에 무엇이 있나 (fleet/para.py spec_docs). 있는 칸을 누르면 명세서의 그 장이 열리고,
+// 첫 빈칸을 다음 할 일로 채우는 방법과 함께 보인다
+function Docs({ p }) {
+  const d = p.spec?.docs
+  if (!d) return null
+  const next = d.items.find(x => !x.ok)
+  return <div className="meta" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+    <b>문서</b>
+    {d.items.map(x => x.ok
+      ? <Pill key={x.key} tone="success" className="lk" title="명세서의 이 장 열기" {...press(() => openSpec(p.id, x.id))}>{x.name}{x.n > 1 ? ' ' + x.n : ''}</Pill>
+      : <Pill key={x.key} tone={x === next ? 'info' : undefined} title={'없음 · ' + x.how}>{x.name}</Pill>)}
+    {d.open > 0 && <span>· 열린 미결 {d.open}개</span>}
+    {next && <span>· 다음: {next.name} — {next.how}</span>}</div>
+}
+
+// 명세서 바로가기: 대시보드 서버가 명세서 폴더의 파일을 새 탭으로 연다 (/api/project-spec?id=). 장 id 를 주면 그 장으로 간다
+const openSpec = (id, at) => open('/api/project-spec?id=' + id + (at ? '#' + at : ''), '_blank', 'noopener')
 function ProjTable({ ps, as, save }) {
   const [open, setOpen] = useState(0)  // 작업 목록을 펼친 프로젝트 id
   const edit = p => {
@@ -71,6 +86,7 @@ function ProjTable({ ps, as, save }) {
       <td style={{ whiteSpace: 'normal' }}><a className="lk" {...press(() => setOpen(open === p.id ? 0 : p.id))} aria-expanded={open === p.id}>{p.name}</a>
         <span className="tid" title="에이전트가 작업을 기록할 때 적는 번호"> #{p.id}</span>
         {p.spec?.exists && <Button style={{ marginLeft: 6 }} title={'기획명세서 열기 · ' + when(p.spec.at) + ' 수정'} onClick={() => openSpec(p.id)}>명세서</Button>}
+        {p.spec?.docs && <span className="tid" style={{ whiteSpace: 'nowrap' }} title="문서 체크리스트 — 펼치면 무엇이 비었는지 보입니다">문서 {p.spec.docs.items.filter(x => x.ok).length}/{p.spec.docs.items.length}</span>}
         <div className="meta">완료 조건: {p.done_when}</div></td>
       <td><AreaSel as={as} v={p.area_id} set={v => save({ ...p, area_id: v })} /></td>
       <td><select className="pill tsel" value={p.status} style={{ color: ST[p.status][1] }} title="끝남으로 바꾸면 보관 칸으로 갑니다 (남은 일은 반려로 정리)"
@@ -80,7 +96,7 @@ function ProjTable({ ps, as, save }) {
       <td><TaskSum ts={tasks} />{tasks.length > 0 && <span className="meta"> · 세션 {new Set(tasks.map(t => t.sid)).size}개</span>}</td>
       <td className="acts"><Button onClick={() => edit(p)}>고치기</Button>
         <Button variant="danger" onClick={() => confirm(`"${p.name}" 프로젝트를 지울까요?\n적힌 작업·자료는 프로젝트 없음으로 남습니다.`) && save({ id: p.id, delete: true })}>삭제</Button></td></tr>
-      {open === p.id && <tr><td colSpan="6" style={{ whiteSpace: 'normal' }}><SpecBar p={p} save={save} />
+      {open === p.id && <tr><td colSpan="6" style={{ whiteSpace: 'normal' }}><SpecBar p={p} save={save} /><Docs p={p} />
         {tasks.length
         ? <TaskList ts={tasks} edit="status" lead={t => <span className="meta">[{t.session || t.sid.slice(0, 8)}]</span>} />
         : <span className="meta">아직 이 프로젝트로 기록된 작업이 없습니다. 에이전트가 작업을 기록할 때 #{p.id} 를 적으면 여기에 모입니다</span>}</td></tr>}
