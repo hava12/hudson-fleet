@@ -149,6 +149,7 @@ def make_spec(pid):
     out.parent.mkdir(parents=True, exist_ok=True)
     prompt = (f"hudson-fleet:project-spec 스킬로 hudson-fleet 프로젝트 #{pid}({p[0]['name']})의 기획명세서를 만들거나 고친다."
               f" 조사할 코드는 이 폴더, 파일은 {out} (이미 있으면 먼저 읽고 이어 쓴다)."
+              " 기준은 사람이 정한 것(사전 기획 탭, 근거가 대화인 항목, 완료 조건)이다. 코드로는 상태와 근거만 고치고, 기준과 다르면 미결 사항으로 올린다."
               " 대시보드 버튼으로 실행된 비대화 작업이라 사용자에게 묻지 말고, 모르는 것은 '확인 필요'로 남긴다.")
     _spec[pid] = {"making": started}
 
