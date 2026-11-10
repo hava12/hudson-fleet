@@ -30,7 +30,7 @@ export const Table = ({ style, children }) =>
 
 // 부품 모음 (#ui, 메뉴에 없음) — Figma 의 Review 확인 화면처럼 부품의 모든 모양을 한 화면에 늘어놓는다
 export function Gallery() {
-  const row = { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', margin: '8px 0' }
+  const row = { display: 'flex', gap: 'var(--sp-4)', alignItems: 'center', flexWrap: 'wrap', margin: 'var(--sp-4) 0' }
   return <div className="pg">
     <Card><div className="sh"><h2>Button</h2><span className="meta">variant × size, disabled</span></div>
       {['small', 'medium'].map(s => <div key={s} style={row}>

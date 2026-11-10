@@ -13,7 +13,7 @@ export default function SidePanel() {
     const m = side.m
     return <><h3>{m.name}</h3><div className="meta">{m.group}</div>
       <h4>상태</h4><Pill tone={MST[m.ok][2]}>{MST[m.ok][0]}</Pill>
-      <div className="meta" style={{ marginTop: 6 }}>{m.state}</div>
+      <div className="meta" style={{ marginTop: 'var(--sp-3)' }}>{m.state}</div>
       <h4>연결 대상</h4><pre>{m.target}</pre></>
   }
   if (side.type === 'history') return <HistoryPanel sid={side.sid} />
@@ -52,7 +52,7 @@ function SessionPanel({ sid, agent }) {
   // 보던 세션이 끝났다 (현황 그래프에서 빠짐) — 빈 칸 대신 세션 기록으로 가는 길을 보인다
   if (!s) return <><h3>{r?.overview?.title || '끝난 세션'}</h3>
     <div className="meta">이 세션은 끝났습니다. 끝난 세션은 1분 안에 세션 기록에 저장됩니다.</div>
-    <Button style={{ marginTop: 8 }} onClick={() => openSide({ type: 'history', sid }, true)}>세션 기록에서 보기</Button></>
+    <Button style={{ marginTop: 'var(--sp-4)' }} onClick={() => openSide({ type: 'history', sid }, true)}>세션 기록에서 보기</Button></>
   const head = <h3>{agent ? '🔷 ' + agent : s.label}</h3>
   if (!r) return <>{head}<div className="meta">불러오는 중…</div></>
   const ov = r.overview || {}, proc = r.proc || [], ts = r.tasks || []
@@ -65,18 +65,18 @@ function SessionPanel({ sid, agent }) {
   }
   return <>{head}
     <div className="meta"><Pill tone={GINFO[grp(s.status)][2]}>{GINFO[grp(s.status)][0]}</Pill> {s.kind === 'background' ? '백그라운드' : s.app || '?'} · {when(s.startedAt)} 시작 · {tilde(s.cwd, G.home)}</div>
-    <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+    <div style={{ display: 'flex', gap: 'var(--sp-3)', marginTop: 'var(--sp-3)' }}>
       {s.kind === 'background' && <Button onClick={async () => { setLog('불러오는 중…'); setLog((await get('/api/logs?id=' + encodeURIComponent(s.bgId))).text) }}>로그</Button>}
       <Button variant="danger" onClick={() => stopSession(s)}>종료하기</Button></div>
     {proc.length > 0 && <div className="meta" title={proc.map(p => p.path).join('\n')}>
       🖥 {[...proc].reverse().map(p => p.name + (p === proc[0] ? `(${p.pid})` : '')).join(' › ')}</div>}
-    {log != null && <pre style={{ marginTop: 8 }}>{log}</pre>}
+    {log != null && <pre style={{ marginTop: 'var(--sp-4)' }}>{log}</pre>}
     {!agent && <Collapsible className="sec" open={sumOpen} onToggle={e => { if (e.target === e.currentTarget) sumOpen = e.target.open }} summary={<h4 style={{ display: 'inline-block' }}>세션 요약</h4>}>
       <div><b>{ov.title || '(제목 없음)'}</b> <TitleBtn sid={sid} title={ov.title} /></div>
       <div className="meta">{when(ov.first)} → {when(ov.last)}</div>
       <Collapsible className="sec" open={taskOpen} onToggle={e => { e.stopPropagation(); taskOpen = e.target.open }} summary={<h4 style={{ display: 'inline-block', fontSize: 'var(--fs-m)' }}>기록할 작업 · {ts.length}건</h4>}>
         {ai.err ? <div>{ai.err}</div> : ts.length ? <TaskList ts={ts} edit="all" /> : <div className="meta">아직 정리하지 않았습니다</div>}
-        <div style={{ marginTop: 6 }}><Button disabled={ai.busy} onClick={summarize}>{ai.busy ? '요약 중…' : ai.label || (ts.length ? '다시 정리' : '작업 정리')}</Button>
+        <div style={{ marginTop: 'var(--sp-3)' }}><Button disabled={ai.busy} onClick={summarize}>{ai.busy ? '요약 중…' : ai.label || (ts.length ? '다시 정리' : '작업 정리')}</Button>
           {' '}<span className="meta">haiku · 토큰 사용 · 기록이 그대로면 저장본 재사용</span></div>
       </Collapsible></Collapsible>}
     <SessionPushes sid={sid} /></>
@@ -101,7 +101,7 @@ function HistoryPanel({ sid }) {
     <h3>{s.title || s.name} <TitleBtn sid={sid} title={s.title || s.name} /></h3>
     <div className="meta">{REASON[s.end_reason] || s.end_reason} · {app} · {tilde(s.cwd, G.home)}</div>
     <div className="meta">{when(s.started_at)} → {when(s.ended_at)} · 토큰 {fmtTok(s.tokens)}</div>
-    <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+    <div style={{ display: 'flex', gap: 'var(--sp-3)', marginTop: 'var(--sp-4)' }}>
       <Button disabled={busy} onClick={() => reopen(false)} title="같은 세션 ID 로 이어서 엽니다. 다시 살아나면 현황으로 돌아갑니다">이어서 열기</Button>
       <Button disabled={busy} onClick={() => reopen(true)} title="대화를 복사한 새 세션으로 엽니다 (--fork-session). 이 기록은 그대로 남습니다">복사해 열기</Button></div>
     <Collapsible open className="sec" summary={<h4 style={{ display: 'inline-block' }}>기록한 작업 · {s.tasks.length}건</h4>}>

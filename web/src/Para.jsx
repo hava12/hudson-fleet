@@ -44,7 +44,7 @@ function SpecBar({ p, save }) {
   const pick = () => { const f = prompt('명세서가 읽을 코드 폴더 (절대 경로). 없으면 만들고(바로 위 폴더가 있을 때만), 비우면 작업 기록에서 고릅니다', s.auto ? '' : s.folder || ''); if (f !== null) save({ id: p.id, folder: f }) }
   const make = async () => { const x = await post('/api/project-spec', { id: p.id }); if (x.error) setMsg(x.error); bump() }
   const exists = s.exists && !s.making
-  return <div className="meta" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+  return <div className="meta" style={{ display: 'flex', gap: 'var(--sp-4)', alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--sp-5)' }}>
     <b>기획명세서</b><span title="명세서가 읽을 코드 폴더">{s.folder ? tilde(s.folder, G.home) + (s.auto ? ' (작업 기록에서 고름)' : '') : "코드 폴더를 찾지 못했습니다. 새 프로젝트면 채팅에서 '사전 기획 시작해 줘'로 시작하세요"}</span>
     <Button onClick={pick}>코드 폴더 바꾸기</Button>
     <Button variant={exists ? undefined : 'primary'} disabled={!s.folder || s.making} onClick={make}
@@ -61,10 +61,10 @@ function Docs({ p }) {
   const d = p.spec?.docs
   if (!d) return null
   const next = d.items.find(x => !x.ok)
-  return <div className="meta" style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+  return <div className="meta" style={{ display: 'flex', gap: 'var(--sp-3)', alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--sp-5)' }}>
     <b>문서</b>
     <Tip><b>문서 체크리스트</b>는 제품을 만드는 순서대로 명세서에 무엇이 있는지 보여 줍니다. 사람이 정한 것(사전 기획, 대화)이 기준이고, 코드는 어디까지 만들었는지 확인하는 자료입니다.
-      <ul style={{ margin: '6px 0', paddingLeft: 18 }}>{d.items.map(x => <li key={x.key}><b>{x.name}</b>: {x.what}. {x.how}</li>)}</ul>
+      <ul style={{ margin: 'var(--sp-3) 0', paddingLeft: 'var(--sp-7)' }}>{d.items.map(x => <li key={x.key}><b>{x.name}</b>: {x.what}. {x.how}</li>)}</ul>
       만든 뒤 기능을 더할 때는 채팅에서 '기능 하나 추가하고 싶어'라고 하면 명세서에 먼저 적고 만듭니다.</Tip>
     {d.items.map(x => x.ok
       ? <Pill key={x.key} tone="success" className="lk" title="명세서의 이 장 열기" {...press(() => openSpec(p.id, x.id))}>{x.name}{x.n > 1 ? ' ' + x.n : ''}</Pill>
@@ -91,7 +91,7 @@ function ProjTable({ ps, as, save }) {
     {ps.map(({ tasks, ...p }) => <Fragment key={p.id}><tr>
       <td style={{ whiteSpace: 'normal' }}><a className="lk" {...press(() => setOpen(open === p.id ? 0 : p.id))} aria-expanded={open === p.id}>{p.name}</a>
         <span className="tid" title="에이전트가 작업을 기록할 때 적는 번호"> #{p.id}</span>
-        {p.spec?.exists && <Button style={{ marginLeft: 6 }} title={'기획명세서 열기 · ' + when(p.spec.at) + ' 수정'} onClick={() => openSpec(p.id)}>명세서</Button>}
+        {p.spec?.exists && <Button style={{ marginLeft: 'var(--sp-3)' }} title={'기획명세서 열기 · ' + when(p.spec.at) + ' 수정'} onClick={() => openSpec(p.id)}>명세서</Button>}
         {p.spec?.docs && <span className="tid" style={{ whiteSpace: 'nowrap' }} title="문서 체크리스트 — 펼치면 무엇이 비었는지 보입니다">문서 {p.spec.docs.items.filter(x => x.ok).length}/{p.spec.docs.items.length}</span>}
         <div className="meta">완료 조건: {p.done_when}</div></td>
       <td><AreaSel as={as} v={p.area_id} set={v => save({ ...p, area_id: v })} /></td>
@@ -135,7 +135,7 @@ function Areas({ as, ps, save }) {
     <Table style={{ minWidth: 640 }}>
       <tr><th>Area</th><th>유지할 상태</th><th>Projects (진행 중·시작 전)</th><th /></tr>
       {live.map(a => <tr key={a.id}><td><b>{a.name}</b></td><td style={{ whiteSpace: 'normal' }}>{a.keep}</td>
-        <td style={{ whiteSpace: 'normal' }}>{ps.filter(p => p.area_id === a.id && p.status !== 'done').map(p => <Pill key={p.id} style={{ margin: '0 4px 4px 0' }}>{p.name}</Pill>)}</td>
+        <td style={{ whiteSpace: 'normal' }}>{ps.filter(p => p.area_id === a.id && p.status !== 'done').map(p => <Pill key={p.id} style={{ margin: '0 var(--sp-2) var(--sp-2) 0' }}>{p.name}</Pill>)}</td>
         <td className="acts"><Button onClick={() => edit(a)}>고치기</Button>
           <Button title="더는 책임지지 않으면 보관 칸으로" onClick={() => save({ id: a.id, archive: true })}>보관</Button>
           <Button variant="danger" onClick={() => confirm(`"${a.name}" 영역을 지울까요?\n프로젝트·자료는 영역 없음으로 남습니다.`) && save({ id: a.id, delete: true })}>삭제</Button></td></tr>)}
@@ -156,7 +156,7 @@ function Resources({ rs, del }) {
     <input value={q} onChange={e => setQ(e.target.value)} placeholder="낱말로 찾기 (제목·요약·본문)" style={{ width: '100%', maxWidth: 420 }} />
     {hit.map(r => <Collapsible key={r.id} className="res" summary={<><b>{r.title}</b> <span className="meta">— {r.summary}</span></>}>
       <div className="meta">{[r.project && '프로젝트 ' + r.project, r.area && '영역 ' + r.area, when(r.created_at), r.session && '남긴 세션 ' + r.session].filter(Boolean).join(' · ')}
-        <Button variant="danger" style={{ marginLeft: 8 }} onClick={() => confirm(`"${r.title}" 자료를 지울까요?`) && del(r.id)}>삭제</Button></div>
+        <Button variant="danger" style={{ marginLeft: 'var(--sp-4)' }} onClick={() => confirm(`"${r.title}" 자료를 지울까요?`) && del(r.id)}>삭제</Button></div>
       <pre className="rbody">{r.body}</pre></Collapsible>)}
     {!rs.length ? <p className="meta">아직 자료가 없습니다. 대화에서 에이전트에게 "이거 자료로 남겨"라고 하거나, 프로젝트를 보관할 때 에이전트가 정리 한 장을 남깁니다</p>
       : !hit.length && <p className="meta">찾는 낱말이 들어간 자료가 없습니다</p>}

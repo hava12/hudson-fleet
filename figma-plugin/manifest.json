@@ -7,6 +7,7 @@
   "documentAccess": "dynamic-page",
   "menu": [
     { "name": "부품 만들기", "command": "build" },
+    { "name": "간격 변수 만들기", "command": "spacing" },
     { "name": "토큰 보내기", "command": "tokens" }
   ],
   "networkAccess": { "allowedDomains": ["none"], "devAllowedDomains": ["http://localhost:8765"],

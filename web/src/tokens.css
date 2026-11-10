@@ -10,6 +10,14 @@
   --r-s:4px;
   --r-m:8px;
   --r-full:999px;
+  --sp-1:2px;
+  --sp-2:4px;
+  --sp-3:6px;
+  --sp-4:8px;
+  --sp-5:10px;
+  --sp-6:12px;
+  --sp-7:16px;
+  --sp-8:20px;
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#121318;

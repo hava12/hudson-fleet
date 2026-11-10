@@ -50,9 +50,9 @@ function Detail({ r, loaded, m, done, pull }) {
           style={{ marginLeft: 'auto', fontSize: 'var(--fs-s)' }} title="claude.ai 의 예약 작업 페이지에서 지시문·일정을 고칩니다. 고치고 이 창으로 돌아오면 새로 받아 Flow 를 다시 만듭니다">claude.ai 에서 고치기 ↗</a></h3>
       <dl className="kv">{kv.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl></Card>
     <Card><Collapsible open={flowOpen} onToggle={e => { flowOpen = e.target.open }} summary={<><h2 style={{ display: 'inline-block' }}>Flow</h2> <span className="meta">AI 가 지시문을 정리한 흐름</span></>}>
-      <div style={{ marginTop: 10 }}><FlowMaker key={r.id} m={m} url="/api/routine-map" body={{ id: r.id }} ok={!!r.prompt} done={done} what="지시문" /></div></Collapsible></Card>
+      <div style={{ marginTop: 'var(--sp-5)' }}><FlowMaker key={r.id} m={m} url="/api/routine-map" body={{ id: r.id }} ok={!!r.prompt} done={done} what="지시문" /></div></Collapsible></Card>
     <Card><Collapsible summary={<h2 style={{ display: 'inline-block' }}>지시문 전문</h2>}>
-      <pre style={{ marginTop: 10 }}>{r.prompt || '(지시문 없음)'}</pre></Collapsible></Card>
+      <pre style={{ marginTop: 'var(--sp-5)' }}>{r.prompt || '(지시문 없음)'}</pre></Collapsible></Card>
   </div>
 }
 
@@ -115,7 +115,7 @@ export default function Sched({ sub }) {
             <td className="meta">{r.model.replace(/^claude-/, '')}{r.mode && <div>{r.mode}</div>}</td></tr>)}
           {!rs.length && <tr><td colSpan="6" className="meta">예약 작업이 없습니다</td></tr>}
         </Table>}
-      <p className="meta" style={{ margin: '10px 0 0' }}>이름을 누르면 상세 페이지에서 Flow(AI 가 지시문을 정리한 흐름도)를 봅니다. 처음 한 번 만들어 저장해 두고, 새로 받은 지시문이 바뀌었으면 저절로 다시 만듭니다. 예약 작업은 claude.ai 에 저장되고 Claude 데스크톱 앱이나 클라우드에서 실행됩니다. 로그인 토큰을 읽지 않으려고, [새로 받기] 는 Claude Code 의 예약 작업 조회 도구를 haiku 로 한 번 불러 받아 옵니다. 페이지를 열 때 저장본이 1시간보다 오래됐으면 저절로 다시 받습니다.</p>
+      <p className="meta" style={{ margin: 'var(--sp-5) 0 0' }}>이름을 누르면 상세 페이지에서 Flow(AI 가 지시문을 정리한 흐름도)를 봅니다. 처음 한 번 만들어 저장해 두고, 새로 받은 지시문이 바뀌었으면 저절로 다시 만듭니다. 예약 작업은 claude.ai 에 저장되고 Claude 데스크톱 앱이나 클라우드에서 실행됩니다. 로그인 토큰을 읽지 않으려고, [새로 받기] 는 Claude Code 의 예약 작업 조회 도구를 haiku 로 한 번 불러 받아 옵니다. 페이지를 열 때 저장본이 1시간보다 오래됐으면 저절로 다시 받습니다.</p>
     </Card>
 
     <Card><div className="sh"><h2>세션 안 예약</h2><span className="meta">살아 있는 세션이 /loop·예약 도구로 걸어 둔 것 — 세션이 끝나면 사라집니다</span></div>

@@ -31,7 +31,7 @@ export function History() {
         <td className="acts"><Button variant="danger" onClick={() => del(s)}>삭제</Button></td></tr>)}
       {H && !H.length && <tr><td colSpan="6" className="meta">아직 기록된 세션이 없습니다</td></tr>}
     </Table>
-    <p className="meta" style={{ margin: '10px 0 0' }}>대시보드 서버가 켜져 있는 동안 끝난 세션을 1분 안에 저장합니다. 저장 전에 haiku 로 작업 내용을 요약합니다.</p>
+    <p className="meta" style={{ margin: 'var(--sp-5) 0 0' }}>대시보드 서버가 켜져 있는 동안 끝난 세션을 1분 안에 저장합니다. 저장 전에 haiku 로 작업 내용을 요약합니다.</p>
   </Card></div>
 }
 
@@ -74,7 +74,7 @@ const Off = ({ e }) => <div className="meta">{e} <a className="lk" href="#settin
 // 내 PR·리뷰 요청 두 표의 칸 폭을 고정해 제목 칸이 같은 자리에서 시작하게
 const PrTable = ({ ps }) => <Table>
   {ps.map(p => <tr key={p.url}><td style={{ width: 260 }}><Ext u={p.url} t={`${p.repo}#${p.num}`} /></td>
-    <td style={{ whiteSpace: 'normal' }}>{p.title}{p.draft && <Pill style={{ marginLeft: 6 }}>초안</Pill>}</td>
+    <td style={{ whiteSpace: 'normal' }}>{p.title}{p.draft && <Pill style={{ marginLeft: 'var(--sp-3)' }}>초안</Pill>}</td>
     <td className="meta" style={{ width: 140 }}>{when(p.updated)}</td></tr>)}
   {!ps.length && <tr><td className="meta">없음</td></tr>}</Table>
 // 맡기기: 이슈를 고른 폴더의 새 백그라운드 에이전트에게. 폴더는 지난 세션 기록으로 미리 골라 두고, 틀리면 바꾼다
@@ -190,9 +190,9 @@ export function Settings() {
         <td className="meta" style={{ whiteSpace: 'normal' }}>{c.desc}</td></tr>)}
     </Table>
     <h4>환경 변수로 바꾸는 방법 (포트·DB 경로)</h4>
-    <ol className="meta" style={{ margin: 0, paddingLeft: 20, lineHeight: 1.8 }}>
+    <ol className="meta" style={{ margin: 0, paddingLeft: 'var(--sp-8)', lineHeight: 1.8 }}>
       <li><code>~/.claude/settings.json</code> 의 <code>"env"</code> 에 적습니다. Claude Code 가 MCP 서버에 넘겨 줍니다. (서버만 쓰는 값은 <code>~/.local/share/hudson-fleet/.env</code> 에 적어도 됩니다)</li>
       <li>Claude Code 세션을 모두 닫았다 다시 열면, 새로 리더가 된 MCP 서버가 새 값으로 대시보드를 띄웁니다.</li></ol>
-    <pre style={{ marginTop: 10 }}>{'// ~/.claude/settings.json (예시)\n' + JSON.stringify({ env: { HUDSON_FLEET_PORT: '8766' } }, null, 2)}</pre>
+    <pre style={{ marginTop: 'var(--sp-5)' }}>{'// ~/.claude/settings.json (예시)\n' + JSON.stringify({ env: { HUDSON_FLEET_PORT: '8766' } }, null, 2)}</pre>
   </Card></div>
 }

@@ -1,7 +1,7 @@
 // hudson-fleet DS builder — Untitled(BASE) 파일의 부품(1차)과 대시보드에만 있는 부품(2차)을 hudson-fleet 이름표로 만든다.
 // 2차 부품의 치수·색은 web/src/style.css 값을 그대로 옮겼다.
 // 실행: Figma 데스크톱 앱 → "hudson-fleet design system" 파일 → Plugins → Development → hudson-fleet DS builder → 부품 만들기
-//   같은 메뉴의 [토큰 보내기]는 변수를 대시보드로 보내 tokens.css 를 만든다 (맨 아래 sendTokens).
+//   같은 메뉴의 [토큰 보내기]는 변수를 대시보드로 보내 tokens.css 를 만들고(맨 아래 sendTokens), [간격 변수 만들기]는 간격 이름표 8개를 만든다.
 // 여러 번 실행해도 된다. 이미 있는 것은 건너뛰고 없는 것만 만든다. 확인 화면(Review)은 매번 새로 만든다.
 // 결과는 섹션 위 "Build Log" 글과 실행 끝 알림에 남는다.
 
@@ -1011,6 +1011,23 @@ async function sendTokens() {
   return out.error ? '오류: ' + out.error : `토큰 ${out.n}개를 ${out.file} 에 썼습니다`;
 }
 
-(figma.command === 'tokens' ? sendTokens() : main())
+// [간격 변수 만들기] — Size 묶음에 간격 이름표 sp-1~sp-8 을 만든다 (이미 있으면 건너뜀). 값은 web/src/style.css 의 --sp-* 기본값과 같다
+const SPACING = { 'sp-1': 2, 'sp-2': 4, 'sp-3': 6, 'sp-4': 8, 'sp-5': 10, 'sp-6': 12, 'sp-7': 16, 'sp-8': 20 };
+async function makeSpacing() {
+  const col = (await figma.variables.getLocalVariableCollectionsAsync()).find(c => c.name === 'Size');
+  if (!col) return 'Size 변수 묶음이 없습니다. hudson-fleet design system 파일에서 실행하세요';
+  const have = new Set((await figma.variables.getLocalVariablesAsync()).map(v => v.name));
+  let n = 0;
+  for (const [name, px] of Object.entries(SPACING)) {
+    if (have.has(name)) continue;
+    const v = figma.variables.createVariable(name, col, 'FLOAT');
+    v.setValueForMode(col.modes[0].modeId, px); v.scopes = ['GAP'];
+    v.setVariableCodeSyntax('WEB', `var(--${name})`); v.description = '간격(여백·사이 간격·바깥 여백)';
+    n++;
+  }
+  return n ? `간격 변수 ${n}개를 만들었습니다. 이어서 [토큰 보내기]를 누르세요` : '간격 변수가 이미 모두 있습니다';
+}
+
+(figma.command === 'tokens' ? sendTokens() : figma.command === 'spacing' ? makeSpacing() : main())
   .then(msg => figma.closePlugin(msg))
   .catch(e => figma.closePlugin('오류: ' + e.message));

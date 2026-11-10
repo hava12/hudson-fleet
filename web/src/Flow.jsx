@@ -36,7 +36,7 @@ export function FlowMaker({ m, url, body, ok, done, what }) {
     {!busy && ok && <Button onClick={make}>다시 시도</Button>}</div>
   return <>
     <FlowView d={m.data} />
-    <div className="meta" style={{ marginTop: 8 }}>{when(m.at)} 에 AI(haiku)가 정리했습니다{m.stale && <b style={{ color: 'var(--t-todo)' }}> · {what}이 바뀌어 {busy || m.making ? '다시 만드는 중…' : '다시 만들어야 합니다'}</b>}{' '}
+    <div className="meta" style={{ marginTop: 'var(--sp-4)' }}>{when(m.at)} 에 AI(haiku)가 정리했습니다{m.stale && <b style={{ color: 'var(--t-todo)' }}> · {what}이 바뀌어 {busy || m.making ? '다시 만드는 중…' : '다시 만들어야 합니다'}</b>}{' '}
       <Button disabled={busy || m.making} onClick={make} title="AI 로 다시 만듭니다 (haiku 사용)">{busy || m.making ? '만드는 중…' : '새로 만들기'}</Button></div>
   </>
 }

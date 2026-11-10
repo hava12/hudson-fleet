@@ -53,6 +53,6 @@ export default function Mcp() {
     <div className="gwrap"><div id="mcy" ref={ref} />
       {busy && <div className="loading">연결 상태 검사 중<span className="dots" />&nbsp;<span style={{ fontSize: 'var(--fs-s)' }}>(10초 정도 걸립니다)</span></div>}</div>
     <div className="stats">{Object.entries(MST).map(([k, [l, c]]) => <div key={k} className="stat"><b style={{ color: cnt[k] ? c : 'var(--mute)' }}>{cnt[k] || 0}</b><span><Dot c={c} />{l}</span></div>)}</div>
-    <p className="meta" style={{ margin: '10px 0 0' }}>홈 폴더 기준 목록입니다. 프로젝트 폴더에만 설정한 서버(.mcp.json)는 빠질 수 있습니다.</p>
+    <p className="meta" style={{ margin: 'var(--sp-5) 0 0' }}>홈 폴더 기준 목록입니다. 프로젝트 폴더에만 설정한 서버(.mcp.json)는 빠질 수 있습니다.</p>
   </Card></div>
 }
