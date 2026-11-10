@@ -22,7 +22,7 @@ description: hudson-fleet 프로젝트의 사전 기획을 대화로 한다. 맞
 
 1. `project_list`로 프로젝트를 고른다. 요청, 현재 폴더, 이름, 완료 조건으로 판단하고 후보가 여럿이면 묻는다. 도구가 지연 로드면 ToolSearch로 `select:mcp__plugin_hudson-fleet_fleet__project_list,mcp__plugin_hudson-fleet_fleet__project_history,mcp__plugin_hudson-fleet_fleet__project_save,mcp__plugin_hudson-fleet_fleet__project_folder,mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update`
 2. 맞는 프로젝트가 없으면 `project_save`로 바로 만든다(상태는 진행 중). 스킬을 실행한 것이 곧 만들겠다는 뜻이므로 따로 묻지 않는다. 명세서 파일 이름과 작업 기록이 프로젝트에 붙으므로 먼저 만든다.
-   - 이름: 요청에서 따온다. 요청에 이름이 없을 때만 한 번 묻는다.
+   - 이름: 요청에서 따온 임시 이름으로 만든다. 진짜 이름은 사전 기획 중에 사용자와 협의해 정한다(`new.md` 이름 묶음). 요청에 이름이 있어도 협의를 건너뛰지 않는다.
    - 완료 조건: 임시로 `사전 기획을 마치고 첫 판 범위를 정함`. 사전 기획을 마칠 때 고친다.
    - 코드 폴더: 현재 폴더가 비었거나 README·설정 파일뿐이면 현재 폴더. 다른 프로젝트의 코드가 있는 폴더면 `~/Project/<이름을 영문 소문자와 -로 옮긴 것>`. 없는 폴더는 바로 위 폴더가 있을 때 도구가 만든다.
    - 이름이 비슷한 프로젝트가 있으면 만들지 말고 그 프로젝트인지 묻는다. 같은 일을 두 번 만들지 않기 위해서다.
