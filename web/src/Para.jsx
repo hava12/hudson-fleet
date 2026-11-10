@@ -41,7 +41,7 @@ function NewForm({ as, save }) {
 function SpecBar({ p, save }) {
   const { G, setMsg, bump } = useApp()
   const s = p.spec || {}
-  const pick = () => { const f = prompt('명세서가 읽을 코드 폴더 (절대 경로). 비우면 작업 기록에서 고릅니다', s.auto ? '' : s.folder || ''); if (f !== null) save({ id: p.id, folder: f }) }
+  const pick = () => { const f = prompt('명세서가 읽을 코드 폴더 (절대 경로). 없으면 만들고(바로 위 폴더가 있을 때만), 비우면 작업 기록에서 고릅니다', s.auto ? '' : s.folder || ''); if (f !== null) save({ id: p.id, folder: f }) }
   const make = async () => { const x = await post('/api/project-spec', { id: p.id }); if (x.error) setMsg(x.error); bump() }
   const exists = s.exists && !s.making
   return <div className="meta" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>

@@ -1,6 +1,6 @@
 ---
 name: project-brief
-description: hudson-fleet 프로젝트의 사전 기획을 대화로 한다. 먼저 어느 프로젝트인지, 새 프로젝트인지 기능 추가인지 판별해 확인받는다. 새 프로젝트면 문제, 대상, 가치, 대안, 성공 기준, 핵심 기능, 제약과 위험을 질문과 검색으로 정해 기획명세서의 사전 기획 탭에 쓴다. 기능 추가면 짧은 검토 질문 3개를 거쳐 예정 기능 하나를 명세서에 더한다. "사전 기획 시작해 줘", "새 서비스 기획하자", "이 아이디어 해 볼 만한지 같이 정리해 줘", "기능 하나 추가하고 싶어", "이 기능 넣을지 검토해 줘" 같은 요청에 쓴다. 코드를 읽어 명세서를 쓰는 일은 project-spec, 첫 판 범위와 데모는 project-mvp다.
+description: hudson-fleet 프로젝트의 사전 기획을 대화로 한다. 맞는 프로젝트가 없으면 대시보드 프로젝트를 바로 만든다. 먼저 어느 프로젝트인지, 새 프로젝트인지 기능 추가인지 판별해 확인받는다. 새 프로젝트면 문제, 대상, 가치, 대안, 성공 기준, 핵심 기능, 제약과 위험을 질문과 검색으로 정해 기획명세서의 사전 기획 탭에 쓴다. 기능 추가면 짧은 검토 질문 3개를 거쳐 예정 기능 하나를 명세서에 더한다. "사전 기획 시작해 줘", "새 서비스 기획하자", "이 아이디어 해 볼 만한지 같이 정리해 줘", "기능 하나 추가하고 싶어", "이 기능 넣을지 검토해 줘" 같은 요청에 쓴다. 코드를 읽어 명세서를 쓰는 일은 project-spec, 첫 판 범위와 데모는 project-mvp다.
 ---
 
 # 사전 기획
@@ -20,10 +20,13 @@ description: hudson-fleet 프로젝트의 사전 기획을 대화로 한다. 먼
 
 ## 0단계: 프로젝트 확인
 
-1. `project_list`로 프로젝트를 고른다. 요청, 현재 폴더, 이름, 완료 조건으로 판단하고 후보가 여럿이면 묻는다. 도구가 지연 로드면 ToolSearch로 `select:mcp__plugin_hudson-fleet_fleet__project_list,mcp__plugin_hudson-fleet_fleet__project_history,mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update`
-2. 맞는 프로젝트가 없으면 멈추고, 대시보드 Projects 칸의 [+ 만들기]로 만들어 달라고 한다.
-   - 도구로는 프로젝트를 만들 수 없다. 명세서 파일 이름과 작업 기록이 프로젝트에 붙으므로 프로젝트가 먼저 있어야 한다.
-   - 이름과 완료 조건 초안을 함께 제안한다. 완료 조건을 아직 모르면 `사전 기획을 마치고 첫 판 범위를 정함`처럼 임시로 두고, 끝날 때 다시 제안한다.
+1. `project_list`로 프로젝트를 고른다. 요청, 현재 폴더, 이름, 완료 조건으로 판단하고 후보가 여럿이면 묻는다. 도구가 지연 로드면 ToolSearch로 `select:mcp__plugin_hudson-fleet_fleet__project_list,mcp__plugin_hudson-fleet_fleet__project_history,mcp__plugin_hudson-fleet_fleet__project_save,mcp__plugin_hudson-fleet_fleet__project_folder,mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update`
+2. 맞는 프로젝트가 없으면 `project_save`로 바로 만든다(상태는 진행 중). 스킬을 실행한 것이 곧 만들겠다는 뜻이므로 따로 묻지 않는다. 명세서 파일 이름과 작업 기록이 프로젝트에 붙으므로 먼저 만든다.
+   - 이름: 요청에서 따온다. 요청에 이름이 없을 때만 한 번 묻는다.
+   - 완료 조건: 임시로 `사전 기획을 마치고 첫 판 범위를 정함`. 사전 기획을 마칠 때 고친다.
+   - 코드 폴더: 현재 폴더가 비었거나 README·설정 파일뿐이면 현재 폴더. 다른 프로젝트의 코드가 있는 폴더면 `~/Project/<이름을 영문 소문자와 -로 옮긴 것>`. 없는 폴더는 바로 위 폴더가 있을 때 도구가 만든다.
+   - 이름이 비슷한 프로젝트가 있으면 만들지 말고 그 프로젝트인지 묻는다. 같은 일을 두 번 만들지 않기 위해서다.
+   - 만든 프로젝트의 번호, 이름, 코드 폴더는 1단계 판별을 확인받을 때 함께 알린다. 바꾸자고 하면 `project_save(id, name)`, `project_folder(id, folder)`로 고친다.
 3. `project_history(id)`로 명세서 경로(`spec_file`), 코드 폴더(`project.folder`), 작업 기록을 읽는다.
 4. `task_start`로 이 일을 기록한다(tag `기획`, project에 그 id).
 

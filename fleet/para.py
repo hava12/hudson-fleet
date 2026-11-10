@@ -122,15 +122,17 @@ def spec_docs(f):
 
 def set_folder(pid, folder):
     """명세서가 읽을 코드 폴더를 적는다 (대시보드에서 사람이, 또는 스킬이 MCP project_folder 로). 비우면 다시 작업 기록에서 고른다.
-    잘못되면 오류 문장, 되면 None."""
-    folder = os.path.expanduser(str(folder or "").strip())
-    if folder and not (os.path.isabs(folder) and os.path.isdir(folder)):
-        return f"없는 폴더입니다: {folder}"
+    없는 폴더는 만들 때와 같은 규칙으로 만든다(_new_folder). 잘못되면 오류 문장, 되면 None."""
+    if not has_project(pid):
+        return "프로젝트를 찾지 못했습니다"
+    folder, err = _new_folder(folder)
+    if err:
+        return err
     c = db()
-    n = c.execute("UPDATE projects SET folder = ? WHERE id = ?", (os.path.realpath(folder) if folder else None, pid)).rowcount
+    c.execute("UPDATE projects SET folder = ? WHERE id = ?", (folder, pid))
     c.commit()
     c.close()
-    return None if n else "프로젝트를 찾지 못했습니다"
+    return None
 
 
 def make_spec(pid):
@@ -321,6 +323,30 @@ def save_project(b):
     return None if n else "프로젝트를 찾지 못했습니다"
 
 
+def agent_project(b):
+    """에이전트용 (MCP project_save): id 가 없으면 만들고, 있으면 이름·완료 조건을 고친다. (프로젝트 id, 오류 문장)
+    사전 기획 스킬을 실행했을 때와 사용자가 요청했을 때만 부른다 — 이 규칙은 MCP 도구 설명이 알린다."""
+    if not b.get("id"):
+        err = save_project({"name": b.get("name"), "done_when": b.get("done_when"), "area_id": b.get("area"), "folder": b.get("folder")})
+        if err:
+            return None, err
+        pid = _one("SELECT max(id) FROM projects", ())[0]  # ponytail: 만든 직후 가장 큰 id — 쓰는 서버가 하나라 겹치지 않는다
+        c = db()
+        c.execute("UPDATE projects SET status = 'active' WHERE id = ?", (pid,))  # 사전 기획을 바로 시작하므로 진행 중
+        c.commit()
+        c.close()
+        return pid, None
+    row = _one("SELECT name, done_when FROM projects WHERE id = ? AND status != 'done'", (b["id"],))
+    if not row:
+        return None, f"없거나 끝난 프로젝트입니다: {b['id']}. project_list 로 확인하세요"
+    name, done_when = (str(b.get(k) or v).strip() for k, v in (("name", row[0]), ("done_when", row[1])))
+    c = db()
+    c.execute("UPDATE projects SET name = ?, done_when = ? WHERE id = ?", (name[:80], done_when[:120], b["id"]))
+    c.commit()
+    c.close()
+    return b["id"], None
+
+
 def archive_project(pid):
     """에이전트용 (MCP project_archive): 프로젝트를 끝남(보관)으로, 남은 일은 반려로. 사용자 동의는 에이전트가 대화에서 받는다.
     잘못되면 오류 문장, 되면 None."""
@@ -452,4 +478,13 @@ if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m
     assert "절대 경로" in save_project({"name": "a", "done_when": "x", "folder": "상대/경로"})
     assert "상위 폴더" in save_project({"name": "a", "done_when": "x", "folder": str(d / "없음" / "하위")})
     assert save_project({"name": "폴더 없음", "done_when": "x", "folder": " "}) is None and para()["projects"][0]["folder"] is None
+    # 에이전트가 만들고 고친다 (사전 기획 스킬). [코드 폴더 바꾸기]도 없는 폴더를 같은 규칙으로 만든다
+    ad = d / "독서 기록"
+    pid, err = agent_project({"name": "독서 기록 앱", "done_when": "사전 기획을 마치고 첫 판 범위를 정함", "folder": str(ad)})
+    assert err is None and ad.is_dir() and project_history(pid)["project"]["folder"] == os.path.realpath(ad)
+    assert project_history(pid)["project"]["status"] == "active"
+    assert agent_project({"id": pid, "done_when": "한 달 안에 열 명이 매주 기록함"}) == (pid, None)
+    assert [(p["name"], p["done_when"]) for p in agent_view()["projects"] if p["id"] == pid] == [("독서 기록 앱", "한 달 안에 열 명이 매주 기록함")]
+    assert agent_project({"name": "x"})[1] and agent_project({"id": 99999, "done_when": "x"})[1]
+    assert set_folder(pid, str(d / "옮긴 폴더")) is None and (d / "옮긴 폴더").is_dir() and set_folder(99999, str(d)) == "프로젝트를 찾지 못했습니다"
     print("ok")

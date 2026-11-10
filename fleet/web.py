@@ -18,7 +18,7 @@ from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, PORT, VERSION, claude, installed, installed_version, ver
 from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
-from .para import (agent_view, archive_project, delete_resource, has_project, make_spec, names, para, project_history,
+from .para import (agent_project, agent_view, archive_project, delete_resource, has_project, make_spec, names, para, project_history,
                    save_area, save_project, save_resource, search_resources, set_folder, spec_file)
 from .pushes import pushes
 from .routines import make_map, maps, refresh as refresh_routines, saved as saved_routines, session_schedules
@@ -63,10 +63,13 @@ def agent_task(body):
     if op == "project_folder":  # 스킬이 명세서를 만든 폴더를 적는다 — 대시보드 [명세서 업데이트] 가 이 폴더에서 스킬을 돌린다
         err = set_folder(body["id"], body.get("folder")) if isinstance(body.get("id"), int) else "프로젝트 id 확인"
         return ({"error": err}, 400) if err else ({"ok": True}, 200)
+    if op == "project_save":  # 사전 기획 스킬이 프로젝트를 만들거나 이름·완료 조건을 고친다
+        pid, err = agent_project(body)
+        return ({"error": err}, 400) if err else ({"id": pid}, 200)
     if op == "project_history":
         h = isinstance(body.get("id"), int) and project_history(body["id"])
         return (h, 200) if h else ({"error": f"없는 프로젝트 id 입니다: {body.get('id')}. project_list 로 확인하세요"}, 400)
-    return {"error": "op 확인 (start·update·list·projects·project_archive·resource_save·resource_search·project_history·project_folder)"}, 400
+    return {"error": "op 확인 (start·update·list·projects·project_save·project_archive·resource_save·resource_search·project_history·project_folder)"}, 400
 
 
 JIRA_KEY = re.compile(r"[A-Z][A-Z0-9_]+-\d+")

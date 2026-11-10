@@ -37,7 +37,7 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
    title 12자·detail 60자 안팎, 조건에 따라 갈리면 branch 에 "조건 → 처리"), outputs 는 사용자가 보게 되는 결과.
    쉬운 말로 쓰고, 코드 이름은 꼭 필요할 때만 괄호로 붙인다. 대시보드의 작업 줄을 펼치면 이 그림이 보인다.
 3. 이 도구들이 지연 로드(deferred) 상태면 먼저 ToolSearch 로
-   "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list,mcp__plugin_hudson-fleet_fleet__project_list,mcp__plugin_hudson-fleet_fleet__project_archive,mcp__plugin_hudson-fleet_fleet__resource_save,mcp__plugin_hudson-fleet_fleet__resource_search,mcp__plugin_hudson-fleet_fleet__project_history,mcp__plugin_hudson-fleet_fleet__project_folder" 를 불러온다.
+   "select:mcp__plugin_hudson-fleet_fleet__task_start,mcp__plugin_hudson-fleet_fleet__task_update,mcp__plugin_hudson-fleet_fleet__task_list,mcp__plugin_hudson-fleet_fleet__project_list,mcp__plugin_hudson-fleet_fleet__project_archive,mcp__plugin_hudson-fleet_fleet__resource_save,mcp__plugin_hudson-fleet_fleet__resource_search,mcp__plugin_hudson-fleet_fleet__project_history,mcp__plugin_hudson-fleet_fleet__project_folder,mcp__plugin_hudson-fleet_fleet__project_save" 를 불러온다.
 4. 일하는 도중에 사용자가 덧붙인 요청도 규칙 1 을 따른다. 하던 일의 일부가 아니면 따로 task_start 한다
    (예: 노드 모양을 고치는 중에 "애니메이션도 넣어 줘" → 새 행). 바로 하지 않고 미루는 일도 task_start 만 해 두면 남은 일로 남는다.
    사용자에게 방법을 고르게 하거나 진행 여부를 묻는 제안을 했으면, 답을 기다리는 동안 그 제안도 task_start 로 남긴다
@@ -46,7 +46,8 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
 6. 대화가 압축(compact)된 뒤에는 task_list 로 기록을 확인하고 이어서 쓴다.
 7. 프로젝트: 세션에서 처음 task_start 하기 전에 project_list 를 한 번 불러, 이 일이 속한 프로젝트가 있으면 task_start 의
    project 에 그 id 를 넣는다 (이름·완료 조건으로 판단, 이름에 Jira 키가 있으면 그 이슈·에픽의 일인지로).
-   맞는 것이 없거나 애매하면 비워 둔다 — 프로젝트는 사용자만 만든다. project 없이 기록하면 task_start 응답에
+   맞는 것이 없거나 애매하면 비워 둔다 — 프로젝트는 스스로 판단해 만들지 않는다. 예외는 둘: 사전 기획(project-brief) 스킬을
+   실행했을 때와 사용자가 만들어 달라고 했을 때만 project_save 로 만든다. project 없이 기록하면 task_start 응답에
    진행 중인 프로젝트 목록이 오니, 그중 맞는 것이 있으면 task_update 의 project 로 적는다.
    사용자가 다른 프로젝트라고 알려 주면 task_update 의 project 로 바로잡는다.
 8. 자료(Resources)·보관(Archives) — PARA 의 R·A. resource_save 는 두 경우에만 부른다: 사용자가 남기라고 했을 때,
@@ -115,6 +116,16 @@ TOOLS = [
                                                " 기획명세서의 진행 히스토리·기능별 플로우차트를 만들 때 쓴다.",
      "inputSchema": {"type": "object", "properties": {"id": {"type": "integer", "description": "프로젝트 id (project_list 로 찾는다)"}},
                      "required": ["id"]}},
+    {"name": "project_save", "description": "프로젝트를 만들거나(id 없이: 이름·완료 조건 필수, 코드 폴더·영역 선택) 이름·완료 조건을 고친다(id)."
+                                            " 새 프로젝트의 id 를 돌려준다. 코드 폴더가 없으면 바로 위 폴더가 있을 때만 만든다."
+                                            " 사전 기획(project-brief) 스킬을 실행했을 때와 사용자가 만들거나 고쳐 달라고 했을 때만 부른다."
+                                            " 다른 일을 기록하다가 스스로 만들지 않는다.",
+     "inputSchema": {"type": "object", "properties": {
+         "id": {"type": "integer", "description": "고칠 때만. 비우면 새로 만든다"},
+         "name": {"type": "string", "description": "80자 이내 이름 (만들 때 필수)"},
+         "done_when": {"type": "string", "description": "완료 조건 한 줄, 120자 이내 (만들 때 필수)"},
+         "folder": {"type": "string", "description": "만들 때만. 코드 폴더 절대 경로 (~ 가능)"},
+         "area": {"type": "integer", "description": "만들 때만. 영역 id"}}}},
     {"name": "project_folder", "description": "기획명세서가 읽은 코드 폴더를 적는다. 대시보드의 [명세서 업데이트] 버튼이 이 폴더에서"
                                               " project-spec 스킬을 다시 돌린다 (적지 않으면 작업 기록에서 고른다). 기획명세서를 만든 뒤 부른다.",
      "inputSchema": {"type": "object", "properties": {"id": {"type": "integer", "description": "프로젝트 id"},
@@ -189,6 +200,9 @@ def call(name, args):
     if name == "project_history":
         r = api({"op": "project_history", "sid": sid, "id": args.get("id")})
         return (r["error"], True) if "error" in r else (json.dumps(r, ensure_ascii=False), False)
+    if name == "project_save":
+        r = api({"op": "project_save", "sid": sid, **{k: args.get(k) for k in ("id", "name", "done_when", "folder", "area")}})
+        return (r["error"], True) if "error" in r else (json.dumps({"id": r["id"]}), False)
     if name == "project_folder":
         r = api({"op": "project_folder", "sid": sid, "id": args.get("id"), "folder": args.get("folder")})
         return (r["error"], True) if "error" in r else ("적었습니다", False)
