@@ -5,5 +5,9 @@
   "main": "code.js",
   "editorType": ["figma"],
   "documentAccess": "dynamic-page",
-  "networkAccess": { "allowedDomains": ["none"] }
+  "menu": [
+    { "name": "부품 만들기", "command": "build" },
+    { "name": "토큰 보내기", "command": "tokens" }
+  ],
+  "networkAccess": { "allowedDomains": ["none"], "devAllowedDomains": ["http://127.0.0.1:8765"] }
 }

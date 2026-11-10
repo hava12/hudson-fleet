@@ -137,6 +137,7 @@ EDIT = {  # 이름 → 받을 값 형식
     "HUDSON_FLEET_RETENTION_DAYS": r"\d{1,5}",
     "HUDSON_FLEET_TERMINAL": r"Ghostty|Terminal",
     "HUDSON_FLEET_SPEC_DIR": r"[~/][^\n]{0,500}",  # 절대 경로 또는 ~/… (없으면 만들 때 생긴다)
+    "HUDSON_FLEET_TOKENS_CSS": r"[~/][^\n]{0,500}\.css",  # 폴더는 있어야 한다 (fleet/tokens.py)
     "HUDSON_FLEET_GIST": r"[0-9a-f]{1,40}",
     "HUDSON_FLEET_GIST_USER": r"[\w-]{1,39}",
     "HUDSON_FLEET_GITHUB_ON": r"[01]",

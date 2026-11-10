@@ -1,6 +1,7 @@
 // hudson-fleet DS builder — Untitled(BASE) 파일의 부품(1차)과 대시보드에만 있는 부품(2차)을 hudson-fleet 이름표로 만든다.
 // 2차 부품의 치수·색은 web/src/style.css 값을 그대로 옮겼다.
-// 실행: Figma 데스크톱 앱 → "hudson-fleet design system" 파일 → Plugins → Development → hudson-fleet DS builder
+// 실행: Figma 데스크톱 앱 → "hudson-fleet design system" 파일 → Plugins → Development → hudson-fleet DS builder → 부품 만들기
+//   같은 메뉴의 [토큰 보내기]는 변수를 대시보드로 보내 tokens.css 를 만든다 (맨 아래 sendTokens).
 // 여러 번 실행해도 된다. 이미 있는 것은 건너뛰고 없는 것만 만든다. 확인 화면(Review)은 매번 새로 만든다.
 // 결과는 섹션 위 "Build Log" 글과 실행 끝 알림에 남는다.
 
@@ -983,6 +984,33 @@ async function main() {
   return failed ? `${failed}개 실패 — 섹션 위 Build Log 를 보세요` : `완료 (${LOG.length}단계) — 섹션 위 Build Log 에 기록`;
 }
 
-main()
+// [토큰 보내기] — 변수 전체를 CSS 이름표로 바꿔 대시보드(127.0.0.1:8765)로 보낸다. 대시보드가 설정의 토큰 파일(tokens.css)에 쓴다.
+// 모드 이름이 Dark 로 시작하면 어두운 화면 칸, 나머지는 공통 칸. 이름은 코드 이름(var(--acc)), 없으면 경로를 - 로 잇는다.
+async function sendTokens() {
+  const vars = await figma.variables.getLocalVariablesAsync();
+  const cols = {}, byId = {};
+  for (const c of await figma.variables.getLocalVariableCollectionsAsync()) cols[c.id] = c;
+  for (const v of vars) byId[v.id] = v;
+  const css = v => ((v.codeSyntax.WEB || '').match(/--[\w-]+/) || ['--' + v.name.replace(/\//g, '-')])[0];
+  const hex = n => Math.round(n * 255).toString(16).padStart(2, '0');
+  const tokens = [];
+  for (const v of vars) for (const m of cols[v.variableCollectionId].modes) {
+    const x = v.valuesByMode[m.modeId];
+    const value = x && x.type === 'VARIABLE_ALIAS' ? (byId[x.id] ? `var(${css(byId[x.id])})` : null)  // 다른 파일의 변수는 뺀다
+      : v.resolvedType === 'COLOR' ? '#' + [x.r, x.g, x.b].map(hex).join('') + (x.a < 1 ? hex(x.a) : '')
+      : v.resolvedType === 'FLOAT' ? Math.round(x * 100) / 100 + 'px' : null;  // 글자 크기·모서리라 모두 px. 글자·참거짓 변수는 뺀다
+    if (value) tokens.push({ name: css(v), value, dark: /^dark/i.test(m.name) });
+  }
+  let out;
+  try {
+    const res = await fetch('http://127.0.0.1:8765/api/tokens', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ tokens }) });
+    out = await res.json();
+  } catch (e) {
+    return `대시보드에 보내지 못했습니다. 대시보드가 켜져 있는지 확인하세요 (${e.message})`;
+  }
+  return out.error ? '오류: ' + out.error : `토큰 ${out.n}개를 ${out.file} 에 썼습니다`;
+}
+
+(figma.command === 'tokens' ? sendTokens() : main())
   .then(msg => figma.closePlugin(msg))
   .catch(e => figma.closePlugin('오류: ' + e.message));

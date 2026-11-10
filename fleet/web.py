@@ -23,6 +23,7 @@ from .para import (agent_project, agent_view, archive_project, delete_resource, 
 from .pushes import pushes
 from .routines import make_map, maps, refresh as refresh_routines, saved as saved_routines, session_schedules
 from .tasks import TASKS_SQL, add_task, move_task, norm_flow, saved_tasks, set_task, summarize
+from .tokens import save_tokens
 from .usage import usage, usage5h_all
 
 
@@ -105,10 +106,12 @@ ORIGINS = {f"http://{h}:{PORT}" for h in HOSTS}
 
 
 class H(BaseHTTPRequestHandler):
-    def send(self, body, ctype="application/json", code=200):
+    def send(self, body, ctype="application/json", code=200, cors=False):
         data = body if isinstance(body, bytes) else json.dumps(body, ensure_ascii=False).encode()
         self.send_response(code)
         self.send_header("Content-Type", ctype + "; charset=utf-8")
+        if cors:  # Figma 플러그인(출처 null)이 답을 읽게 — /api/tokens 만
+            self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(data)
 
@@ -118,12 +121,20 @@ class H(BaseHTTPRequestHandler):
     def do_POST(self):
         self.safe(self.post)
 
+    def do_OPTIONS(self):  # 브라우저가 로컬 주소로 보내기 전에 묻는 사전 확인(preflight) — /api/tokens 만 허락한다
+        if self.path != "/api/tokens":
+            return self.send({"error": "not found"}, code=404)
+        self.send_response(204)
+        for k, v in (("Allow-Origin", "*"), ("Allow-Methods", "POST"), ("Allow-Headers", "Content-Type"), ("Allow-Private-Network", "true")):
+            self.send_header("Access-Control-" + k, v)
+        self.end_headers()
+
     def safe(self, fn):
         """요청 하나를 처리한다. 처리 중 예외에도 JSON 으로 답한다 — 연결만 끊으면 화면은 서버가 꺼진 줄 알고,
         에이전트(MCP)는 같은 기록을 다시 보낼 수 있다."""
         # 다른 웹사이트가 img·fetch 로 부르는 API(명령 실행·내 기록 읽기)도 막는다. 주소창·즐겨찾기로 여는 것은 된다
         if (self.headers.get("Host") or "").rsplit(":", 1)[0] not in HOSTS or (
-                self.path.startswith("/api/") and self.headers.get("Sec-Fetch-Site") in ("cross-site", "same-site")):
+                self.path.startswith("/api/") and self.path != "/api/tokens" and self.headers.get("Sec-Fetch-Site") in ("cross-site", "same-site")):
             return self.send({"error": "bad host"}, code=403)
         try:
             fn()
@@ -241,6 +252,9 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/api/agent/task" and "Origin" not in self.headers:
             out, code = agent_task(body)
             return self.send(out, code=code)
+        if self.path == "/api/tokens":  # Figma 플러그인의 [토큰 보내기] {tokens: [{name, value, dark}]} — 값은 fleet/tokens.py 가 거른다
+            out, code = save_tokens(body)
+            return self.send(out, code=code, cors=True)
         # 다른 웹사이트가 localhost 로 실행 요청을 보내는 것(CSRF) 차단
         if self.headers.get("Origin") not in ORIGINS:
             return self.send({"error": "bad origin"}, code=403)

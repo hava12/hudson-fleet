@@ -89,6 +89,7 @@ npm run build   # → ../dist
 | 파일 | 하는 일 |
 |---|---|
 | `src/main.jsx` | 상단 메뉴·사용량·알림, 페이지 전환(#home 등, #sched/<id> 처럼 하위 경로도), 오른쪽 패널 틀, 함께 쓰는 상태(`App` 컨텍스트) |
+| `src/tokens.css` | Figma 변수에서 만든 이름표 값(어두운 화면 색·크기). 손으로 고치지 않고 Figma 플러그인(`figma-plugin/`)의 [토큰 보내기]로 다시 만든다. `style.css` 다음에 읽어 같은 이름을 덮어쓴다 |
 | `src/Home.jsx` | 현황: 숫자 타일, 상태별 노드(그래프 + `SessionCard`), 남은 작업 |
 | `src/Pages.jsx` | 세션 기록 · Push 기록 · 이슈·PR · 설정 |
 | `src/Para.jsx` | PARA: 프로젝트·영역·자료·보관 네 칸 탭, PARA 설명 툴팁(`lib.jsx` 의 `Tip`) |
@@ -213,6 +214,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 | `HUDSON_FLEET_RETENTION_DAYS` | `0` | 1분 지표(samples) 보관 일수. `0` 이면 지우지 않음 |
 | `HUDSON_FLEET_TERMINAL` | `Ghostty` | 끝난 세션을 다시 열 터미널 앱: `Ghostty` 또는 `Terminal` |
 | `HUDSON_FLEET_SPEC_DIR` | `~/hudson-fleet-specs` | 기획명세서를 저장할 폴더. 파일 이름은 `<프로젝트 이름>-기획명세서.html` (설정 화면에서 바꿀 수 있음) |
+| `HUDSON_FLEET_TOKENS_CSS` | (비움) | Figma 플러그인의 [토큰 보내기]가 쓸 CSS 파일 (예: `~/Project/hudson-fleet/web/src/tokens.css`). 폴더는 있어야 함. 비우면 받지 않음 (설정 화면에서 바꿀 수 있음) |
 | `HUDSON_FLEET_GIST` | (비움) | 프로필 카드를 30분마다 덮어쓸 Gist id. 비우면 끔 |
 | `HUDSON_FLEET_GIST_USER` | (비움) | Gist 를 올릴 `gh` 계정. 비우면 `gh` 의 현재 계정 |
 | `HUDSON_FLEET_GITHUB_ON` · `HUDSON_FLEET_JIRA_ON` | `0` | 연결 사용 여부. 설정(⚙) → **연결** 칸의 '사용' 확인란. 켜야 입력 칸이 보이고 쓰입니다. 꺼도 넣어 둔 값은 남습니다 |
@@ -256,6 +258,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `fleet/agents.py` | 살아 있는 세션: `claude agents`, 프로세스, 그래프, 패널 개요, MCP 상태, 다시 열기 |
 | `fleet/tasks.py` | 작업 기록(추가·수정·조회)과 haiku 정리, `TAGS` |
 | `fleet/para.py` | PARA: 영역·프로젝트 만들기·고치기·보관(남은 일 정리), 자료 저장·찾기 |
+| `fleet/tokens.py` | Figma 플러그인의 [토큰 보내기]로 받은 이름표를 형식 검사 후 설정의 토큰 파일(CSS)에 쓰기 |
 | `fleet/usage.py` | `/usage` 사용률, 세션별 5시간 몫, 날짜별 토큰 |
 | `fleet/links.py` | GitHub·Jira REST 연결 (토큰 인증은 이 파일의 `github()`·`jira()` 두 곳만, 표준 라이브러리만) |
 | `fleet/pushes.py` | 세션에서 실행한 git push 기록 (Claude 의 Bash 와 사용자의 `!` 명령) |
@@ -299,6 +302,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `GET /api/jira` · `GET /api/github` | 이슈·PR 페이지: 나에게 할당된 끝나지 않은 Jira 이슈 `{items}` · 열린 내 PR 과 리뷰 요청 PR `{mine, review}`. 꺼져 있거나 토큰이 없으면 `{error}` |
 | `POST /api/connect` | 연결 확인 `{service: github·jira}` → 저장된 토큰으로 내 계정 이름 `{ok, who}` 또는 `{error}` |
 | `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지, `secret`: 토큰이라 끝 4글자만) · 바꾸기 `{name, value}` |
+| `POST /api/tokens` | Figma 플러그인의 [토큰 보내기] `{tokens: [{name, value, dark}]}` → 설정의 토큰 파일에 CSS 로 쓰고 `{ok, n, file}` (`file` 은 파일 이름만). 이름은 `--이름`, 값은 `#색`·`숫자px`·`var(--이름)` 만 받고 하나라도 다르면 `{error}` |
 | `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list·projects·project_save·project_archive·resource_save·resource_search·project_history·project_folder, sid, …}`. Origin 이 없는 요청만 |
 
 ## 보안
@@ -310,6 +314,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 - 세션 ID 자리에는 세션 ID 형식만 받습니다. `../` 로 Claude 기록 폴더 밖 파일을 읽지 못하게 합니다.
 - DB 파일은 나만 읽고 쓸 수 있게(600), DB 폴더는 나만 열 수 있게(700) 권한을 바꿉니다. 토큰과 프롬프트가 들어 있기 때문입니다.
 - `POST /api/agent/task` 만 Origin 이 **없는** 요청을 받습니다. 브라우저는 POST 에 Origin 을 꼭 붙이므로 다른 웹사이트는 이 길로 들어올 수 없습니다. 세션 ID 형식도 검사합니다.
+- `POST /api/tokens` 는 Figma 플러그인(출처 null)에서 오므로 출처 검사를 받지 않고 답에 `Access-Control-Allow-Origin: *` 를 붙입니다. 대신 이름표 형식(`--이름`, `#색`·`숫자px`·`var(--이름)`)만 받아 다른 웹사이트가 보내도 CSS 에 다른 글이 들어가지 않고, 쓰는 파일은 설정에 적은 한 곳뿐이며 답에 경로를 넣지 않습니다.
 - 종료는 `claude agents` 목록에 있는 세션만 할 수 있습니다.
 
 ## 한계

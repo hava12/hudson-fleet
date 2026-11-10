@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './style.css'
+import './tokens.css'  // Figma 변수에서 만든 값 — style.css 의 같은 이름을 덮어쓴다
 import Home from './Home'
 import Mcp from './Mcp'
 import { History, Issues, Pushes, Settings } from './Pages'
