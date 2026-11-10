@@ -30,6 +30,8 @@ a.go{white-space:nowrap;color:var(--accent);text-underline-offset:2px;text-decor
 .tabs{order:4;display:flex;gap:4px;border-bottom:2px solid var(--accent);margin-top:12px}
 .tabs button{font:inherit;font-weight:700;padding:8px 20px;border:1px solid var(--line);border-bottom:0;background:var(--bg);color:var(--muted);cursor:pointer}
 .tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+#log td:nth-child(-n+2){white-space:nowrap}  /* 변경 로그의 버전·날짜는 줄을 나누지 않는다 */
+@media (max-width:600px){.tabs button{white-space:nowrap;padding:8px 10px;flex:1}}  /* 탭 네 개가 휴대폰 폭 한 줄에 들어가게 */
 nav ul{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0}
 nav a{display:block;padding:3px 10px;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:13px}
 nav a.on{color:var(--accent);border-color:var(--accent);font-weight:600}
@@ -57,7 +59,7 @@ details.fold summary{cursor:pointer;margin:0 -16px;padding:10px 16px;background:
 .btns{display:flex;gap:8px} .btns button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
 @media (max-width:600px){body{background:var(--paper)} .wrap{width:auto;margin:0;padding:24px 16px 56px;border:0;box-shadow:none}}
 </style></head><body><div class="wrap">
-<!-- project-spec 스킬의 뼈대. 탭 세 개(사전 기획·기획 편·개발 편)와 장 순서·id·class 는 바꾸지 않는다.
+<!-- project-spec 스킬의 뼈대. 탭 네 개(사전 기획·기획 편·개발 편·변경 로그)와 장 순서·id·class 는 바꾸지 않는다.
      대시보드의 문서 체크리스트가 장 id(brief-problem, features, screens, overview, architecture)와 번호 표시로 무엇이 있는지 판정한다.
      { } 와 … 와 예시 줄은 실제 내용으로 바꾼다. 붙임을 넣지 않으면 그 section 과 목차 링크를 지운다.
      장마다 쓰는 법은 SKILL.md 의 같은 편·같은 번호 장을, 글의 형식은 format.md 를 본다. -->
@@ -66,6 +68,7 @@ details.fold summary{cursor:pointer;margin:0 -16px;padding:10px 16px;background:
 <button type="button" role="tab" id="tab-brief" aria-controls="brief" aria-selected="false">사전 기획</button>
 <button type="button" role="tab" id="tab-plan" aria-controls="plan" aria-selected="true">기획 편</button>
 <button type="button" role="tab" id="tab-dev" aria-controls="dev" aria-selected="false">개발 편</button>
+<button type="button" role="tab" id="tab-log" aria-controls="log" aria-selected="false">변경 로그</button>
 </div></header>
 
 <!-- ━━━━━━━━━━ 사전 기획: 왜, 누구를 위해 만드는가 ━━━━━━━━━━
@@ -308,6 +311,17 @@ details.fold summary{cursor:pointer;margin:0 -16px;padding:10px 16px;background:
 <p class="end">끝.</p>
 </div>
 
+<!-- ━━━━━━━━━━ 변경 로그: 이 문서를 버전마다 무엇을 왜 고쳤나 ━━━━━━━━━━
+     문서를 고친 스킬(project-spec·project-brief·project-mvp)이 저장할 때마다 표 맨 위에 한 줄을 더한다. 지난 줄은 고치지 않는다.
+     버전은 머리의 버전(v0.1)과 같다. 제품을 만든 기록은 개발 3장 진행 히스토리이고, 여기는 문서를 고친 기록이다. -->
+<div class="panel" role="tabpanel" id="log" aria-labelledby="tab-log" hidden>
+<section id="changelog"><h2>변경 로그</h2>
+<p class="muted">새 버전이 위. 본문에는 지금 값만 있고, 전 값과 지운 항목은 여기에만 남는다.</p>
+<div class="scroll"><table><tr><th>버전</th><th>날짜</th><th>고친 편</th><th>바뀐 내용</th><th>근거</th></tr>
+<tr><td>v0.1</td><td>YYYY-MM-DD</td><td>기획 편 · 개발 편</td><td>처음 만듦</td><td>코드 조사(커밋 abc1234)</td></tr>
+</table></div></section>
+</div>
+
 <p class="muted">도식이 글로만 보이면 인터넷 연결을 확인하세요(mermaid 를 불러와 그립니다).</p>
 </div>
 <script type="module">
@@ -328,7 +342,7 @@ document.querySelectorAll("details").forEach((d) => d.addEventListener("toggle",
 document.querySelectorAll("[data-all]").forEach((b) => b.addEventListener("click", () => {
   b.closest("section").querySelectorAll("details").forEach((d) => { d.open = b.dataset.all === "open"; });
 }));
-// 탭(사전 기획·기획 편·개발 편): 누르거나 ←·→ 키로 바꾼다. 주소의 #(장 id, brief, plan, dev)가 가리키는 탭을 연다
+// 탭(사전 기획·기획 편·개발 편·변경 로그): 누르거나 ←·→ 키로 바꾼다. 주소의 #(장 id, brief, plan, dev, log)가 가리키는 탭을 연다
 const tabs = [...document.querySelectorAll('[role="tab"]')];
 const show = (id) => {
   tabs.forEach((t) => {
@@ -375,8 +389,8 @@ tabs.forEach((t) => {
   document.getElementById(t.getAttribute("aria-controls")).querySelector("nav ul")?.insertAdjacentHTML("beforeend",
     tabs.filter((x) => x !== t).map((x) => `<li><a href="#${x.getAttribute("aria-controls")}">${x.textContent} →</a></li>`).join(""));
 });
-// 주소에 #이 없으면 내용이 있는 첫 탭을 연다. 만들지 않은 편에는 장 id 가 없다
-const first = () => (tabs.find((t) => document.getElementById(t.getAttribute("aria-controls")).querySelector("section[id]")) || tabs[0]).getAttribute("aria-controls");
+// 주소에 #이 없으면 내용이 있는 첫 탭을 연다(변경 로그는 빼고). 만들지 않은 편에는 장 id 가 없다
+const first = () => (tabs.find((t) => t.id !== "tab-log" && document.getElementById(t.getAttribute("aria-controls")).querySelector("section[id]")) || tabs[0]).getAttribute("aria-controls");
 const fromHash = () => {
   const el = location.hash && document.getElementById(location.hash.slice(1));
   const panel = el && el.closest('[role="tabpanel"]');
