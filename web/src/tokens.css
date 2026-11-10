@@ -1,2 +1,50 @@
 /* Figma 변수에서 만든 파일 — 손으로 고치지 말고 Figma 에서 고친 뒤 hudson-fleet 플러그인의 [토큰 보내기]로 다시 만든다.
    밝은 화면 색은 Figma 에 모드가 없어(무료 요금제) style.css 맨 위에 그대로 둔다 */
+:root{
+  --fs-xs:12px;
+  --fs-s:13px;
+  --fs-m:15px;
+  --fs-l:18px;
+  --fs-xl:20px;
+  --r-xs:2px;
+  --r-s:4px;
+  --r-m:8px;
+  --r-full:999px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#121318;
+  --card:#1e1f25;
+  --soft:#292a2f;
+  --fg:#e3e2e9;
+  --mute:#c5c6d0;
+  --line:#45464f;
+  --edge:#8f909a;
+  --acc:#b4c5ff;
+  --on-acc:#1a2d60;
+  --bad:#ffb4ab;
+  --node-proj:#c1c5dd;
+  --node-agent:#e2bbdb;
+  --on-fill:#1a1b20;
+  --idle:#8f909a;
+  --off:#45464f;
+  --del:#8f909a;
+  --t-rej:#8f909a;
+  --ok:#62df7d;
+  --t-done:#62df7d;
+  --t-todo:#ffba46;
+  --on-todo:#442c00;
+  --wait:#ffb77d;
+  --t-stop:#ffb599;
+  --warn:#ffb68e;
+  --dis-bg:#e3e2e91f;
+  --dis-fg:#e3e2e961;
+  --acc-bg:#324478;
+  --on-acc-bg:#dbe1ff;
+  --ok-bg:#005320;
+  --wait-bg:#6e3900;
+  --bad-bg:#93000a;
+  --on-bad-bg:#ffdad6;
+  --acc-hover:#a8b9f2;
+  --acc-press:#a5b6ef;
+  --press:#34343a;
+}}

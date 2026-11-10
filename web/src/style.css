@@ -2,13 +2,13 @@
    색: 바탕 bg · 카드 card · 옅은 칸 soft · 선 line · 글자 fg · 흐린 글자 mute · 강조 acc(그 위 글자 on-acc) · 비활성 dis-bg(바탕)·dis-fg(글자)
        상태 ok(초록) · wait(주황) · bad(빨강) · idle(회색) · off(끝남) — 채운 칸 위 글자는 on-fill
        상태 바탕 acc-bg·ok-bg·wait-bg·bad-bg(그 위 글자 on-acc-bg·on-bad-bg) · 강조 단추 올림 acc-hover·누름 acc-press · 보통 단추 누름 press
-       — 이 9개는 Figma 변수와 이름이 같고, 값은 M3 규칙(올림 8%·누름 10% 섞기, 바탕은 상태 색 18%)으로 위 색에서 계산해 두 화면에 함께 맞는다
+       — 이 9개는 Figma 변수와 이름이 같고, 값은 M3 규칙(올림 8%·누름 10% 섞기, 바탕은 상태 색 18%)으로 위 색에서 계산한다
+   어두운 화면 색은 여기 두지 않는다 — Figma 변수에서 [토큰 보내기]로 만든 tokens.css 가 같은 이름을 덮어쓴다. 아래 :root 값은 밝은 화면용이다
    글자 크기 5칸: fs-xs 12 · fs-s 13 · fs-m 15(본문) · fs-l 18 · fs-xl 20 / 모서리 4칸: r-xs 2 · r-s 4 · r-m 8 · r-full(동그랗게) */
 :root{--warn:#b45309;--del:#6c707e;--bg:#f6f7f9;--fg:#0f172a;--mute:#475569;--line:#d5dce6;--card:#fff;--acc:#2563eb;--soft:#f1f5f9;--t-todo:#ca8a04;--t-stop:#ea580c;--t-done:#16a34a;--t-rej:#6c707e;--ok:#16a34a;--wait:#d97706;--bad:#dc2626;--idle:#64748b;--off:#a8a29e;--on-fill:#fff;--on-acc:#fff;--on-todo:#111;--node-proj:#475569;--node-agent:#7c3aed;--edge:#d6d3d1;--fs-xs:12px;--fs-s:13px;--fs-m:15px;--fs-l:18px;--fs-xl:20px;--r-xs:2px;--r-s:4px;--r-m:8px;--r-full:999px;--dis-bg:color-mix(in srgb,var(--fg) 12%,transparent);--dis-fg:color-mix(in srgb,var(--fg) 38%,transparent);
   --acc-hover:color-mix(in srgb,var(--acc),var(--on-acc) 8%);--acc-press:color-mix(in srgb,var(--acc),var(--on-acc) 10%);--press:color-mix(in srgb,var(--card),var(--fg) 10%);
   --acc-bg:color-mix(in srgb,var(--acc) 18%,var(--card));--on-acc-bg:color-mix(in srgb,var(--acc),var(--fg) 40%);--ok-bg:color-mix(in srgb,var(--ok) 18%,var(--card));
   --wait-bg:color-mix(in srgb,var(--wait) 18%,var(--card));--bad-bg:color-mix(in srgb,var(--bad) 18%,var(--card));--on-bad-bg:color-mix(in srgb,var(--bad),var(--fg) 40%)}
-@media (prefers-color-scheme:dark){:root{--warn:#fbbf24;--del:#868a91;--bg:#0b1120;--fg:#f1f5f9;--mute:#b4c0cf;--line:#2c3a50;--card:#111827;--acc:#60a5fa;--soft:#1e293b;--t-todo:#facc15;--t-stop:#fb923c;--t-done:#4ade80;--t-rej:#94a3b8;--on-acc:#0b1120;--node-proj:#334155;--edge:#57534e}}
 *{box-sizing:border-box}body{margin:0;font:var(--fs-m)/1.6 -apple-system,system-ui,"Apple SD Gothic Neo",sans-serif;background:var(--bg);color:var(--fg)}
 /* 상단 줄: 글자를 꺾지 않는다. 1000px 아래에서는 메뉴가 둘째 줄로 내려간다 (메뉴가 넷이라 휴대폰 폭에도 들어간다).
    오른쪽 묶음(.hr: 알림·사용량·버전·설정)은 함께 움직이고, 그래도 좁으면 묶음 안에서 줄을 바꾼다 */

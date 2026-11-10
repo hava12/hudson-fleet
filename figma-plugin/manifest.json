@@ -9,5 +9,6 @@
     { "name": "부품 만들기", "command": "build" },
     { "name": "토큰 보내기", "command": "tokens" }
   ],
-  "networkAccess": { "allowedDomains": ["none"], "devAllowedDomains": ["http://127.0.0.1:8765"] }
+  "networkAccess": { "allowedDomains": ["none"], "devAllowedDomains": ["http://localhost:8765"],
+    "reasoning": "[토큰 보내기]가 Figma 변수 값을 이 컴퓨터의 hudson-fleet 대시보드로 보낸다" }
 }

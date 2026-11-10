@@ -984,7 +984,7 @@ async function main() {
   return failed ? `${failed}개 실패 — 섹션 위 Build Log 를 보세요` : `완료 (${LOG.length}단계) — 섹션 위 Build Log 에 기록`;
 }
 
-// [토큰 보내기] — 변수 전체를 CSS 이름표로 바꿔 대시보드(127.0.0.1:8765)로 보낸다. 대시보드가 설정의 토큰 파일(tokens.css)에 쓴다.
+// [토큰 보내기] — 변수 전체를 CSS 이름표로 바꿔 대시보드(localhost:8765)로 보낸다. 대시보드가 설정의 토큰 파일(tokens.css)에 쓴다.
 // 모드 이름이 Dark 로 시작하면 어두운 화면 칸, 나머지는 공통 칸. 이름은 코드 이름(var(--acc)), 없으면 경로를 - 로 잇는다.
 async function sendTokens() {
   const vars = await figma.variables.getLocalVariablesAsync();
@@ -1003,7 +1003,7 @@ async function sendTokens() {
   }
   let out;
   try {
-    const res = await fetch('http://127.0.0.1:8765/api/tokens', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ tokens }) });
+    const res = await fetch('http://localhost:8765/api/tokens', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ tokens }) });
     out = await res.json();
   } catch (e) {
     return `대시보드에 보내지 못했습니다. 대시보드가 켜져 있는지 확인하세요 (${e.message})`;
