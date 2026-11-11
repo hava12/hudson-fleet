@@ -325,19 +325,23 @@ details.fold summary{cursor:pointer;margin:0 -16px;padding:10px 16px;background:
 <p class="muted">도식이 글로만 보이면 인터넷 연결을 확인하세요(mermaid 를 불러와 그립니다).</p>
 </div>
 <script type="module">
-import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+// 도식 도구는 따로 받아 온다. 받는 동안에도, 인터넷이 끊겨도 탭과 연결은 바로 동작한다
 // 도식 색은 문서 색 토큰을 그대로 쓴다
 const token = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base", flowchart: { nodeSpacing: 28, rankSpacing: 36, padding: 10, wrappingWidth: 260 }, er: { useMaxWidth: false },
-  themeVariables: { background: token("--paper"), primaryColor: token("--bg"), primaryBorderColor: token("--muted"),
-    primaryTextColor: token("--ink"), secondaryColor: token("--bg"), tertiaryColor: token("--paper"), lineColor: token("--muted"), textColor: token("--ink"), edgeLabelBackground: token("--paper"),
-    fontFamily: token("--sans"), fontSize: "14px" } });
+const mermaid = import("https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs").then(({ default: m }) => {
+  m.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base", flowchart: { nodeSpacing: 28, rankSpacing: 36, padding: 10, wrappingWidth: 260 }, er: { useMaxWidth: false },
+    themeVariables: { background: token("--paper"), primaryColor: token("--bg"), primaryBorderColor: token("--muted"),
+      primaryTextColor: token("--ink"), secondaryColor: token("--bg"), tertiaryColor: token("--paper"), lineColor: token("--muted"), textColor: token("--ink"), edgeLabelBackground: token("--paper"),
+      fontFamily: token("--sans"), fontSize: "14px" } });
+  return m;
+});
 // 보이는 도식만 그린다. 접힌 칸·숨은 탭 안의 도식은 크기를 잴 수 없어 깨지므로 펼치거나 탭을 열 때 그린다.
-// 여러 개를 한꺼번에 펼쳐도 한 번에 하나씩 그린다(동시에 그리면 일부가 오류로 깨진다)
+// 여러 개를 한꺼번에 펼쳐도 한 번에 하나씩 그린다(동시에 그리면 일부가 오류로 깨진다).
+// 보이는지는 그리기 직전에 다시 본다(도구를 받는 사이에 다른 탭으로 옮겼을 수 있다)
 let queue = Promise.resolve();
-const draw = (nodes) => { if (nodes.length) queue = queue.then(() => mermaid.run({ nodes })).catch(() => {}); };
 const visible = (root) => [...root.querySelectorAll("pre.mermaid:not([data-processed])")].filter((p) => !p.closest("details:not([open]), [hidden]"));
-document.querySelectorAll("details").forEach((d) => d.addEventListener("toggle", () => d.open && draw(visible(d))));
+const draw = (root) => { queue = queue.then(() => mermaid).then((m) => { const nodes = visible(root); return nodes.length && m.run({ nodes }); }).catch(() => {}); };
+document.querySelectorAll("details").forEach((d) => d.addEventListener("toggle", () => d.open && draw(d)));
 // 모두 펼치기·접기: 버튼이 있는 장 안의 접는 칸만 연다
 document.querySelectorAll("[data-all]").forEach((b) => b.addEventListener("click", () => {
   b.closest("section").querySelectorAll("details").forEach((d) => { d.open = b.dataset.all === "open"; });
@@ -351,7 +355,7 @@ const show = (id) => {
     t.tabIndex = on ? 0 : -1;
     document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
   });
-  draw(visible(document.getElementById(id)));
+  draw(document.getElementById(id));
 };
 tabs.forEach((t, i) => {
   t.addEventListener("click", () => show(t.getAttribute("aria-controls")));
@@ -389,8 +393,8 @@ tabs.forEach((t) => {
   document.getElementById(t.getAttribute("aria-controls")).querySelector("nav ul")?.insertAdjacentHTML("beforeend",
     tabs.filter((x) => x !== t).map((x) => `<li><a href="#${x.getAttribute("aria-controls")}">${x.textContent} →</a></li>`).join(""));
 });
-// 주소에 #이 없으면 내용이 있는 첫 탭을 연다(변경 로그는 빼고). 만들지 않은 편에는 장 id 가 없다
-const first = () => (tabs.find((t) => t.id !== "tab-log" && document.getElementById(t.getAttribute("aria-controls")).querySelector("section[id]")) || tabs[0]).getAttribute("aria-controls");
+// 주소에 #이 없으면 내용이 있는 가장 오른쪽 편을 연다(개발 편 → 기획 편 → 사전 기획, 변경 로그는 빼고). 만들지 않은 편에는 장 id 가 없다
+const first = () => (tabs.findLast((t) => t.id !== "tab-log" && document.getElementById(t.getAttribute("aria-controls")).querySelector("section[id]")) || tabs[0]).getAttribute("aria-controls");
 const fromHash = () => {
   const el = location.hash && document.getElementById(location.hash.slice(1));
   const panel = el && el.closest('[role="tabpanel"]');
