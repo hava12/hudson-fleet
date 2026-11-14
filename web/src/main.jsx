@@ -18,11 +18,15 @@ const route = () => { const [p, ...sub] = location.hash.slice(1).split('/'); ret
 const NAV = ['para', ['History', ['history', 'pushes']], 'sched', 'issues', 'mcp']
 const sideKey = k => k && k.type + ':' + (k.sid || k.id) + (k.agent || '')
 
-// 끝난 세션과 그 서브에이전트, 끝난 서브에이전트, 살아 있는 세션이 없는 프로젝트는 빼고 그린다
+// 끝난 세션과 그 서브에이전트, 끝난 서브에이전트, 살아 있는 세션이 없는 프로젝트는 빼고 그린다.
+// 다른 프로그램이 claude -p 로 부른 자동 호출(kind auto)은 세션 카드 대신 프로젝트마다 "자동 호출 N개 실행 중" 한 칸으로 묶는다
 function live(g) {
-  const gone = new Set(g.nodes.filter(n => n.type === 'session' && isDead(n.status)).map(n => n.sessionId))
-  let nodes = g.nodes.filter(n => !gone.has(n.type === 'session' ? n.sessionId : n.sid) && !(n.type === 'agent' && isDead(n.status)))
-  const ids = new Set(nodes.map(n => n.id)), edges = g.edges.filter(e => ids.has(e.source) && ids.has(e.target))
+  const gone = new Set(g.nodes.filter(n => n.type === 'session' && (isDead(n.status) || n.kind === 'auto')).map(n => n.sessionId))
+  const auto = Object.groupBy(g.nodes.filter(n => n.type === 'session' && n.kind === 'auto' && !isDead(n.status)), n => 'p:' + n.cwd)
+  let nodes = [...g.nodes.filter(n => !gone.has(n.type === 'session' ? n.sessionId : n.sid) && !(n.type === 'agent' && isDead(n.status))),
+    ...Object.entries(auto).map(([p, ss]) => ({ type: 'auto', id: 'auto:' + p, label: `자동 호출 ${ss.length}개 실행 중`, cwd: ss[0].cwd, ss }))]
+  const ids = new Set(nodes.map(n => n.id))
+  const edges = [...g.edges, ...Object.keys(auto).map(p => ({ source: p, target: 'auto:' + p }))].filter(e => ids.has(e.source) && ids.has(e.target))
   const used = new Set(edges.map(e => e.source))
   nodes = nodes.filter(n => n.type !== 'project' || used.has(n.id))
   return { ...g, nodes, edges }

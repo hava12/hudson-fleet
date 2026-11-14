@@ -46,6 +46,9 @@ def schema(c):
         c.execute("ALTER TABLE sessions ADD COLUMN my_title TEXT")
     if "deleted_at" not in {r[1] for r in c.execute("PRAGMA table_info(sessions)")}:  # 세션 기록에서 지운 시각 (soft delete — 행·작업은 남는다)
         c.execute("ALTER TABLE sessions ADD COLUMN deleted_at TEXT")
+    if c.execute("PRAGMA user_version").fetchone()[0] < 1:  # 0.5.63 전에 기록한 다른 프로그램의 claude -p 호출(실행 앱 Python)도 자동 호출로 (한 번만)
+        c.execute("UPDATE sessions SET kind = 'auto' WHERE kind = 'interactive' AND app = 'Python'")
+        c.execute("PRAGMA user_version = 1")
     # status: todo 남은 일 · done 완료 · stopped 중단 · rejected 반려 / source: agent(MCP) · haiku · human
     c.execute("CREATE TABLE IF NOT EXISTS session_tasks (id INTEGER PRIMARY KEY, sid TEXT REFERENCES sessions(sid),"
               " sort REAL, status TEXT, text TEXT, source TEXT, created_at TEXT, updated_at TEXT)")

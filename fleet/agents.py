@@ -8,7 +8,7 @@ import time
 from functools import lru_cache
 from pathlib import Path
 
-from .config import CFG, INTERNAL, SESSIONS, claude
+from .config import CFG, DEAD, INTERNAL, SESSIONS, claude
 from .db import db, my_title
 from .transcripts import model_of, overview, subagents, title_of, transcript
 
@@ -32,18 +32,23 @@ def mcp_servers(refresh=False):
 
 def agents():
     """claude agents 목록에서 대시보드 자신의 `claude -p` 호출(/usage·AI 요약, 이름 INTERNAL)을 뺀다.
-    몇 초 떴다 사라지는 '유령 세션'이 되기 때문. 다른 도구가 띄운 claude -p(예: 하네스의 역할 호출)는 보인다."""
-    def internal(s):
-        if "pid" not in s:  # 백그라운드 작업은 pid 가 없다
-            return False
-        try:
-            info = json.loads((SESSIONS / f"{s['pid']}.json").read_text())
-            return info.get("entrypoint") == "sdk-cli" and info.get("name") == INTERNAL
-        except OSError:  # 목록에는 남았는데 파일은 지워짐 = 막 끝난 프로세스
-            return True
-        except ValueError:
-            return False
-    return [s for s in agent_list() if not internal(s)]
+    몇 초 떴다 사라지는 '유령 세션'이 되기 때문. 다른 도구가 띄운 claude -p(예: pod-agents·하네스의 역할 호출)는
+    kind 를 "auto"(자동 호출)로 바꿔 둔다 — 화면에는 프로젝트마다 한 칸으로 묶어 보이고, 세션 기록에는 남기지 않는다."""
+    out = []
+    for s in agent_list():
+        if "pid" in s:  # 끝난 백그라운드 작업은 pid 가 없다
+            try:
+                info = json.loads((SESSIONS / f"{s['pid']}.json").read_text())
+            except OSError:  # 목록에는 남았는데 파일은 지워짐 = 막 끝난 프로세스
+                continue
+            except ValueError:
+                info = {}
+            if info.get("entrypoint") == "sdk-cli":
+                if info.get("name") == INTERNAL:
+                    continue
+                s = {**s, "kind": "auto"}
+        out.append(s)
+    return out
 
 
 _ag = {"at": 0, "data": []}
@@ -124,6 +129,9 @@ def reopen(sid, fork):
     c.close()
     if not re.fullmatch(r"[0-9a-f-]{36}", sid) or not row or not os.path.isdir(row[0] or ""):
         return {"error": "끝난 세션이 아니거나 작업 폴더가 없습니다"}, 404
+    # DB 에 closed 로 잘못 남았어도 아직 도는 세션은 이어서 열지 않는다 — 같은 세션이 창 두 개에서 돈다 (복사해 열기는 새 ID 라 괜찮다)
+    if not fork and (s := find_session(sid)) and (s.get("status") or s.get("state")) not in DEAD:
+        return {"error": "이 세션은 아직 다른 창에서 돌고 있습니다. 그 창을 쓰거나 [복사해 열기]를 누르세요"}, 409
     cmd = ["claude", "--resume", sid, *(["--fork-session"] if fork else [])]
     app = CFG["HUDSON_FLEET_TERMINAL"]
     if app == "Terminal":  # Terminal.app 은 명령을 AppleScript 문자열로만 받는다

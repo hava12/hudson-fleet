@@ -182,12 +182,12 @@ class H(BaseHTTPRequestHandler):
                                "secret": k.endswith("_TOKEN"),
                                "src": "screen" if k in saved else "env" if k in os.environ else "default"}
                               for k, d, desc in CONFIG])
-        if u.path == "/api/sessions":  # ?status=closed|work|wait|idle (없으면 전체) &limit=
+        if u.path == "/api/sessions":  # ?status=closed|work|wait|idle (없으면 전체) &limit=. 다른 프로그램의 자동 호출(kind auto)은 뺀다
             c = db()
             c.row_factory = sqlite3.Row
             st = q.get("status")
             out = [dict(r) for r in c.execute(
-                "SELECT * FROM sessions WHERE status IS NOT NULL AND deleted_at IS NULL" + (" AND status = ?" if st else "")
+                "SELECT * FROM sessions WHERE status IS NOT NULL AND deleted_at IS NULL AND kind IS NOT 'auto'" + (" AND status = ?" if st else "")
                 + " ORDER BY coalesce(ended_at, last_seen) DESC LIMIT ?", (*([st] if st else []), int(q.get("limit", 50))))]
             for s in out:
                 s["title"] = s["my_title"] or s["title"]

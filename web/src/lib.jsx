@@ -9,7 +9,7 @@ const GROUP = { busy: 'work', running: 'work', blocked: 'wait', waiting: 'wait',
   stopped: 'done', completed: 'done', done: 'done', failed: 'fail' }
 export const GINFO = { work: ['작업 중', 'var(--ok)', 'success'], wait: ['입력 대기', 'var(--wait)', 'warning'], idle: ['쉬는 중', 'var(--idle)'], done: ['끝남', 'var(--off)'], fail: ['실패', 'var(--bad)', 'danger'] }  // [이름, 색, 꼬리표 Tone]
 export const grp = st => GROUP[st] || 'idle', isDead = st => ['done', 'fail'].includes(grp(st))  // 끝난 세션: 흐리게, 종료 메뉴 숨김
-export const FILL = { project: 'var(--node-proj)', agent: 'var(--node-agent)' }
+export const FILL = { project: 'var(--node-proj)', agent: 'var(--node-agent)', auto: 'var(--ok)' }  // auto: 다른 프로그램의 자동 호출 묶음 — 돌고 있으니 작업 중 색
 // 작업 상태 색: 남은 일은 노랑으로 눈에 띄게, 중단은 주황으로 남은 일과 구분 (style.css 의 --t-*). 셋째 칸은 꼬리표 Tone (Figma Pill)
 export const TASK = { done: ['완료', 'var(--t-done)', 'success'], stopped: ['중단', 'var(--t-stop)', 'warning'], todo: ['남은 일', 'var(--t-todo)', 'info'], rejected: ['반려', 'var(--t-rej)'] }
 export const TAGS = ['개발', '디자인', '기획', '테스트', '문서', '디버그', '데이터', '운영', '기타']  // fleet/tasks.py TAGS 와 같은 순서

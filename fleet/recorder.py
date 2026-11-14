@@ -1,5 +1,6 @@
 """1분 주기 기록 스레드: 지표·세션 상태·끝난 세션 마감."""
 import itertools
+import json
 import os
 import threading
 import time
@@ -7,7 +8,7 @@ from datetime import datetime, timezone
 
 from .agents import graph
 from .card import publish
-from .config import CFG, DEAD, now_iso
+from .config import CFG, DEAD, SESSIONS, now_iso
 from .db import db
 from .tasks import summarize
 from .transcripts import overview, subagents, token_rows, transcript
@@ -41,7 +42,7 @@ def archive(n, status):
         return
     ov = overview(path)
     tokens = sum(t for _, t in token_rows([path, *(p for *_, p in subagents(sid))]))
-    if CFG["HUDSON_FLEET_AUTO_SUMMARY"] != "0":
+    if CFG["HUDSON_FLEET_AUTO_SUMMARY"] != "0" and n["kind"] != "auto":  # 다른 프로그램의 자동 호출은 요약하지 않는다 (haiku 비용만 든다)
         try:
             summarize(sid)
         except Exception as e:  # haiku 실패·3분 초과여도 세션은 마감한다 (안 그러면 끝남으로 안 바뀌고 세션 기록에도 안 나온다)
@@ -74,6 +75,19 @@ def track(alive):
                   (sid, n.get("label"), n["cwd"], n["kind"], n.get("app"), STATE.get(n["status"], "idle"), t, started, t))
     c.commit()
     c.close()
+
+
+def still_running(n):
+    """claude agents 목록에서 빠졌어도 같은 프로세스가 살아 있고 세션 파일도 아직 이 세션인가.
+    이런 세션을 끝남으로 마감하면 세션 기록에 [다시 열기]가 떠서, 살아 있는 세션이 새 창에서 한 번 더 열린다"""
+    try:
+        os.kill(n["pid"], 0)
+    except (KeyError, TypeError, OSError):  # pid 가 없거나(끝난 백그라운드·DB 에서 이어받은 세션) 프로세스가 끝났다
+        return False
+    try:
+        return json.loads((SESSIONS / f"{n['pid']}.json").read_text()).get("sessionId") == n["sessionId"]  # 다르면 /clear·/resume 으로 바뀜
+    except (OSError, ValueError):  # 파일을 다시 쓰는 순간
+        return True
 
 
 def archive_safe(n, status):
@@ -126,12 +140,17 @@ def record(stop):
             nodes = graph()["nodes"]
             alive = {n["sessionId"]: n for n in nodes if n["type"] == "session" and n["status"] not in DEAD}
             now = {n["sessionId"]: n["status"] for n in nodes if n["type"] == "session"}
+            kept = {}
             for sid, n in prev.items():
-                if sid not in alive:  # 요약에 수십 초 걸릴 수 있어 따로 돌린다
+                if sid in alive:
+                    continue
+                if sid not in now and still_running(n):  # 목록에서 잠깐 빠졌을 뿐 — 다음 분에 다시 본다
+                    kept[sid] = n
+                else:  # 요약에 수십 초 걸릴 수 있어 따로 돌린다
                     threading.Thread(target=archive_safe, args=(n, now.get(sid, "gone")), daemon=True).start()
-            prev = alive
+            prev = {**kept, **alive}
             track(alive)
-            live = {sid: STATE.get(n["status"], "idle") for sid, n in alive.items()}
+            live = {sid: STATE.get(n["status"], "idle") for sid, n in alive.items() if n["kind"] != "auto"}  # 자동 호출은 세지 않는다 (현황 숫자 칸과 같게)
             agents = sum(n["type"] == "agent" and n["status"] == "running" and n["sid"] in live for n in nodes)
             pct = {x["label"]: x["pct"] for x in usage()["limits"]}
             c = db()

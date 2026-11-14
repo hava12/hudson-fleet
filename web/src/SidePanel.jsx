@@ -9,6 +9,12 @@ import { Button, Collapsible, Pill } from './ui'
 export default function SidePanel() {
   const { side, G } = useApp()
   if (side.type === 'project') return <><h3>{side.label}</h3><p className="meta">{tilde(side.id.slice(2), G.home)} · 세션 {side.n}개</p></>
+  if (side.type === 'auto') {  // 묶음은 5초마다 바뀌므로 G 에서 다시 찾는다
+    const a = G.nodes.find(n => n.id === side.id)
+    return <><h3>자동 호출</h3><p className="meta">{tilde(side.id.slice(7), G.home)} · 지금 {a ? a.ss.length : 0}개 실행 중</p>
+      <p>다른 프로그램(파이썬 스크립트, [명세서 업데이트] 등)이 claude -p 로 부른 세션입니다. 몇 분 돌고 저절로 끝나며, 세션 기록에는 남기지 않습니다.</p>
+      {a && <ul>{a.ss.map(s => <li key={s.id}>{s.label} <span className="meta">· {GINFO[grp(s.status)][0]}</span></li>)}</ul>}</>
+  }
   if (side.type === 'mcp') {
     const m = side.m
     return <><h3>{m.name}</h3><div className="meta">{m.group}</div>

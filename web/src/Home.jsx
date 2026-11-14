@@ -58,6 +58,7 @@ export default function Home() {
     cy.on('tap', 'node', e => {
       const d = e.target.data()
       if (d.type === 'project') return openSide({ type: 'project', id: d.id, label: d.label, n: e.target.outgoers('node').length })
+      if (d.type === 'auto') return openSide({ type: 'auto', id: d.id })
       openSide({ type: 'session', sid: d.type === 'agent' ? d.sid : d.sessionId, agent: d.type === 'agent' ? d.label : null })
     })
     cy.on('cxttap', 'node[type="session"]', e => setMenu({ x: e.originalEvent.clientX, y: e.originalEvent.clientY, n: e.target.data() }))
@@ -92,7 +93,7 @@ export default function Home() {
       cy.layout({ name: 'dagre', rankDir: 'LR', nodeSep: 14, rankSep: 60, fit: false }).run()
       if (!moved.current) fitBox(cy)
     }
-    cy.edges().forEach(e => e.toggleClass('flow', e.target().data('type') === 'session' && grp(e.target().data('status')) === 'work'))
+    cy.edges().forEach(e => e.toggleClass('flow', e.target().data('type') === 'auto' || e.target().data('type') === 'session' && grp(e.target().data('status')) === 'work'))
     redraw()
   }, [cy, G])
 
@@ -126,6 +127,7 @@ export default function Home() {
     <Card><div className="sh"><h2>상태별 노드</h2><div className="legend">
       {LIVE.map(k => <span key={k}><Dot c={GINFO[k][1]} />{GINFO[k][0]}</span>)}
       <span><Dot c={FILL.project} sq />프로젝트</span><span><Dot c={FILL.agent} sq />서브에이전트</span>
+      <span title="다른 프로그램이 claude -p 로 부른 세션 (예: 파이썬 스크립트, [명세서 업데이트])"><Dot c={FILL.auto} sq />자동 호출</span>
       <span className="meta">빈 곳 두 번 누르기: 전체 보기</span></div></div>
       <div id="cy" ref={ref} onContextMenu={e => e.preventDefault()}>
         {cy && <div id="cards">{cy.nodes('[type="session"]').map(e => <SessionCard key={e.id()} e={e} n={e.data()} u={U5[e.data('sessionId')]} home={G.home}
@@ -134,6 +136,8 @@ export default function Home() {
       {/* 좁은 창(휴대폰): 그래프는 배율이 너무 작아 읽을 수 없어 세션 카드 목록으로 보인다 (style.css 가 둘 중 하나만 보인다) */}
       <div id="clist">{ss.map(n => <SessionCard key={n.id} n={n} u={U5[n.sessionId]} home={G.home} on={isOn(n)} faded={statF && !pick(n)}
         agents={G.nodes.filter(a => a.type === 'agent' && a.sid === n.sessionId).length} onOpen={() => openSide({ type: 'session', sid: n.sessionId })} />)}
+        {G.nodes.filter(n => n.type === 'auto').map(a => <div key={a.id} className="meta lk" {...press(() => openSide({ type: 'auto', id: a.id }))}>
+          <Dot c={FILL.auto} sq />{tilde(a.cwd, G.home)} · {a.label}</div>)}
         {!ss.length && <div className="meta">살아 있는 세션이 없습니다</div>}</div>
       <div className="stats">
         {LIVE.map(k => tile(k, cnt[k], GINFO[k][0], GINFO[k][1]))}
