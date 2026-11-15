@@ -41,12 +41,15 @@ function SessionCard({ e, n, u = {}, on, home, faded, agents, onOpen }) {
     </div>)
 }
 
+const savedProj = () => { try { return localStorage.getItem('todoproj') || '' } catch { return '' } }
+
 export default function Home() {
-  const { G, side, openSide, stopSession, ver } = useApp()
+  const { G, P, side, openSide, stopSession, ver } = useApp()
   const ref = useRef(), sig = useRef(''), moved = useRef(false)  // moved: 사람이 옮기거나 확대했다 — 세션·서브에이전트가 늘고 줄어도 그 화면을 지킨다
   const cy = useCy(ref, { style: STYLE, autoungrabify: true })  // 노드는 끌어 옮기지 않는다 (카드가 영역 밖으로 나가지 않게)
   const [, redraw] = useReducer(x => x + 1, 0)  // 이동·확대 때 카드 자리만 다시
   const [statF, setStatF] = useState('')  // 숫자 타일로 고른 상태 ('' = 전체)
+  const [projF, setProjF] = useState(savedProj)  // 남은 작업에서 고른 프로젝트 id ('' = 전체, '0' = 프로젝트 없음). 다음에 열어도 이어 간다
   const [menu, setMenu] = useState(null)  // 우클릭 메뉴 {x, y, n}
   const U5 = usePoll('/api/usage5h', 60000) || {}
   const TODO = usePoll('/api/todo', 10000, [ver])
@@ -116,7 +119,10 @@ export default function Home() {
   const ss = G.nodes.filter(n => n.type === 'session'), cnt = {}
   ss.forEach(n => cnt[grp(n.status)] = (cnt[grp(n.status)] || 0) + 1)
   const live = new Map(ss.map(n => [n.sessionId, n]))
-  const todo = (TODO || []).filter(t => !statF || (live.has(t.sid) && pick(live.get(t.sid))))
+  const todoS = (TODO || []).filter(t => !statF || (live.has(t.sid) && pick(live.get(t.sid))))
+  const pc = Object.groupBy(todoS, t => t.project_id || 0)  // 프로젝트별 남은 일 — 고르기 칸의 건수
+  const todo = projF ? pc[projF] || [] : todoS
+  const setProj = v => { setProjF(v); try { localStorage.setItem('todoproj', v) } catch { /* 저장소 막힘 */ } }
   const setStat = k => { setStatF(statF === k ? '' : k); if (k !== statF) document.getElementById('tblh').scrollIntoView({ behavior: 'smooth', block: 'center' }) }
   // 컴포넌트가 아닌 함수로 그린다 — 그릴 때마다 새 컴포넌트가 되면 타일이 새로 만들어져 키보드 초점이 풀린다
   const tile = (k, n, l, c) => <div key={k} className={'stat' + (statF === k ? ' on' : '')} {...press(() => setStat(k))} aria-pressed={statF === k}>
@@ -146,14 +152,20 @@ export default function Home() {
 
     <Card><div className="sh"><h2 id="tblh">{statF
       ? <>남은 작업 · {statF === 'agent' ? '서브에이전트가 있는 세션' : GINFO[statF][0]}만 보기 <Button onClick={() => setStatF('')}>필터 해제</Button></>
-      : '남은 작업'}</h2></div>
+      : '남은 작업'}</h2>
+      {/* 남은 일이 있는 프로젝트만 (고른 프로젝트는 0건이 되어도 남긴다) */}
+      <select value={projF} title="프로젝트별로 보기" onChange={e => setProj(e.target.value)}>
+        <option value="">전체 프로젝트 · {todoS.length}</option>
+        {(P || []).filter(p => pc[p.id] || String(p.id) === projF).map(p => <option key={p.id} value={p.id}>{p.name} · {pc[p.id]?.length || 0}</option>)}
+        {(pc[0] || projF === '0') && <option value="0">프로젝트 없음 · {pc[0]?.length || 0}</option>}
+      </select></div>
       {!TODO ? <div className="meta">불러오는 중…</div>
         : todo.length ? <TaskList ts={todo} className="todo" edit="status" lead={t => {
           const nm = t.name || t.sid.slice(0, 8)
           return <>{live.has(t.sid) ? <a className="lk" {...press(() => openSide({ type: 'session', sid: t.sid }))}>[{nm}]</a>
             : <><span className="meta" title={'끝난 세션 · ' + (t.title || '')}>[{nm}]</span><MoveTo t={t} to={ss} /></>} - </>
         }} />
-        : <div className="meta">{statF ? '해당하는 세션의 남은 일이 없습니다' : '남은 일이 없습니다'}</div>}
+        : <div className="meta">{statF || projF ? '고른 조건에 맞는 남은 일이 없습니다' : '남은 일이 없습니다'}</div>}
     </Card>
 
     <TodaySched />
