@@ -84,6 +84,7 @@ npm run build   # → ../dist
 ```
 
 - `dist/` 는 커밋합니다. 플러그인 설치가 저장소를 그대로 받기 때문입니다.
+- 화면 디자인 규칙(이름표 역할·부품 쓰임·하지 않는 것)은 `web/CLAUDE.md` 에 있습니다. Claude Code 가 `web/` 파일을 다룰 때 읽고, `npm run build` 가 색 값·숫자 글자 크기·부품 대신 쓴 class 를 막습니다.
 - 플러그인 코드(`web/`·`fleet/`·`server.py`·`mcp_server.py`)가 바뀐 커밋이 main 에 들어오면 GitHub Actions(`.github/workflows/web.yml`)가 화면을 빌드해 `dist/` 를 커밋하고 플러그인 패치 버전을 1 올립니다. 그래서 버전을 손으로 올리지 않습니다. 버전이 올라야 `claude plugin update` 가 새 코드를 받으므로 서버만 고쳐도 올립니다.
 
 | 파일 | 하는 일 |
