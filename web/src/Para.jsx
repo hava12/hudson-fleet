@@ -1,6 +1,6 @@
 import { Fragment, useState } from 'react'
 import { TaskList } from './TaskList'
-import { TaskSum, Tip, post, press, tilde, useApp, usePoll, when } from './lib'
+import { FinderBtn, TaskSum, Tip, post, press, tilde, useApp, usePoll, when } from './lib'
 import { Button, Card, Collapsible, Pill, Table } from './ui'
 
 // ── PARA: 일과 자료를 실행 가능성 순서로 네 칸에 나눈다 (fleet/para.py) ──
@@ -32,6 +32,7 @@ function NewForm({ as, save }) {
     <input value={f.done_when} onChange={set('done_when')} placeholder="완료 조건: 무엇이 되면 끝인가 (한 줄)" style={{ flex: 1, minWidth: 240 }} />
     <input value={f.folder} onChange={set('folder')} placeholder="코드 폴더 (선택): ~/Project/새이름" style={{ width: 240 }}
       title="명세서와 적합성 평가가 읽을 폴더. 없으면 만듭니다(상위 폴더가 있을 때만). 비우면 작업 기록에서 고릅니다" />
+    <FinderBtn start={f.folder || '~/Project'} onPick={folder => setF({ ...f, folder })} />
     <AreaSel as={as} v={f.area_id} set={v => setF({ ...f, area_id: v })} />
     <Button variant="primary" disabled={!f.name.trim() || !f.done_when.trim()}>만들기</Button></form>
 }
@@ -47,6 +48,7 @@ function SpecBar({ p, save }) {
   return <div className="meta" style={{ display: 'flex', gap: 'var(--sp-4)', alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--sp-5)' }}>
     <b>기획명세서</b><span title="명세서가 읽을 코드 폴더">{s.folder ? tilde(s.folder, G.home) + (s.auto ? ' (작업 기록에서 고름)' : '') : "코드 폴더를 찾지 못했습니다. 새 프로젝트면 채팅에서 '사전 기획 시작해 줘'로 시작하세요"}</span>
     <Button onClick={pick}>코드 폴더 바꾸기</Button>
+    <FinderBtn start={s.folder} onPick={folder => save({ id: p.id, folder })} />
     <Button variant={exists ? undefined : 'primary'} disabled={!s.folder || s.making} onClick={make}
       title="프로젝트 폴더에서 Claude(Sonnet)가 project-spec 스킬로 명세서를 만들거나 고칩니다 (몇 분)">{s.making ? '만드는 중… (몇 분)' : '명세서 업데이트'}</Button>
     {exists && <Button variant="primary" onClick={() => openSpec(p.id)}>명세서 열기</Button>}

@@ -299,6 +299,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `POST /api/area` · `POST /api/project` | 영역 `{id?, name, keep, archive?, delete?}` · 프로젝트 `{id?, name, done_when, area_id, status, folder?, delete?}` 만들기·고치기·지우기(`folder` 는 만들 때만, 없으면 만듦). 잘못되면 `{error}` |
 | `GET /api/jira` · `GET /api/github` | 이슈·PR 페이지: 나에게 할당된 끝나지 않은 Jira 이슈 `{items}` · 열린 내 PR 과 리뷰 요청 PR `{mine, review}`. 꺼져 있거나 토큰이 없으면 `{error}` |
 | `POST /api/connect` | 연결 확인 `{service: github·jira·obsidian}` → 저장된 토큰으로 내 계정 이름(옵시디언은 노트를 바로 한 번 쓰고 볼트 이름·노트 수) `{ok, who}` 또는 `{error}` |
+| `POST /api/pick` | [Finder에서 찾기] `{file?, start?}` → 서버가 osascript 로 Finder 고르기 창을 띄워 고른 경로 `{path}` · 취소 `{cancel}` · `{error}` (브라우저는 고른 파일의 실제 경로를 주지 않으므로) |
 | `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지, `secret`: 토큰이라 끝 4글자만) · 바꾸기 `{name, value}` |
 | `POST /api/tokens` | Figma 플러그인의 [토큰 보내기] `{tokens: [{name, value, dark}]}` → 설정의 토큰 파일에 CSS 로 쓰고 `{ok, n, file}` (`file` 은 파일 이름만). 이름은 `--이름`, 값은 `#색`·`숫자px`·`var(--이름)` 만 받고 하나라도 다르면 `{error}` |
 | `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list·projects·project_save·project_archive·resource_save·resource_search·project_history·project_folder, sid, …}`. Origin 이 없는 요청만 |

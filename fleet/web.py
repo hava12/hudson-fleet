@@ -28,6 +28,34 @@ from .tokens import save_tokens
 from .usage import usage, usage5h_all
 
 
+# Finder 고르기 창: 브라우저는 고른 파일의 실제 경로를 알려 주지 않으므로, 이 Mac 의 서버가 osascript 로 띄운다.
+# 사람이 고르는 동안 이 요청만 기다린다 (서버는 요청마다 스레드). 경로는 인자로 넘겨 스크립트 글에 섞지 않는다
+PICK = ["on run argv", "activate", "set {k, p, d} to argv",
+        "if k is \"file\" then", "set r to choose file with prompt p default location (POSIX file d)",
+        "else", "set r to choose folder with prompt p default location (POSIX file d)", "end if",
+        "return POSIX path of r", "end run"]
+
+
+def pick_path(file, start):
+    """{path} · 취소면 {cancel} · 못 열면 {error}. start 가 없는 경로면 있는 위 폴더에서 연다."""
+    d = Path(os.path.expanduser(str(start or "~")))
+    if not d.is_absolute():
+        d = Path.home()
+    while not d.is_dir():
+        d = d.parent
+    args = [x for line in PICK for x in ("-e", line)]
+    try:
+        r = subprocess.run(["osascript", *args, "file" if file else "folder", "파일을 고르세요" if file else "폴더를 고르세요", str(d)],
+                           capture_output=True, text=True, timeout=600)
+    except subprocess.TimeoutExpired:
+        return {"error": "10분 안에 고르지 않아 Finder 창을 닫았습니다"}
+    except OSError:  # osascript 가 없다 (macOS 가 아님)
+        return {"error": "Finder 고르기는 macOS 에서만 됩니다. 경로를 직접 넣으세요"}
+    if r.returncode:
+        return {"cancel": True} if "-128" in r.stderr else {"error": "Finder 창을 열지 못했습니다: " + r.stderr.strip()[:200]}
+    return {"path": r.stdout.strip().rstrip("/") or "/"}
+
+
 def agent_task(body):
     """MCP 서버가 보낸 작업 기록 {op: start|update|list, sid, ...}. DB 는 이 서버만 쓴다."""
     sid, op = body.get("sid") or "", body.get("op")
@@ -295,6 +323,8 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/api/config":  # {name, value} — EDIT 에 있는 설정만. 빈 값이면 환경 변수·기본값으로
             err = set_setting(body.get("name"), body.get("value"))
             return self.send({"error": err} if err else {"ok": True})
+        if self.path == "/api/pick":  # {file?, start?} — [Finder에서 찾기]: Finder 고르기 창에서 고른 폴더·파일 경로
+            return self.send(pick_path(bool(body.get("file")), body.get("start")))
         if self.path == "/api/reopen":  # {sid, fork?} — 끝난 세션을 새 터미널 창에서 claude --resume 으로 연다
             out, code = reopen(body.get("sid", ""), bool(body.get("fork")))
             return self.send(out, code=code)

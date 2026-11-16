@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { Button } from './ui'
 
 export const when = ts => ts ? new Date(ts).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
 // 색·글자 크기·모서리는 style.css 맨 위 이름표(:root) 한 곳에서 정한다. 화면 코드는 'var(--이름)' 만 쓴다.
@@ -56,6 +57,19 @@ export const tilde = (p, home) => p && home && p.startsWith(home) ? '~' + p.slic
 
 // 물음표에 마우스를 올리거나(휴대폰은 누르면) 설명 상자가 뜬다
 export const Tip = ({ children }) => <span className="tip" tabIndex={0} aria-label="설명 보기">?<span className="tipbox" role="tooltip">{children}</span></span>
+// [Finder에서 찾기]: 서버(이 Mac)가 Finder 고르기 창을 띄우고 고른 경로를 onPick 으로 준다. 취소하면 아무것도 안 한다 (fleet/web.py pick_path)
+export function FinderBtn({ file, start, onPick }) {
+  const { setMsg } = useApp()
+  const [busy, setBusy] = useState(false)
+  const go = async () => {
+    setBusy(true)
+    const r = await post('/api/pick', { file: !!file, start })
+    setBusy(false)
+    if (r.error) setMsg(r.error)
+    else if (r.path) onPick(r.path)
+  }
+  return <Button type="button" disabled={busy} onClick={go} title={`Finder 창에서 ${file ? '파일' : '폴더'}을 고릅니다`}>{busy ? 'Finder 창에서 고르는 중…' : 'Finder에서 찾기'}</Button>
+}
 export const Dot = ({ c, sq }) => <i className="dot" style={{ background: c, borderRadius: sq ? 'var(--r-xs)' : undefined }} />
 export const TaskSum = ({ ts }) => ts.length
   ? Object.entries(TASK).filter(([k]) => ts.some(t => t.status === k))

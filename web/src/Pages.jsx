@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react'
-import { TaskSum, fmtTok, post, press, tilde, useApp, usePoll, when } from './lib'
+import { FinderBtn, TaskSum, fmtTok, post, press, tilde, useApp, usePoll, when } from './lib'
 import { Button, Card, Pill, Table } from './ui'
 
 export const REASON = { switched: '세션 전환 (/clear·/resume)', exited: '프로세스 종료', stopped: '중지', failed: '실패', completed: '완료', gone: '사라짐' }
@@ -94,7 +94,8 @@ function Assign({ k }) {
   }
   return <div className="uadd" style={{ marginTop: 0, alignItems: 'center' }}>
     <span className="meta">일할 폴더</span>
-    <select value={v} onChange={e => setCwd(e.target.value)}>{g.recent.map(d => <option key={d} value={d}>{tilde(d, G.home)}</option>)}</select>
+    <select value={v} onChange={e => setCwd(e.target.value)}>{[...new Set([v, ...g.recent])].filter(Boolean).map(d => <option key={d} value={d}>{tilde(d, G.home)}</option>)}</select>
+    <FinderBtn start={v} onPick={setCwd} />
     <span className="meta">{v === g.cwd ? g.why : '직접 고름'}</span>
     <Button variant="primary" disabled={busy || !v || !!res} onClick={go}>{busy ? '띄우는 중…' : '새 에이전트에게 맡기기'}</Button>
     {res && <pre style={{ width: '100%' }}>{res}</pre>}</div>
@@ -141,6 +142,7 @@ function SettingValue({ c, done, w }) {  // w: 입력 칸 폭 — 연결 칸은 
     <input type={c.secret ? 'password' : 'text'} autoComplete="off" value={v} onChange={e => setV(e.target.value)}
       placeholder={c.secret ? c.value || '비어 있음' : c.value} style={{ width: w || (c.secret ? 240 : c.name.endsWith('_DIR') ? 320 : 160) }} />
     <Button disabled={c.secret && !v}>저장</Button>
+    {/_DIR$|_CSS$/.test(c.name) && <FinderBtn file={c.name.endsWith('_CSS')} start={v || c.value} onPick={p => { setV(p); save(p) }} />}
     {c.secret && c.src === 'screen' && <Button type="button" onClick={() => save('')}>지우기</Button>}</form>
 }
 
