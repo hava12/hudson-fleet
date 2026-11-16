@@ -1,12 +1,12 @@
 import { useEffect, useReducer, useRef, useState } from 'react'
 import { fitBox, textW, useCy } from './Graph'
 import { TaskList } from './TaskList'
-import { Dot, FILL, GINFO, LIVE, fmtTok, grp, modelName, post, press, tilde, tok, useApp, usePoll } from './lib'
+import { Dot, FILL, GINFO, LIVE, TASK, fmtTok, grp, modelName, post, press, tilde, tok, useApp, usePoll } from './lib'
 import { TodaySched } from './Sched'
 import { Button, Card } from './ui'
 
 // 세션 노드는 자리만 카드 크기로 잡고, 그 위에 카드(SessionCard)를 겹친다 (노드 이름표로는 줄마다 모양을 줄 수 없다)
-const NW = 300, NH = 173  // NH 는 .ncard 글자 크기·줄 간격(13px × 1.6, 제목 + 5줄)에 맞춘다. 글자를 키우면 같이 키운다
+const NW = 300, NH = 219  // NH 는 .ncard 글자 크기·줄 간격(13px × 1.6, 제목 + 최근 작업 2줄 + 5줄)에 맞춘다. 글자를 키우거나 줄을 더하면 같이 키운다
 const STYLE = [
   { selector: 'node', style: { shape: 'round-rectangle', label: 'data(short)', width: 'data(w)', height: 'data(h)', 'font-size': () => tok('var(--fs-xs)'), color: () => tok('var(--on-fill)'), 'text-wrap': 'wrap', 'line-height': 1.5,
     'text-valign': 'center', 'text-halign': 'center', 'background-color': e => tok(e.data('type') === 'session' ? GINFO[grp(e.data('status'))][1] : FILL[e.data('type')]), 'border-width': 0 } },
@@ -28,6 +28,8 @@ function SessionCard({ e, n, u = {}, on, home, faded, agents, onOpen }) {
     <div className={`ncard ${grp(n.status)}${on ? ' on' : ''}${faded ? ' faded' : ''}${e ? '' : ' li'}`} {...onOpen && press(onOpen)}
       style={{ '--c': col, ...b && { left: b.x1, top: b.y1, width: NW, height: NH, transform: `scale(${e.cy().zoom()})` } }}>
       <b><Dot c={col} /><span className="nm">{n.title || n.label}</span></b>
+      {/* F-28: 제목이 처음 주제에 멈춰 있어도 지금 하는 일을 알게, 마지막으로 시작한 작업을 카드 폭 두 줄까지 (끝난 일이면 상태를 붙인다) */}
+      {n.task && <p className="ntask" title={'최근 작업: ' + n.task.text}>{n.task.status !== 'todo' && <span className="meta">{TASK[n.task.status]?.[0]} · </span>}{n.task.text}</p>}
       <dl>
         {n.title && n.title !== n.label && <><dt>세션 이름</dt><dd>{n.label}</dd></>}
         <dt>실행 앱</dt><dd>{n.kind === 'background' ? '백그라운드' : n.app || '?'}{n.model && <span className="meta"> · {modelName(n.model)}{n.effort ? ' · ' + n.effort : ''}</span>}</dd>

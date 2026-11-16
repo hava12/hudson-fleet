@@ -119,6 +119,14 @@ SHOWN = "(project_id IS NULL OR project_id NOT IN (SELECT id FROM projects WHERE
 SHOWN_SQL = TASKS_SQL.replace(" ORDER BY", f" AND {SHOWN} ORDER BY")
 
 
+def last_task(sid):
+    """세션이 마지막으로 시작한 작업 {text, status} — 세션 카드의 '최근 작업'(F-28). 숨긴 프로젝트의 작업은 빼고, 없으면 None."""
+    c = db()
+    row = c.execute(f"SELECT text, status FROM session_tasks WHERE sid = ? AND {SHOWN} ORDER BY id DESC LIMIT 1", (sid,)).fetchone()
+    c.close()
+    return {"text": row[0], "status": row[1]} if row else None
+
+
 def saved_tasks(sid, shown=False):
     """DB 에 저장된 작업 목록과 그때의 대화 기록 수정 시각. 아직 없으면 ([], None). shown: 화면용 — 숨긴 프로젝트의 작업을 뺀다."""
     c = db()

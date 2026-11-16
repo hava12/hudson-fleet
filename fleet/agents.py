@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .config import CFG, DEAD, INTERNAL, SESSIONS, claude
 from .db import db, my_title
+from .tasks import last_task
 from .transcripts import model_of, overview, subagents, title_of, transcript
 
 
@@ -108,7 +109,7 @@ def graph():
             s["app"] = Path(app).stem
         nodes["p:" + cwd] = {"type": "project", "label": os.path.basename(cwd) or cwd}
         nodes["s:" + sid] = {"type": "session", "label": s.get("name") or s.get("id"), "title": my_title(sid) or title_of(sid),
-                             "status": s.get("status") or s.get("state", ""), **s, **model_of(sid)}
+                             "task": last_task(sid), "status": s.get("status") or s.get("state", ""), **s, **model_of(sid)}
         edges.add(("p:" + cwd, "s:" + sid))
         for aid, desc, p in subagents(sid):
             meta = p.with_suffix(".meta.json")  # 서브에이전트가 끝나면 finished: true 가 기록된다
