@@ -28,6 +28,8 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
 규칙 (일의 크기와 관계없이 지킨다):
 1. 사용자가 무언가를 만들거나, 고치거나, 실행·조사하라고 하면 첫 작업 전에 task_start(text, tag) 를 부른다.
    text 는 120자 이내, 동사로 끝나는 한 문장. tag 는 일의 종류 하나 (도구 설명의 정의를 보고 고른다).
+   text 는 무슨 일인지 내용으로 쓰고 명세서 번호(F-28·S-01 등)로 시작하지 않는다. 번호가 꼭 필요하면 문장 끝 괄호에 둔다
+   (예: "세션 카드의 최근 작업이 쓸모 있는지 2026-11-23에 판단한다 (F-28)").
 2. 그 일이 끝나면 task_update(id, "done"). 끝내지 못하고 멈추면 "stopped", 사용자가 하지 않기로 하면 "rejected".
    이 세 가지는 note 에 비고 한 줄을 꼭 남긴다 — 완료면 결과, 중단이면 멈춘 이유, 반려면 반려 이유.
    details 는 text 를 풀어 쓴 설명 1줄씩 최대 3개다. task_start 때는 할 일(계획)을, task_update 때는 실제로 한 일·결과를
@@ -77,7 +79,7 @@ FLOW = {"type": "object", "description": "선택. 코드를 바꾼 일을 done �
 TOOLS = [
     {"name": "task_start", "description": "작업을 시작하며 기록한다. 새 작업 id 를 돌려준다.",
      "inputSchema": {"type": "object", "properties": {
-         "text": {"type": "string", "description": "120자 이내 한 문장"},
+         "text": {"type": "string", "description": "120자 이내 한 문장. 명세서 번호로 시작하지 않고, 필요하면 끝 괄호에 (F-28)"},
          "tag": {"type": "string", "enum": list(TAGS),
                  "description": "일의 종류 — " + " · ".join(f"{k}: {v}" for k, v in TAGS.items())},
          "details": {**DETAILS, "description": "선택. 할 일(계획)을 풀어 쓴 설명 1줄씩 최대 3개"},
