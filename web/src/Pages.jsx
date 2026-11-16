@@ -144,9 +144,10 @@ function SettingValue({ c, done, w }) {  // w: 입력 칸 폭 — 연결 칸은 
     {c.secret && c.src === 'screen' && <Button type="button" onClick={() => save('')}>지우기</Button>}</form>
 }
 
-// 연결: GitHub·Jira. [사용] 을 켜야 입력 칸이 보이고 쓰인다 (꺼도 값은 남음). [연결 확인] 은 저장된 토큰으로 내 계정 이름을 받아 온다
+// 연결: GitHub·Jira·Obsidian. [사용] 을 켜야 입력 칸이 보이고 쓰인다 (꺼도 값은 남음). [연결 확인] 은 저장된 토큰으로 내 계정 이름을 받아 온다 (Obsidian 은 노트를 바로 한 번 쓴다)
 const LINKS = [['github', 'GitHub', 'HUDSON_FLEET_GITHUB_ON', ['HUDSON_FLEET_GITHUB_TOKEN']],
-  ['jira', 'Jira', 'HUDSON_FLEET_JIRA_ON', ['HUDSON_FLEET_JIRA_SITE', 'HUDSON_FLEET_JIRA_EMAIL', 'HUDSON_FLEET_JIRA_TOKEN']]]
+  ['jira', 'Jira', 'HUDSON_FLEET_JIRA_ON', ['HUDSON_FLEET_JIRA_SITE', 'HUDSON_FLEET_JIRA_EMAIL', 'HUDSON_FLEET_JIRA_TOKEN']],
+  ['obsidian', 'Obsidian', 'HUDSON_FLEET_OBSIDIAN_ON', ['HUDSON_FLEET_OBSIDIAN_DIR']]]
 const LINK_NAMES = new Set(LINKS.flatMap(l => [l[2], ...l[3]]))
 function Links({ cs, done }) {
   const { setMsg } = useApp()

@@ -49,6 +49,9 @@ def schema(c):
     if c.execute("PRAGMA user_version").fetchone()[0] < 1:  # 0.5.63 전에 기록한 다른 프로그램의 claude -p 호출(실행 앱 Python)도 자동 호출로 (한 번만)
         c.execute("UPDATE sessions SET kind = 'auto' WHERE kind = 'interactive' AND app = 'Python'")
         c.execute("PRAGMA user_version = 1")
+    if c.execute("PRAGMA user_version").fetchone()[0] < 2:  # 위에서 빠진, 실행 방식(kind)이 비어 있는 Python 호출 6개 (요약이 먼저 만든 행)
+        c.execute("UPDATE sessions SET kind = 'auto' WHERE kind IS NULL AND app = 'Python'")
+        c.execute("PRAGMA user_version = 2")
     # status: todo 남은 일 · done 완료 · stopped 중단 · rejected 반려 / source: agent(MCP) · haiku · human
     c.execute("CREATE TABLE IF NOT EXISTS session_tasks (id INTEGER PRIMARY KEY, sid TEXT REFERENCES sessions(sid),"
               " sort REAL, status TEXT, text TEXT, source TEXT, created_at TEXT, updated_at TEXT)")
@@ -149,6 +152,8 @@ EDIT = {  # 이름 → 받을 값 형식
     "HUDSON_FLEET_JIRA_SITE": r"[\w.-]+\.atlassian\.net",
     "HUDSON_FLEET_JIRA_EMAIL": r"[^@\s]+@[^@\s]+",
     "HUDSON_FLEET_JIRA_TOKEN": r"\S{16,512}",
+    "HUDSON_FLEET_OBSIDIAN_ON": r"[01]",
+    "HUDSON_FLEET_OBSIDIAN_DIR": r"[~/][^\n]{0,500}",  # 볼트 안이어야 한다 (fleet/obsidian.py folder)
 }
 BASE = dict(CFG)  # 환경 변수·기본값. 화면 값을 지우면 이리로 돌아간다
 

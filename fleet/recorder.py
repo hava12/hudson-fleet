@@ -10,6 +10,7 @@ from .agents import graph
 from .card import publish
 from .config import CFG, DEAD, SESSIONS, now_iso
 from .db import db
+from .obsidian import write_notes
 from .tasks import summarize
 from .transcripts import overview, subagents, token_rows, transcript
 from .usage import daily_tokens, usage
@@ -130,7 +131,7 @@ def record(stop):
     for i in itertools.count():
         if stop.is_set():  # 리더 자리를 넘겼다 — 새 리더의 기록과 겹치지 않게 멈춘다
             return
-        for every, job in ((10, save_daily), (30, publish), (1440, prune)):  # 10분마다 잔디 · 30분마다 프로필 카드 · 하루에 한 번
+        for every, job in ((10, save_daily), (30, publish), (1440, prune), (1, write_notes)):  # 10분마다 잔디 · 30분마다 프로필 카드 · 하루에 한 번 · 매분 옵시디언 노트
             if i % every == 0:
                 try:
                     job()

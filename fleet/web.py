@@ -18,6 +18,7 @@ from .card import card_svg, tokens_svg
 from .config import CFG, CONFIG, PORT, VERSION, claude, installed, installed_version, ver
 from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
+from .obsidian import check as check_notes
 from .para import (agent_project, agent_view, archive_project, delete_resource, has_project, make_spec, names, para, project_history,
                    save_area, save_project, save_resource, search_resources, set_folder, spec_file)
 from .pushes import pushes
@@ -258,9 +259,10 @@ class H(BaseHTTPRequestHandler):
         # 다른 웹사이트가 localhost 로 실행 요청을 보내는 것(CSRF) 차단
         if self.headers.get("Origin") not in ORIGINS:
             return self.send({"error": "bad origin"}, code=403)
-        if self.path == "/api/connect":  # {service: github|jira} — 저장된 토큰으로 내 계정 이름을 받아 와 연결을 확인한다
+        if self.path == "/api/connect":  # {service: github|jira|obsidian} — 저장된 토큰으로 내 계정 이름을 받아 온다 (옵시디언은 노트를 바로 한 번 맞춘다)
             try:
-                return self.send({"ok": True, "who": check_link(body.get("service"))})
+                s = body.get("service")
+                return self.send({"ok": True, "who": check_notes() if s == "obsidian" else check_link(s)})
             except LinkError as e:
                 return self.send({"error": str(e)})
         if self.path == "/api/assign":  # {key, cwd} — Jira 이슈를 그 폴더의 새 백그라운드 에이전트에게. 세션 이름은 '키 제목'

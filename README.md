@@ -180,6 +180,15 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 - **GitHub**: 열려 있는 내 PR 과 나에게 리뷰 요청된 PR.
 - API 호출을 아끼려고 자동으로 갱신하지 않습니다. [새로 고침] 을 누릅니다.
 
+**옵시디언 기록** (설정 ⚙ → 연결에서 Obsidian 을 켜고 볼트 안의 폴더를 넣었을 때)
+
+- DB 가 원본이고 노트는 사본입니다. 1분마다 그 폴더의 `세션/` 에 세션마다 한 장, `프로젝트/` 에 프로젝트마다 한 장을 씁니다. 내용이 바뀐 노트만 다시 씁니다. [연결 확인] 을 누르면 바로 한 번 씁니다.
+- 세션 노트: 머리말(제목·폴더·실행 앱·시작·끝·토큰·프로젝트 링크), 작업(체크 상자, 설명 줄·결과·흐름, 태그는 `#개발` 같은 옵시디언 태그, 줄 끝에 `[[프로젝트]]`), push. 파일 이름은 `날짜 제목 (세션 id 앞 8글자).md` 이고 제목이 바뀌면 이름도 따라 바뀝니다.
+- 프로젝트 노트: 상태·영역·기간, 완료 조건, 남은 일(줄 끝에 `[[세션 노트]]`). 완료한 일은 이 노트의 백링크로 세션 노트에서 모아 봅니다.
+- 노트 맨 아래 `%% 이 줄 아래에 쓴 메모는 … %%` 줄 밑에 쓴 메모는 지우지 않습니다. 그 위를 옵시디언에서 고치면 다음 갱신 때 DB 내용으로 돌아갑니다(작업 상태는 대시보드에서 바꿉니다).
+- 지운 세션과 다른 프로그램의 자동 호출은 쓰지 않습니다. 이미 쓴 노트는 지우지 않고 남깁니다.
+- 볼트(`.obsidian` 폴더가 있는 곳) 밖의 폴더에는 쓰지 않습니다.
+
 **예약 작업**
 
 - **Claude 예약 작업**(루틴): claude.ai 에 저장되고 Claude 데스크톱 앱이나 클라우드에서 정해진 시각에 도는 작업. 이름과 켜짐·꺼짐(멈춘 이유), 일정("매일 오전 9:30"), 다음 실행, 마지막 실행 시각과 성공·실패, 실행 기기·폴더, 모델·권한 모드를 보입니다.
@@ -223,6 +232,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
 | `HUDSON_FLEET_GITHUB_ON` · `HUDSON_FLEET_JIRA_ON` | `0` | 연결 사용 여부. 설정(⚙) → **연결** 칸의 '사용' 확인란. 켜야 입력 칸이 보이고 쓰입니다. 꺼도 넣어 둔 값은 남습니다 |
 | `HUDSON_FLEET_GITHUB_TOKEN` | (비움) | GitHub 개인 액세스 토큰. 설정(⚙) → **연결** 칸에서 넣습니다 |
 | `HUDSON_FLEET_JIRA_SITE` · `_EMAIL` · `_TOKEN` | (비움) | Jira 사이트 주소(예: `aptplay.atlassian.net`), 로그인 이메일, API 토큰. 설정(⚙) → **연결** 칸에서 넣습니다 |
+| `HUDSON_FLEET_OBSIDIAN_ON` · `_DIR` | `0` · (비움) | 옵시디언 기록 사용 여부와 노트를 쓸 폴더(볼트이거나 그 안의 폴더). 설정(⚙) → **연결** 칸에서 켜고 넣습니다 |
 | `HUDSON_FLEET_URL` | `http://127.0.0.1:<포트>` | MCP 서버가 작업 기록을 보낼 대시보드 서버 주소. 다른 PC 의 서버를 쓸 때만 바꿉니다 (`mcp_server.py` 만 읽음) |
 
 ## 데이터
@@ -264,10 +274,11 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `fleet/tokens.py` | Figma 플러그인의 [토큰 보내기]로 받은 이름표를 형식 검사 후 설정의 토큰 파일(CSS)에 쓰기 |
 | `fleet/usage.py` | `/usage` 사용률, 세션별 5시간 몫, 날짜별 토큰 |
 | `fleet/links.py` | GitHub·Jira REST 연결 (토큰 인증은 이 파일의 `github()`·`jira()` 두 곳만, 표준 라이브러리만) |
+| `fleet/obsidian.py` | 옵시디언 기록: 세션·프로젝트 노트를 볼트 폴더에 쓰기 (바뀐 노트만, 표시 줄 아래 메모는 보존) |
 | `fleet/pushes.py` | 세션에서 실행한 git push 기록 (Claude 의 Bash 와 사용자의 `!` 명령) |
 | `fleet/routines.py` | 예약 작업: Claude 루틴(haiku 로 RemoteTrigger 를 불러 받음)과 그 흐름도(AI 정리, DB 저장), 살아 있는 세션의 /loop·CronCreate 예약(대화 기록에서 찾음) |
 | `fleet/card.py` | 프로필 카드 SVG 그리기와 Gist 덮어쓰기 |
-| `fleet/recorder.py` | 1분 주기 기록 스레드: 지표, 세션 상태, 끝난 세션 마감, 30분마다 프로필 카드 |
+| `fleet/recorder.py` | 1분 주기 기록 스레드: 지표, 세션 상태, 끝난 세션 마감, 옵시디언 노트(켰을 때), 30분마다 프로필 카드 |
 | `fleet/web.py` | HTTP API 와 화면 (`dist/`) |
 | `mcp_server.py` | 작업 기록 MCP 서버 (stdio). 대시보드 서버의 `/api/agent/task` 로 보냅니다 (DB 는 서버만 씀) |
 
@@ -303,7 +314,7 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 | `POST /api/resource` | 자료 지우기 `{id}` (자료는 에이전트가 MCP 로만 남긴다) |
 | `POST /api/area` · `POST /api/project` | 영역 `{id?, name, keep, archive?, delete?}` · 프로젝트 `{id?, name, done_when, area_id, status, folder?, delete?}` 만들기·고치기·지우기(`folder` 는 만들 때만, 없으면 만듦). 잘못되면 `{error}` |
 | `GET /api/jira` · `GET /api/github` | 이슈·PR 페이지: 나에게 할당된 끝나지 않은 Jira 이슈 `{items}` · 열린 내 PR 과 리뷰 요청 PR `{mine, review}`. 꺼져 있거나 토큰이 없으면 `{error}` |
-| `POST /api/connect` | 연결 확인 `{service: github·jira}` → 저장된 토큰으로 내 계정 이름 `{ok, who}` 또는 `{error}` |
+| `POST /api/connect` | 연결 확인 `{service: github·jira·obsidian}` → 저장된 토큰으로 내 계정 이름(옵시디언은 노트를 바로 한 번 쓰고 볼트 이름·노트 수) `{ok, who}` 또는 `{error}` |
 | `GET /api/config` · `POST /api/config` | 지금 적용된 설정 값(`src`: 화면·환경 변수·기본값, `edit`: 화면에서 바꿀 수 있는지, `secret`: 토큰이라 끝 4글자만) · 바꾸기 `{name, value}` |
 | `POST /api/tokens` | Figma 플러그인의 [토큰 보내기] `{tokens: [{name, value, dark}]}` → 설정의 토큰 파일에 CSS 로 쓰고 `{ok, n, file}` (`file` 은 파일 이름만). 이름은 `--이름`, 값은 `#색`·`숫자px`·`var(--이름)` 만 받고 하나라도 다르면 `{error}` |
 | `POST /api/agent/task` | MCP 서버의 작업 기록 `{op: start·update·list·projects·project_save·project_archive·resource_save·resource_search·project_history·project_folder, sid, …}`. Origin 이 없는 요청만 |
