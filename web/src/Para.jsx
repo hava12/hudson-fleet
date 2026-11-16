@@ -50,11 +50,33 @@ function SpecBar({ p, save }) {
     <Button onClick={pick}>코드 폴더 바꾸기</Button>
     <FinderBtn start={s.folder} onPick={folder => save({ id: p.id, folder })} />
     <Button variant={exists ? undefined : 'primary'} disabled={!s.folder || s.making} onClick={make}
-      title="프로젝트 폴더에서 Claude(Sonnet)가 project-spec 스킬로 명세서를 만들거나 고칩니다 (몇 분)">{s.making ? '만드는 중… (몇 분)' : '명세서 업데이트'}</Button>
+      title="프로젝트 폴더에서 Claude(Sonnet)가 project-spec 스킬로 초안을 만듭니다 (몇 분). 바뀔 점을 보고 [반영] 해야 명세서가 바뀝니다">{s.making ? '만드는 중… (몇 분)' : '명세서 업데이트'}</Button>
     {exists && <Button variant="primary" onClick={() => openSpec(p.id)}>명세서 열기</Button>}
     {s.file && <span title="저장 위치 — 설정(⚙)의 HUDSON_FLEET_SPEC_DIR 에서 바꿉니다">저장 {tilde(s.file, G.home)}</span>}
     {s.at && <span>마지막 수정 {when(s.at)}</span>}
     {s.error && <span style={{ color: 'var(--t-todo)' }}>{s.error}</span>}</div>
+}
+
+// F-31 반영 전 확인: [명세서 업데이트] 는 초안만 만든다. 바뀔 점을 보고 [반영] 해야 명세서 원본이 바뀌고, [버리기] 면 원본 그대로 (fleet/para.py settle_draft)
+function Draft({ p }) {
+  const { setMsg, bump } = useApp()
+  const d = p.spec?.draft
+  if (!d) return null
+  const go = async draft => {
+    if (draft === 'discard' && !confirm('초안을 버릴까요?\n명세서 원본은 그대로 남습니다.')) return
+    const x = await post('/api/project-spec', { id: p.id, draft })
+    if (x.error) setMsg(x.error)
+    bump()
+  }
+  const DIFF = '기준과 다름:'
+  return <div className="meta" style={{ marginBottom: 'var(--sp-5)' }}>
+    <b>바뀔 점 {d.changes.length}건</b> · 반영하기 전까지 명세서 원본은 그대로입니다{d.at && ` · 초안 ${when(d.at)}`}
+    <ul style={{ margin: 'var(--sp-3) 0', paddingLeft: 'var(--sp-7)' }}>{d.changes.map((c, i) => <li key={i}>
+      {c.startsWith(DIFF) ? <><Pill tone="warning">기준과 다름</Pill> {c.slice(DIFF.length).trim()}</> : c}</li>)}</ul>
+    <div style={{ display: 'flex', gap: 'var(--sp-4)' }}>
+      <Button variant="primary" onClick={() => go('apply')} title="초안을 명세서 원본으로 바꿉니다">반영</Button>
+      <Button onClick={() => openSpec(p.id, null, true)} title="반영하기 전 초안을 새 탭으로 엽니다">초안 열기</Button>
+      <Button variant="danger" onClick={() => go('discard')}>버리기</Button></div></div>
 }
 
 // 문서 체크리스트: 제품 공정 순서로 명세서에 무엇이 있나 (fleet/para.py spec_docs). 있는 칸을 누르면 명세서의 그 장이 열리고,
@@ -76,7 +98,7 @@ function Docs({ p }) {
 }
 
 // 명세서 바로가기: 대시보드 서버가 명세서 폴더의 파일을 새 탭으로 연다 (/api/project-spec?id=). 장 id 를 주면 그 장으로 간다
-const openSpec = (id, at) => open('/api/project-spec?id=' + id + (at ? '#' + at : ''), '_blank', 'noopener')
+const openSpec = (id, at, draft) => open('/api/project-spec?id=' + id + (draft ? '&draft=1' : '') + (at ? '#' + at : ''), '_blank', 'noopener')
 function ProjTable({ ps, as, save }) {
   const [open, setOpen] = useState(0)  // 작업 목록을 펼친 프로젝트 id
   const edit = p => {
@@ -95,6 +117,7 @@ function ProjTable({ ps, as, save }) {
         <span className="tid" title="에이전트가 작업을 기록할 때 적는 번호"> #{p.id}</span>
         {p.spec?.exists && <Button style={{ marginLeft: 'var(--sp-3)' }} title={'기획명세서 열기 · ' + when(p.spec.at) + ' 수정'} onClick={() => openSpec(p.id)}>명세서</Button>}
         {p.spec?.docs && <span className="tid" style={{ whiteSpace: 'nowrap' }} title="문서 체크리스트 — 펼치면 무엇이 비었는지 보입니다">문서 {p.spec.docs.items.filter(x => x.ok).length}/{p.spec.docs.items.length}</span>}
+        {p.spec?.draft && <Pill tone="warning" style={{ marginLeft: 'var(--sp-3)' }} title="명세서 업데이트 초안이 반영을 기다립니다 — 펼쳐서 바뀔 점을 보고 반영하거나 버립니다">반영 대기</Pill>}
         <div className="meta">완료 조건: {p.done_when}</div></td>
       <td><AreaSel as={as} v={p.area_id} set={v => save({ ...p, area_id: v })} /></td>
       <td><select className="pill tsel" value={p.status} style={{ color: ST[p.status][1] }} title="끝남으로 바꾸면 보관 칸으로 갑니다 (남은 일은 반려로 정리)"
@@ -106,7 +129,7 @@ function ProjTable({ ps, as, save }) {
         <Button title="이 프로젝트의 할 일을 대시보드·옵시디언 어디서도 보이지 않게 합니다. Claude Code 는 계속 이 프로젝트로 기록합니다"
           onClick={() => confirm(`"${p.name}" 프로젝트를 숨길까요?\n할 일이 대시보드·옵시디언 어디서도 보이지 않습니다. Claude Code 는 계속 이 프로젝트로 기록합니다.\n프로젝트 칸 맨 아래 [숨긴 프로젝트]에서 다시 보이게 할 수 있습니다.`) && save({ id: p.id, hidden: true })}>숨기기</Button>
         <Button variant="danger" onClick={() => confirm(`"${p.name}" 프로젝트를 지울까요?\n적힌 작업·자료는 프로젝트 없음으로 남습니다.`) && save({ id: p.id, delete: true })}>삭제</Button></td></tr>
-      {open === p.id && <tr><td colSpan="6" style={{ whiteSpace: 'normal' }}><SpecBar p={p} save={save} /><Docs p={p} />
+      {open === p.id && <tr><td colSpan="6" style={{ whiteSpace: 'normal' }}><SpecBar p={p} save={save} /><Draft p={p} /><Docs p={p} />
         {tasks.length
         ? <TaskList ts={tasks} edit="status" lead={t => <span className="meta">[{t.session || t.sid.slice(0, 8)}]</span>} />
         : <span className="meta">아직 이 프로젝트로 기록된 작업이 없습니다. 에이전트가 작업을 기록할 때 #{p.id} 를 적으면 여기에 모입니다</span>}</td></tr>}

@@ -7,6 +7,7 @@
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import threading
@@ -78,12 +79,30 @@ def has_code(folder):
         return True
 
 
+def draft_files(f):
+    """F-31: [명세서 업데이트] 는 원본 옆 초안(.draft.html)만 고치고, 바뀔 점 목록(.draft.txt)을 남긴다. 사람이 [반영] 해야 원본이 된다."""
+    return f.with_name(f.stem + ".draft.html"), f.with_name(f.stem + ".draft.txt")
+
+
+def _mtime(f):
+    return f.is_file() and datetime.fromtimestamp(f.stat().st_mtime, timezone.utc).isoformat(timespec="seconds")
+
+
+def _changes(text):
+    """Claude 의 마지막 답에서 바뀔 점 줄('- ' 로 시작)만 고른다."""
+    return [ln.strip()[2:].strip() for ln in (text or "").splitlines() if ln.strip().startswith("- ") and ln.strip()[2:].strip()]
+
+
 def spec_info(p):
-    """화면용: 코드 폴더(기록에서 골랐는지), 명세서 파일 경로·있는지·고친 시각, 만드는 중인지, 마지막 오류, 문서 체크리스트."""
+    """화면용: 코드 폴더(기록에서 골랐는지), 명세서 파일 경로·있는지·고친 시각, 만드는 중인지, 마지막 오류, 문서 체크리스트,
+    반영을 기다리는 초안(F-31: 만든 시각과 바뀔 점 목록, 없으면 None)."""
     (folder, auto), f, st = code_folder(p), spec_file(p), _spec.get(p["id"], {})
-    at = f.is_file() and datetime.fromtimestamp(f.stat().st_mtime, timezone.utc).isoformat(timespec="seconds")
+    at, (dr, notes) = _mtime(f), draft_files(f)
+    draft = None
+    if "making" not in st and dr.is_file():
+        draft = {"at": _mtime(dr), "changes": notes.read_text(errors="ignore").splitlines() if notes.is_file() else []}
     return {"folder": folder, "auto": auto, "file": str(f), "exists": bool(at), "at": at or None, "making": "making" in st,
-            "error": st.get("error"), "docs": spec_docs(f)}
+            "error": st.get("error"), "docs": spec_docs(f), "draft": draft}
 
 
 # 문서 체크리스트: 제품 공정 순서대로 명세서에 무엇이 있나. 명세서 뼈대(project-brief·project-spec)의 장 id 와 번호 표시를 찾는다.
@@ -154,22 +173,57 @@ def make_spec(pid):
         return {"error": "이미 만드는 중입니다"}
     started, out = time.time(), spec_file(p[0])
     out.parent.mkdir(parents=True, exist_ok=True)
+    draft, notes = draft_files(out)  # F-31: 원본은 두고 초안만 고친다. 다시 누르면 지난 초안을 버리고 원본에서 새로 뜬다
+    notes.unlink(missing_ok=True)
+    if out.is_file():
+        shutil.copy2(out, draft)  # 고친 시각까지 복사 — 아래에서 Claude 가 초안을 고쳤는지 시각으로 본다
+    else:
+        draft.unlink(missing_ok=True)
     prompt = (f"hudson-fleet:project-spec 스킬로 hudson-fleet 프로젝트 #{pid}({p[0]['name']})의 기획명세서를 만들거나 고친다."
-              f" 조사할 코드는 이 폴더, 파일은 {out} (이미 있으면 먼저 읽고 이어 쓴다)."
+              f" 조사할 코드는 이 폴더, 파일은 {draft} (원본 {out} 을 복사해 둔 초안이다. 있으면 먼저 읽고 이어 쓰고, 원본은 건드리지 않는다)."
               " 기준은 사람이 정한 것(사전 기획 탭, 근거가 대화인 항목, 완료 조건)이다. 코드로는 상태와 근거만 고치고, 기준과 다르면 미결 사항으로 올린다."
-              " 대시보드 버튼으로 실행된 비대화 작업이라 사용자에게 묻지 말고, 모르는 것은 '확인 필요'로 남긴다.")
+              " 대시보드 버튼으로 실행된 비대화 작업이라 사용자에게 묻지 말고, 모르는 것은 '확인 필요'로 남긴다."
+              " 사람이 이 답을 보고 반영할지 정하므로, 마지막 답에는 원본과 달라진 점만 한 줄에 하나씩 '- ' 로 시작해 적는다"
+              " (바뀐 번호와 한 줄 설명, 예: '- F-28 예정 → 완료, 근거 코드 위치 4곳')."
+              " 사람이 정한 기준과 다른 점은 '- 기준과 다름: ' 으로 시작한다.")
     _spec[pid] = {"making": started}
 
     def run():
         try:
             r = subprocess.run(["claude", "-p", prompt, "--model", SPEC_MODEL, "--permission-mode", "acceptEdits",
                                 "--add-dir", str(out.parent), "--allowedTools", SPEC_TOOLS], cwd=folder, capture_output=True, text=True, timeout=SPEC_TIMEOUT)
-            ok = out.is_file() and out.stat().st_mtime >= started
-            _spec[pid] = {} if ok else {"error": "명세서 파일이 바뀌지 않았습니다: " + ((r.stdout or r.stderr).strip()[-300:] or "출력 없음")}
+            if draft.is_file() and draft.stat().st_mtime >= started:
+                notes.write_text("\n".join(_changes(r.stdout)) or "바뀔 점 목록을 받지 못했습니다. [초안 열기]로 직접 보세요")
+                _spec[pid] = {}
+            else:
+                draft.unlink(missing_ok=True)  # 고치지 않은 복사본은 반영할 것이 없다
+                _spec[pid] = {"error": "명세서 파일이 바뀌지 않았습니다: " + ((r.stdout or r.stderr).strip()[-300:] or "출력 없음")}
         except (OSError, subprocess.TimeoutExpired) as e:
+            draft.unlink(missing_ok=True)
             _spec[pid] = {"error": "Claude 를 실행하지 못했습니다: " + str(e)[:200]}
 
     threading.Thread(target=run, daemon=True).start()
+    return {"ok": True}
+
+
+def settle_draft(pid, apply):
+    """F-31 [반영]·[버리기]: 반영하면 초안이 원본이 되고, 버리면 초안만 지워 원본이 그대로 남는다."""
+    c = db()
+    p = _rows(c, "SELECT id, name FROM projects WHERE id = ?", (pid,))
+    c.close()
+    if not p:
+        return {"error": "프로젝트를 찾지 못했습니다"}
+    if "making" in _spec.get(p[0]["id"], {}):
+        return {"error": "아직 만드는 중입니다"}
+    out = spec_file(p[0])
+    draft, notes = draft_files(out)
+    if not draft.is_file():
+        return {"error": "반영을 기다리는 초안이 없습니다"}
+    if apply:
+        os.replace(draft, out)
+    else:
+        draft.unlink()
+    notes.unlink(missing_ok=True)
     return {"ok": True}
 
 
@@ -497,4 +551,31 @@ if __name__ == "__main__":  # 확인: HUDSON_FLEET_DB=<임시 파일> python3 -m
     assert [(p["name"], p["done_when"]) for p in agent_view()["projects"] if p["id"] == pid] == [("독서 기록 앱", "한 달 안에 열 명이 매주 기록함")]
     assert agent_project({"name": "x"})[1] and agent_project({"id": 99999, "done_when": "x"})[1]
     assert set_folder(pid, str(d / "옮긴 폴더")) is None and (d / "옮긴 폴더").is_dir() and set_folder(99999, str(d)) == "프로젝트를 찾지 못했습니다"
+    # F-31 — [명세서 업데이트] 는 초안만 고치고 바뀔 점을 남긴다. [반영] 해야 원본이 되고, [버리기] 면 원본 그대로 (가짜 claude 로 끝까지)
+    assert _changes("요약\n- F-28 예정 → 완료\n-붙은 줄\n- 기준과 다름: 두 줄\n- ") == ["F-28 예정 → 완료", "기준과 다름: 두 줄"]
+    fb = d / "bin"
+    fb.mkdir()
+    (fb / "claude").write_text('#!/usr/bin/env python3\nimport re, sys\n'
+                               'open(re.search(r"파일은 (.+?\\.draft\\.html) \\(", sys.argv[2]).group(1), "a").write("+고침")\n'
+                               'print("요약\\n- F-01 예정 → 완료\\n- 기준과 다름: 저장 단추")\n')
+    (fb / "claude").chmod(0o755)
+    os.environ["PATH"] = f"{fb}{os.pathsep}{os.environ['PATH']}"
+    CFG["HUDSON_FLEET_SPEC_DIR"] = str(d / "specs")
+    orig = spec_file(q)
+    orig.parent.mkdir()
+    orig.write_text("원본")
+    os.utime(orig, (1, 1))
+
+    def spec_now():
+        assert make_spec(q["id"]) == {"ok": True} and next(p for p in para()["projects"] if p["id"] == q["id"])["spec"]["draft"] is None  # 만드는 중엔 숨김
+        while "making" in _spec.get(q["id"], {}):
+            time.sleep(0.05)
+        return next(p for p in para()["projects"] if p["id"] == q["id"])["spec"]
+
+    s = spec_now()
+    assert orig.read_text() == "원본" and s["draft"]["changes"] == ["F-01 예정 → 완료", "기준과 다름: 저장 단추"] and not s["error"]
+    assert settle_draft(q["id"], False) == {"ok": True} and orig.read_text() == "원본" and not any(x.exists() for x in draft_files(orig))
+    assert "초안이 없습니다" in settle_draft(q["id"], True)["error"] and settle_draft(99999, True)["error"]
+    assert spec_now()["draft"] and settle_draft(q["id"], True) == {"ok": True} and orig.read_text() == "원본+고침"
+    assert next(p for p in para()["projects"] if p["id"] == q["id"])["spec"]["draft"] is None
     print("ok")

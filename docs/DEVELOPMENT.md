@@ -140,6 +140,7 @@ MCP 서버는 기록을 대시보드 서버의 `POST /api/agent/task` 로 보내
   - Jira 와는 묶지 않습니다(이슈·PR 화면과 맡기기는 따로 동작). 에픽 단위로 관리하려면 이름에 에픽 키를 적습니다(예: `BVVB-1300 출석 알림`) — 에이전트가 이름을 보고 고릅니다.
   - 에이전트는 작업을 기록할 때 프로젝트 번호를 적습니다. 번호 없이 적으면 서버가 진행 중인 프로젝트 목록을 돌려주므로, 세션이 열린 뒤 만든 프로젝트도 에이전트가 알고 바로잡습니다.
   - 프로젝트 이름을 누르면 그 프로젝트로 기록된 작업이 세션 이름과 함께 펼쳐집니다. 맨 위에는 기획명세서 줄(코드 폴더 · [코드 폴더 바꾸기] · [명세서 업데이트] · [명세서 열기] · 저장 위치)이 붙습니다. 명세서가 있으면 프로젝트 이름 옆 [명세서] 로 펼치지 않고 바로 엽니다.
+  - [명세서 업데이트] 는 원본을 바로 고치지 않고 옆에 초안(`<프로젝트 이름>-기획명세서.draft.html`)을 만듭니다(F-31). 끝나면 명세서 줄 아래에 바뀔 점 목록(사람이 정한 기준과 다른 점은 `기준과 다름` 꼬리표)과 [반영] · [초안 열기] · [버리기] 가 보이고, 펼치지 않아도 이름 옆에 `반영 대기` 가 붙습니다. [반영] 해야 원본이 바뀌고, [버리기] 면 원본은 그대로입니다. 다시 누르면 지난 초안을 버리고 원본에서 새로 만듭니다.
   - 그 아래 문서 체크리스트가 제품 공정 순서(사전 기획 · 기능 정의 · 화면 정의 · 첫 판 범위 · 디자인 시안 · 개발 설계)로 명세서에 무엇이 있는지 보여 주고, 첫 빈칸을 다음 할 일로 채우는 방법과 함께 알립니다. 있는 칸을 누르면 명세서의 그 장이 열립니다. 판정은 명세서 뼈대의 장 id 와 번호 표시로 합니다(`fleet/para.py` `DOCS`). 펼치지 않아도 프로젝트 이름 옆에 `문서 4/6` 처럼 개수가 보입니다. `문서` 옆 ? 에 마우스를 올리면 문서마다 무엇을 정하는지와 채우는 방법(사전 기획은 채팅으로만)이 보입니다.
   - 작업 줄에 `· Flow` 가 붙어 있으면, 에이전트가 그 일을 끝낼 때 남긴 흐름도가 있다는 뜻입니다. 문장을 누르면 설명 줄 아래에 펼쳐집니다(세션 패널·세션 기록·남은 작업 어디서나).
   - [숨기기]: 그 프로젝트의 할 일을 사람이 보는 곳 어디서도 빼고(남은 작업·세션 패널·세션 기록·PARA·자료·옵시디언 노트·프로필 카드 건수), 작업 줄의 프로젝트 고르기 칸에서도 뺍니다. 옵시디언의 그 프로젝트 노트는 지웁니다(아래에 쓴 메모가 있으면 제목과 메모만 남김). Claude Code 쪽(MCP `project_list`·`task_start`·`task_list`·`project_history`, 기획명세서)은 그대로 동작해, 에이전트는 계속 이 번호로 기록합니다. 숨긴 프로젝트는 프로젝트 칸 맨 아래 [숨긴 프로젝트] 를 펼쳐 [다시 보이기] 로 되돌립니다. 세션 자체(현황·세션 기록의 제목)와 push 기록은 그대로 보입니다.
@@ -280,8 +281,8 @@ python3 -S -c "import sys; sys.path.insert(0, '.'); import mcp_server, server"
 |---|---|
 | `GET /api/sessions?status=closed\|work\|wait\|idle&limit=50` | 세션과 작업 목록 (지운 기록은 빠짐) |
 | `POST /api/session/delete` | 끝난 세션 기록 지우기 `{sid}` (soft delete). 끝난 세션이 아니거나 이미 지웠으면 `{error}` |
-| `POST /api/project-spec` | [명세서 업데이트]: 코드 폴더(직접 정한 폴더, 없으면 작업 기록에서 고른 폴더)에서 Claude(Sonnet)를 뒤에서 실행해 `project-spec` 스킬로 설정의 명세서 폴더에 `<프로젝트 이름>-기획명세서.html` 을 만들거나 고친다 `{id}` → `{ok}` 또는 `{error}`. 코드가 없는 폴더(README·LICENSE·숨김 파일뿐)는 범위를 물을 수 없어 만들지 않고 채팅에서 사전 기획부터 하라고 안내한다. 상태는 `GET /api/para` 의 프로젝트마다 `spec: {folder, exists, at, making, error, docs}` (`docs` 는 문서 체크리스트 `{items: [{key, name, what, id, ok, n, how}], open}`), 폴더는 `POST /api/project {id, folder}` 로 적는다 |
-| `GET /api/project-spec?id=` | 그 프로젝트의 기획명세서 HTML ([명세서 열기]) |
+| `POST /api/project-spec` | [명세서 업데이트]: 코드 폴더(직접 정한 폴더, 없으면 작업 기록에서 고른 폴더)에서 Claude(Sonnet)를 뒤에서 실행해 `project-spec` 스킬로 설정의 명세서 폴더에 원본(`<프로젝트 이름>-기획명세서.html`) 옆 초안 `…-기획명세서.draft.html` 을 만들고, Claude 의 마지막 답에서 `- ` 로 시작하는 바뀔 점 줄을 `…-기획명세서.draft.txt` 에 남긴다 `{id}` → `{ok}` 또는 `{error}`. `{id, draft: "apply"}` 는 초안을 원본으로 바꾸고, `{id, draft: "discard"}` 는 초안을 지운다(F-31). 코드가 없는 폴더(README·LICENSE·숨김 파일뿐)는 범위를 물을 수 없어 만들지 않고 채팅에서 사전 기획부터 하라고 안내한다. 상태는 `GET /api/para` 의 프로젝트마다 `spec: {folder, exists, at, making, error, docs, draft}` (`draft` 는 반영을 기다리는 초안 `{at, changes}`, 없거나 만드는 중이면 `null`) (`docs` 는 문서 체크리스트 `{items: [{key, name, what, id, ok, n, how}], open}`), 폴더는 `POST /api/project {id, folder}` 로 적는다 |
+| `GET /api/project-spec?id=` | 그 프로젝트의 기획명세서 HTML ([명세서 열기]). `&draft=1` 이면 반영 전 초안 ([초안 열기]) |
 | `POST /api/routine-map` | 루틴 하나의 흐름도를 AI 로 (다시) 만들어 저장 `{id}` → `{ok}` 또는 `{error}` (haiku 사용) |
 | `GET /api/schedules` · `POST /api/schedules/refresh` | 예약 작업: 루틴 저장본 `{routines: {at, items}, sessions, maps}` (maps: 루틴 id → 저장된 흐름도) · 루틴을 claude.ai 에서 새로 받아 저장 (haiku 사용, 못 받으면 저장본에 `error`) |
 | `GET /api/pushes?limit=200&sid=` | 세션에서 실행한 git push — Claude 의 Bash 와 사용자의 `!` 명령, 세션 밖 터미널은 빠짐 (시각·레포·브랜치·커밋 메시지·세션). `sid` 를 주면 그 세션 것만. 대화 기록이 지워져도 DB 에 남습니다 |

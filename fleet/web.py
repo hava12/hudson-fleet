@@ -19,8 +19,8 @@ from .config import CFG, CONFIG, PORT, VERSION, claude, installed, installed_ver
 from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
 from .obsidian import check as check_notes
-from .para import (agent_project, agent_view, archive_project, delete_resource, has_project, make_spec, names, para, project_history,
-                   save_area, save_project, save_resource, search_resources, set_folder, spec_file)
+from .para import (agent_project, agent_view, archive_project, delete_resource, draft_files, has_project, make_spec, names, para,
+                   project_history, save_area, save_project, save_resource, search_resources, set_folder, settle_draft, spec_file)
 from .pushes import pushes
 from .routines import make_map, maps, refresh as refresh_routines, saved as saved_routines, session_schedules
 from .tasks import SHOWN, SHOWN_SQL, add_task, move_task, norm_flow, saved_tasks, set_task, summarize
@@ -194,9 +194,9 @@ class H(BaseHTTPRequestHandler):
             return self.send(graph())
         if u.path == "/api/para":  # 프로젝트 페이지: 영역·프로젝트와 각 프로젝트에 적힌 작업
             return self.send(para())
-        if u.path == "/api/project-spec":  # ?id= — 그 프로젝트 폴더의 기획명세서 HTML 을 연다 ([명세서 열기])
+        if u.path == "/api/project-spec":  # ?id= — 그 프로젝트 폴더의 기획명세서 HTML 을 연다 ([명세서 열기]). &draft=1 이면 반영 전 초안 ([초안 열기], F-31)
             row = next((p for p in para()["projects"] if str(p["id"]) == q.get("id")), None)
-            f = row and spec_file(row)
+            f = row and (draft_files(spec_file(row))[0] if q.get("draft") else spec_file(row))
             try:
                 html = f.read_bytes() if f and f.is_file() else None
             except PermissionError:  # macOS 는 터미널 앱에 문서·다운로드 폴더 권한이 없으면 막는다
@@ -305,7 +305,9 @@ class H(BaseHTTPRequestHandler):
         if self.path in ("/api/area", "/api/project"):  # 영역·프로젝트 만들기·고치기·보관·지우기 (fleet/para.py)
             err = (save_area if self.path == "/api/area" else save_project)(body)
             return self.send({"error": err} if err else {"ok": True})
-        if self.path == "/api/project-spec":  # {id} — [명세서 업데이트]: 프로젝트 폴더에서 project-spec 스킬을 뒤에서 돌린다 (Sonnet)
+        if self.path == "/api/project-spec":  # {id} — [명세서 업데이트]: 프로젝트 폴더에서 project-spec 스킬을 뒤에서 돌려 초안을 만든다 (Sonnet)
+            if body.get("draft") in ("apply", "discard"):  # {id, draft} — 초안 [반영]·[버리기] (F-31)
+                return self.send(settle_draft(body.get("id"), body["draft"] == "apply"))
             return self.send(make_spec(body.get("id")))
         if self.path == "/api/resource":  # {id} — 자료 지우기 (자료는 에이전트가 MCP 로 남긴다)
             return self.send({"ok": True} if delete_resource(body.get("id")) else {"error": "자료를 찾지 못했습니다"})
