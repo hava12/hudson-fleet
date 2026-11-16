@@ -56,6 +56,11 @@ pre.mermaid .node polygon{fill:var(--wip-bg)!important;stroke:var(--wip)!importa
 .dep summary{cursor:pointer} .dep .ver{color:var(--muted)}
 details.fold{border:1px solid var(--line);padding:0 16px;min-width:0}
 details.fold summary{cursor:pointer;margin:0 -16px;padding:10px 16px;background:var(--bg);font-weight:700} details.fold[open]{padding-bottom:16px;display:grid;gap:12px;grid-template-columns:minmax(0,1fr)}
+/* 화면설계서 뼈대 그림: 줄(.wr)마다 칸(span data-n)을 늘어놓는다. 번호는 아래 요소 표의 번호 칸과 같다. 예정 기능이 바꾸는 칸은 .plan */
+.wire{display:grid;gap:6px;max-width:620px;padding:10px;border:1px solid var(--line);background:var(--bg);font:13px/1.5 var(--sans)}
+.wire .wr{display:flex;gap:6px} .wire span{flex:1;min-width:0;position:relative;padding:7px 10px 7px 34px;border:1px solid var(--muted);background:var(--paper)}
+.wire span::before{content:attr(data-n);position:absolute;left:8px;top:8px;width:18px;height:18px;border-radius:50%;background:var(--ink);color:var(--paper);font-size:11px;font-weight:700;line-height:18px;text-align:center}
+.wire span.plan{border:2px dashed var(--plan);color:var(--ink)} .wire span.plan::before{background:var(--plan)} .wire small{display:block;color:var(--muted)}
 .btns{display:flex;gap:8px} .btns button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
 @media (max-width:600px){body{background:var(--paper)} .wrap{width:auto;margin:0;padding:24px 16px 56px;border:0;box-shadow:none}}
 </style></head><body><div class="wrap">
@@ -171,8 +176,12 @@ details.fold summary{cursor:pointer;margin:0 -16px;padding:10px 16px;background:
 <tr><td>S-01</td><td>…</td><td><code>/…</code></td><td>…</td><td>F-01</td></tr></table></div>
 <div class="btns"><button type="button" data-all="open">모두 펼치기</button><button type="button" data-all="close">모두 접기</button></div>
 <details class="fold"><summary>S-01 {화면 이름} · 한 줄 설명</summary>
-<div class="scroll"><table><tr><th>요소</th><th>종류</th><th>하는 일</th><th>규칙</th></tr>
-<tr><td>"저장"</td><td>버튼</td><td>…</td><td>…</td></tr></table></div></details>
+<div class="wire" role="img" aria-label="S-01 뼈대 그림">
+<div class="wr"><span data-n="1">머리 줄</span></div>
+<div class="wr"><span data-n="2" style="flex:3">목록<small>…</small></span><span data-n="3" style="flex:2">"저장"</span></div></div>
+<div class="scroll"><table><tr><th>번호</th><th>요소</th><th>종류</th><th>하는 일</th><th>규칙</th></tr>
+<tr><td>3</td><td>"저장"</td><td>버튼</td><td>…</td><td>…</td></tr></table></div>
+<p class="note">디자인 시안: <a href="https://www.figma.com/design/…">Figma S-01</a></p></details>
 </section>
 
 <section id="features"><h2><span class="no">5</span>기능 명세</h2>
