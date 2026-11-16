@@ -31,13 +31,16 @@ def para():
     areas = _rows(c, "SELECT * FROM areas ORDER BY name")
     projects = _rows(c, "SELECT * FROM projects ORDER BY start DESC, id DESC")
     for p in projects:
+        if p["hidden_at"]:  # 숨긴 프로젝트는 이름만 (화면의 숨긴 프로젝트 칸에서 다시 보이게 한다)
+            p["tasks"], p["spec"] = [], {}
+            continue
         p["tasks"] = _rows(c, "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, t.details, t.note, t.project_id, t.flow,"
                               " coalesce(s.my_title, s.title, s.name) AS session FROM session_tasks t LEFT JOIN sessions s USING (sid)"
                               " WHERE t.project_id = ? ORDER BY t.created_at", (p["id"],))
         p["spec"] = spec_info(p)
     resources = _rows(c, "SELECT r.*, p.name AS project, a.name AS area, coalesce(s.my_title, s.title, s.name) AS session"
                          " FROM resources r LEFT JOIN projects p ON p.id = r.project_id LEFT JOIN areas a ON a.id = r.area_id"
-                         " LEFT JOIN sessions s ON s.sid = r.sid ORDER BY r.id DESC")
+                         " LEFT JOIN sessions s ON s.sid = r.sid WHERE p.hidden_at IS NULL ORDER BY r.id DESC")
     c.close()
     return {"areas": areas, "projects": projects, "resources": resources}
 
@@ -209,9 +212,9 @@ def project_history(pid):
 
 
 def names():
-    """작업 줄의 프로젝트 고르기 칸용: 프로젝트 전부 (id, 이름, 상태) — 끝난 프로젝트는 이미 붙은 작업에만 보인다."""
+    """작업 줄의 프로젝트 고르기 칸용: 숨기지 않은 프로젝트 (id, 이름, 상태) — 끝난 프로젝트는 이미 붙은 작업에만 보인다."""
     c = db()
-    out = _rows(c, "SELECT id, name, status FROM projects ORDER BY id DESC")
+    out = _rows(c, "SELECT id, name, status FROM projects WHERE hidden_at IS NULL ORDER BY id DESC")
     c.close()
     return out
 
@@ -288,6 +291,13 @@ def save_project(b):
     지우면 그 프로젝트에 적힌 작업·자료는 프로젝트 없음으로 남는다."""
     if set(b) == {"id", "folder"}:  # [코드 폴더 바꾸기] — 폴더만 바꾼다 (화면의 고치기·상태·영역은 프로젝트 전체를 보내므로 folder 가 섞여 온다)
         return set_folder(b["id"], b["folder"])
+    if set(b) == {"id", "hidden"}:  # [숨기기]·[다시 보이기] — 작업은 화면에서만 빠지고, 에이전트는 계속 이 프로젝트로 기록한다
+        c = db()
+        n = c.execute("UPDATE projects SET hidden_at = CASE WHEN ? THEN coalesce(hidden_at, ?) END WHERE id = ?",
+                      (bool(b["hidden"]), now_iso(), b["id"])).rowcount
+        c.commit()
+        c.close()
+        return None if n else "프로젝트를 찾지 못했습니다"
     today, area = date.today().isoformat(), _area(b.get("area_id"))
     name, done_when, st = (str(b.get(k) or "").strip() for k in ("name", "done_when", "status"))
     c = db()

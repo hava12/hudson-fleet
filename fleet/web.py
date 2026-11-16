@@ -23,7 +23,7 @@ from .para import (agent_project, agent_view, archive_project, delete_resource, 
                    save_area, save_project, save_resource, search_resources, set_folder, spec_file)
 from .pushes import pushes
 from .routines import make_map, maps, refresh as refresh_routines, saved as saved_routines, session_schedules
-from .tasks import TASKS_SQL, add_task, move_task, norm_flow, saved_tasks, set_task, summarize
+from .tasks import SHOWN, SHOWN_SQL, add_task, move_task, norm_flow, saved_tasks, set_task, summarize
 from .tokens import save_tokens
 from .usage import usage, usage5h_all
 
@@ -193,16 +193,16 @@ class H(BaseHTTPRequestHandler):
             for s in out:
                 s["title"] = s["my_title"] or s["title"]
                 s["tasks"] = [dict(r) for r in c.execute(
-                    TASKS_SQL, (s["sid"],))]
+                    SHOWN_SQL, (s["sid"],))]
             c.close()
             return self.send(out)
-        if u.path == "/api/todo":  # 남은 일 — 끝난 세션 것도 포함 (지운 세션 것은 뺀다)
+        if u.path == "/api/todo":  # 남은 일 — 끝난 세션 것도 포함 (지운 세션·숨긴 프로젝트 것은 뺀다)
             c = db()
             c.row_factory = sqlite3.Row
             out = [dict(r) for r in c.execute(
                 "SELECT t.id, t.sid, t.status, t.text, t.source, t.tag, t.details, t.project_id, t.flow, coalesce(s.my_title, s.title) AS title, s.name,"
                 " s.cwd, s.status AS sst"
-                " FROM session_tasks t JOIN sessions s USING (sid) WHERE t.status = 'todo' AND s.deleted_at IS NULL"
+                f" FROM session_tasks t JOIN sessions s USING (sid) WHERE t.status = 'todo' AND s.deleted_at IS NULL AND {SHOWN}"
                 " ORDER BY coalesce(s.ended_at, s.last_seen) DESC, t.sort, t.id")]
             c.close()
             return self.send(out)
@@ -231,7 +231,7 @@ class H(BaseHTTPRequestHandler):
             se = session(q.get("sid", ""))
             if t := my_title(q.get("sid", "")):
                 se["overview"] = {**se.get("overview", {}), "title": t}
-            return self.send({**se, "tasks": saved_tasks(q.get("sid", ""))[0]})
+            return self.send({**se, "tasks": saved_tasks(q.get("sid", ""), shown=True)[0]})
         if u.path == "/api/logs":
             return self.send({"text": claude("logs", q.get("id", ""))})
         self.send({"error": "not found"}, code=404)

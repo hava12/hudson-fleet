@@ -121,7 +121,8 @@ export default function Home() {
   const live = new Map(ss.map(n => [n.sessionId, n]))
   const todoS = (TODO || []).filter(t => !statF || (live.has(t.sid) && pick(live.get(t.sid))))
   const pc = Object.groupBy(todoS, t => t.project_id || 0)  // 프로젝트별 남은 일 — 고르기 칸의 건수
-  const todo = projF ? pc[projF] || [] : todoS
+  const pf = projF !== '0' && P && !P.some(p => String(p.id) === projF) ? '' : projF  // 고른 프로젝트를 숨겼거나 지웠으면 전체로
+  const todo = pf ? pc[pf] || [] : todoS
   const setProj = v => { setProjF(v); try { localStorage.setItem('todoproj', v) } catch { /* 저장소 막힘 */ } }
   const setStat = k => { setStatF(statF === k ? '' : k); if (k !== statF) document.getElementById('tblh').scrollIntoView({ behavior: 'smooth', block: 'center' }) }
   // 컴포넌트가 아닌 함수로 그린다 — 그릴 때마다 새 컴포넌트가 되면 타일이 새로 만들어져 키보드 초점이 풀린다
@@ -154,10 +155,10 @@ export default function Home() {
       ? <>남은 작업 · {statF === 'agent' ? '서브에이전트가 있는 세션' : GINFO[statF][0]}만 보기 <Button onClick={() => setStatF('')}>필터 해제</Button></>
       : '남은 작업'}</h2>
       {/* 남은 일이 있는 프로젝트만 (고른 프로젝트는 0건이 되어도 남긴다) */}
-      <select value={projF} title="프로젝트별로 보기" onChange={e => setProj(e.target.value)}>
+      <select value={pf} title="프로젝트별로 보기" onChange={e => setProj(e.target.value)}>
         <option value="">전체 프로젝트 · {todoS.length}</option>
-        {(P || []).filter(p => pc[p.id] || String(p.id) === projF).map(p => <option key={p.id} value={p.id}>{p.name} · {pc[p.id]?.length || 0}</option>)}
-        {(pc[0] || projF === '0') && <option value="0">프로젝트 없음 · {pc[0]?.length || 0}</option>}
+        {(P || []).filter(p => pc[p.id] || String(p.id) === pf).map(p => <option key={p.id} value={p.id}>{p.name} · {pc[p.id]?.length || 0}</option>)}
+        {(pc[0] || pf === '0') && <option value="0">프로젝트 없음 · {pc[0]?.length || 0}</option>}
       </select></div>
       {!TODO ? <div className="meta">불러오는 중…</div>
         : todo.length ? <TaskList ts={todo} className="todo" edit="status" lead={t => {
@@ -165,7 +166,7 @@ export default function Home() {
           return <>{live.has(t.sid) ? <a className="lk" {...press(() => openSide({ type: 'session', sid: t.sid }))}>[{nm}]</a>
             : <><span className="meta" title={'끝난 세션 · ' + (t.title || '')}>[{nm}]</span><MoveTo t={t} to={ss} /></>} - </>
         }} />
-        : <div className="meta">{statF || projF ? '고른 조건에 맞는 남은 일이 없습니다' : '남은 일이 없습니다'}</div>}
+        : <div className="meta">{statF || pf ? '고른 조건에 맞는 남은 일이 없습니다' : '남은 일이 없습니다'}</div>}
     </Card>
 
     <TodaySched />

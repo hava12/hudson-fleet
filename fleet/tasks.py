@@ -114,14 +114,17 @@ def move_task(tid, to_sid):
 
 
 TASKS_SQL = "SELECT id, sort, status, text, source, tag, details, note, project_id, flow FROM session_tasks WHERE sid = ? ORDER BY sort, id"
+# 숨긴 프로젝트(projects.hidden_at)의 작업은 사람이 보는 곳(웹·옵시디언·프로필 카드)에서 뺀다. 에이전트(MCP)에게는 그대로 준다
+SHOWN = "(project_id IS NULL OR project_id NOT IN (SELECT id FROM projects WHERE hidden_at IS NOT NULL))"
+SHOWN_SQL = TASKS_SQL.replace(" ORDER BY", f" AND {SHOWN} ORDER BY")
 
 
-def saved_tasks(sid):
-    """DB 에 저장된 작업 목록과 그때의 대화 기록 수정 시각. 아직 없으면 ([], None)."""
+def saved_tasks(sid, shown=False):
+    """DB 에 저장된 작업 목록과 그때의 대화 기록 수정 시각. 아직 없으면 ([], None). shown: 화면용 — 숨긴 프로젝트의 작업을 뺀다."""
     c = db()
     c.row_factory = sqlite3.Row
     row = c.execute("SELECT tasks_mtime FROM sessions WHERE sid = ?", (sid,)).fetchone()
-    tasks = [dict(r) for r in c.execute(TASKS_SQL, (sid,))]
+    tasks = [dict(r) for r in c.execute(SHOWN_SQL if shown else TASKS_SQL, (sid,))]
     c.close()
     return tasks, row["tasks_mtime"] if row else None
 

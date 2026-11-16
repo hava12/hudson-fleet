@@ -71,6 +71,8 @@ def schema(c):
     # 0.5.27 까지 만든 DB 에는 지운 Jira 에픽 연결의 kind·epic·jira_status 칸이 남아 있다 (쓰지 않음, epic 은 UNIQUE 라 못 지운다)
     c.execute("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY, name TEXT, area_id INT, done_when TEXT, status TEXT,"
               " start TEXT, end TEXT)")
+    if "hidden_at" not in {r[1] for r in c.execute("PRAGMA table_info(projects)")}:  # 숨긴 시각 — 그 프로젝트의 작업을 화면에서 뺀다 (tasks.SHOWN). 에이전트 기록은 그대로
+        c.execute("ALTER TABLE projects ADD COLUMN hidden_at TEXT")
     if "folder" not in {r[1] for r in c.execute("PRAGMA table_info(projects)")}:  # 기획명세서를 만드는 프로젝트 폴더 ([명세서 업데이트])
         c.execute("ALTER TABLE projects ADD COLUMN folder TEXT")
     if "archived_at" not in {r[1] for r in c.execute("PRAGMA table_info(areas)")}:  # 더는 책임지지 않는 영역 (보관 칸으로)

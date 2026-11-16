@@ -11,6 +11,7 @@ from pathlib import Path
 from .config import CFG
 from .db import db
 from .links import LinkError, _on
+from .tasks import SHOWN
 
 MARK = "%% 이 줄 아래에 쓴 메모는 대시보드가 지우지 않습니다 %%"
 BOX = {"todo": " ", "done": "x", "stopped": "-", "rejected": "-"}  # 체크 상자. 중단·반려는 앞에 낱말도 붙인다
@@ -87,7 +88,7 @@ def sync():
     P = {r["id"]: r for r in c.execute("SELECT p.*, a.name AS area FROM projects p LEFT JOIN areas a ON a.id = p.area_id")}
     S = c.execute("SELECT * FROM sessions WHERE status IS NOT NULL AND deleted_at IS NULL AND kind IS NOT 'auto' ORDER BY started_at").fetchall()
     T, U = defaultdict(list), defaultdict(list)
-    for t in c.execute("SELECT * FROM session_tasks ORDER BY sort, id"):
+    for t in c.execute(f"SELECT * FROM session_tasks WHERE {SHOWN} ORDER BY sort, id"):  # 숨긴 프로젝트의 작업은 쓰지 않는다
         T[t["sid"]].append(t)
     for p in c.execute("SELECT * FROM pushes ORDER BY ts"):
         U[p["sid"]].append(p)
@@ -115,6 +116,14 @@ def sync():
         old = have.get(s["sid"][:8])
         wrote += put(sd / f"{st}.md", "\n".join(body) + "\n", old if old and old.stem != st else None)
     for p in P.values():
+        path = pd / f"{safe(p['name'])}.md"
+        if p["hidden_at"]:  # 숨긴 프로젝트: 노트를 지운다. 사람이 쓴 메모가 있으면 제목과 메모만 남긴다
+            if path.is_file() and path.read_text().partition(MARK)[2].strip():
+                wrote += put(path, f"# {p['name']}\n")
+            elif path.is_file():
+                path.unlink()
+                wrote += 1
+            continue
         ts = [t for sid in stem for t in T[sid] if t["project_id"] == p["id"]]  # 지운 세션의 작업은 뺀다 (남은 작업 칸과 같게)
         n = {k: sum(t["status"] == k for t in ts) for k in BOX}
         body = ["---", f"status: {PST.get(p['status'], p['status'] or '')}", *([f"area: {q(p['area'])}"] if p["area"] else []),
@@ -124,8 +133,8 @@ def sync():
                 "", "## 남은 일", *(x for t in ts if t["status"] == "todo" for x in task(t, f" [[{stem[t['sid']]}]]" if t["sid"] in stem else ""))]
         if not n["todo"]:
             body.append("없음")
-        wrote += put(pd / f"{safe(p['name'])}.md", "\n".join(body) + "\n")
-    return vault, len(S) + len(P), wrote
+        wrote += put(path, "\n".join(body) + "\n")
+    return vault, len(S) + sum(not p["hidden_at"] for p in P.values()), wrote
 
 
 def write_notes():

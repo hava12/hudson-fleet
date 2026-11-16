@@ -85,9 +85,9 @@ function ProjTable({ ps, as, save }) {
   const setSt = (p, n, status) => (status !== 'done' || !n || confirm(`"${p.name}" 의 남은 일 ${n}건은 반려(비고: 프로젝트 끝남)로 정리됩니다.`
     + '\n다른 프로젝트로 옮길 일이 있으면 취소하고, 작업 목록을 펼쳐 프로젝트 칸을 바꾸세요.')) && save({ ...p, status })
   // 상태별 표가 여럿이라 칸 폭을 고정해 줄을 맞춘다. 좁은 화면에서는 가로로 밀린다
-  return <Table style={{ tableLayout: 'fixed', minWidth: 1060 }}>
+  return <Table style={{ tableLayout: 'fixed', minWidth: 1140 }}>
     <tr><th>Project</th><th style={{ width: 170 }}>Area</th><th style={{ width: 130 }}>상태</th><th style={{ width: 200 }}>기간</th>
-      <th style={{ width: 190 }}>작업</th><th style={{ width: 140 }} /></tr>
+      <th style={{ width: 190 }}>작업</th><th style={{ width: 220 }} /></tr>
     {ps.map(({ tasks, ...p }) => <Fragment key={p.id}><tr>
       <td style={{ whiteSpace: 'normal' }}><a className="lk" {...press(() => setOpen(open === p.id ? 0 : p.id))} aria-expanded={open === p.id}>{p.name}</a>
         <span className="tid" title="에이전트가 작업을 기록할 때 적는 번호"> #{p.id}</span>
@@ -99,8 +99,10 @@ function ProjTable({ ps, as, save }) {
         onChange={e => setSt(p, tasks.filter(t => t.status === 'todo').length, e.target.value)}>
         {ORDER.map(k => <option key={k} value={k}>{ST[k][0]}</option>)}</select></td>
       <td className="meta">{p.start} ~ {p.end || ''}</td>
-      <td><TaskSum ts={tasks} />{tasks.length > 0 && <span className="meta"> · 세션 {new Set(tasks.map(t => t.sid)).size}개</span>}</td>
+      <td style={{ whiteSpace: 'normal' }}><TaskSum ts={tasks} />{tasks.length > 0 && <span className="meta"> · 세션 {new Set(tasks.map(t => t.sid)).size}개</span>}</td>
       <td className="acts"><Button onClick={() => edit(p)}>고치기</Button>
+        <Button title="이 프로젝트의 할 일을 대시보드·옵시디언 어디서도 보이지 않게 합니다. Claude Code 는 계속 이 프로젝트로 기록합니다"
+          onClick={() => confirm(`"${p.name}" 프로젝트를 숨길까요?\n할 일이 대시보드·옵시디언 어디서도 보이지 않습니다. Claude Code 는 계속 이 프로젝트로 기록합니다.\n프로젝트 칸 맨 아래 [숨긴 프로젝트]에서 다시 보이게 할 수 있습니다.`) && save({ id: p.id, hidden: true })}>숨기기</Button>
         <Button variant="danger" onClick={() => confirm(`"${p.name}" 프로젝트를 지울까요?\n적힌 작업·자료는 프로젝트 없음으로 남습니다.`) && save({ id: p.id, delete: true })}>삭제</Button></td></tr>
       {open === p.id && <tr><td colSpan="6" style={{ whiteSpace: 'normal' }}><SpecBar p={p} save={save} /><Docs p={p} />
         {tasks.length
@@ -109,7 +111,8 @@ function ProjTable({ ps, as, save }) {
     </Fragment>)}</Table>
 }
 
-function Projects({ ps, as, save }) {
+// 숨긴 프로젝트: 할 일은 서버가 빼고 보낸다 (fleet/tasks.py SHOWN). 여기서는 이름만 보이고 다시 보이게 한다
+function Projects({ ps, hid, as, save }) {
   const [add, setAdd] = useState(false)  // 만들기 칸을 펼쳤나
   const done = b => save(b).then(ok => ok && setAdd(false))
   const live = ps.filter(p => p.status !== 'done')
@@ -121,6 +124,10 @@ function Projects({ ps, as, save }) {
       return l.length > 0 && <Fragment key={k}><h4 style={{ color: ST[k][1] }}>{ST[k][0]} {l.length}</h4><ProjTable ps={l} as={as} save={save} /></Fragment>
     })}
     {!live.length && <p className="meta">진행 중인 프로젝트가 없습니다. 마감과 완료 조건이 있는 일을 만드세요</p>}
+    {hid.length > 0 && <Collapsible className="sec" summary={<h4 style={{ display: 'inline-block' }}>숨긴 프로젝트 {hid.length}</h4>}>
+      <p className="meta">할 일은 대시보드·옵시디언 어디서도 보이지 않습니다. Claude Code 는 계속 이 번호로 기록합니다</p>
+      {hid.map(p => <div key={p.id} style={{ marginBottom: 'var(--sp-3)' }}>{p.name}<span className="tid"> #{p.id}</span>{' '}
+        <Button onClick={() => save({ id: p.id, hidden: false })}>다시 보이기</Button></div>)}</Collapsible>}
   </>
 }
 
@@ -191,7 +198,8 @@ export default function Para() {
   }
   const saveP = send('/api/project'), saveA = send('/api/area'), delR = id => send('/api/resource')({ id })
   if (!P) return <div className="pg"><Card className="meta">불러오는 중…</Card></div>
-  const { areas: as, projects: ps, resources: rs } = P
+  const { areas: as, projects: all, resources: rs } = P
+  const ps = all.filter(p => !p.hidden_at), hid = all.filter(p => p.hidden_at)  // 숨긴 프로젝트는 영역·보관 칸에도 안 보이고 숨긴 칸에만
   const n = { p: ps.filter(p => p.status !== 'done').length, a: as.filter(a => !a.archived_at).length, r: rs.length,
     x: ps.filter(p => p.status === 'done').length + as.filter(a => a.archived_at).length }
   const [, name, def, ask] = PARA.find(x => x[0] === tab)
@@ -204,7 +212,7 @@ export default function Para() {
         {name}<span className="cnt">{n[k]}</span></button>)}</div></div>
     <p className="meta pdef"><b>{name}</b> — {def}. 판별 질문: {ask}</p>
     {tab === 'a' && <Areas as={as} ps={ps} save={saveA} />}
-    {tab === 'p' && <Projects ps={ps} as={as} save={saveP} />}
+    {tab === 'p' && <Projects ps={ps} hid={hid} as={as} save={saveP} />}
     {tab === 'r' && <Resources rs={rs} del={delR} />}
     {tab === 'x' && <Archives ps={ps} as={as} save={saveP} saveA={saveA} />}
   </Card></div>
