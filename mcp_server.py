@@ -6,6 +6,7 @@ ponytail: 못 보낸 기록은 버린다 — 빠지면 안 되게 되면 파일�
 
 어느 세션의 호출인지는 부모 프로세스로 찾는다. claude 가 이 서버를 자식으로 띄우므로
 조상 pid 중 하나의 ~/.claude/sessions/<pid>.json 에 sessionId 가 있다. /clear 로 세션이 바뀔 수 있어 호출마다 다시 읽는다.
+웹·휴대폰에서 옮겨 온 세션(claude --teleport)은 그 파일을 만들지 않으므로, 못 찾으면 claude 가 넘겨준 CLAUDE_CODE_SESSION_ID 를 쓴다.
 """
 import json
 import os
@@ -137,7 +138,9 @@ TOOLS = [
 
 
 def my_session():
-    """조상 프로세스를 거슬러 올라가며 Claude Code 세션 파일을 찾는다 (중간에 셸이 끼어도 된다)."""
+    """조상 프로세스를 거슬러 올라가며 Claude Code 세션 파일을 찾는다 (중간에 셸이 끼어도 된다).
+    파일이 없는 세션(claude --teleport 로 웹·휴대폰에서 옮겨 온 세션)은 claude 가 MCP 서버에 넘겨준 CLAUDE_CODE_SESSION_ID 로 찾는다.
+    파일을 먼저 보는 것은 /clear 로 세션이 바뀌어도 환경 변수는 처음 값 그대로이기 때문이다."""
     pid = os.getppid()
     while pid > 1:
         f = SESSIONS / f"{pid}.json"
@@ -145,7 +148,7 @@ def my_session():
             return json.loads(f.read_text())["sessionId"]
         out = subprocess.run(["ps", "-o", "ppid=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
         pid = int(out) if out else 0
-    return None
+    return os.environ.get("CLAUDE_CODE_SESSION_ID") or None
 
 
 def post(body):
