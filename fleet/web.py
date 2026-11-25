@@ -19,8 +19,8 @@ from .config import CFG, CONFIG, PORT, VERSION, claude, installed, installed_ver
 from .db import DB, EDIT, db, delete_session, metrics, my_title, saved_settings, set_setting, set_title
 from .links import LinkError, check as check_link, github_prs, jira_issue, jira_issues
 from .obsidian import check as check_notes
-from .para import (agent_project, agent_view, archive_project, delete_resource, draft_files, has_project, make_spec, names, para,
-                   project_history, save_area, save_project, save_resource, search_resources, set_folder, settle_draft, spec_file)
+from .para import (agent_project, agent_view, archive_project, delete_resource, draft_files, has_project, make_spec, names,
+                   open_tasks, para, project_history, save_area, save_project, save_resource, search_resources, set_folder, settle_draft, spec_file)
 from .pushes import pushes
 from .routines import make_map, maps, refresh as refresh_routines, saved as saved_routines, session_schedules
 from .tasks import SHOWN, SHOWN_SQL, add_task, move_task, norm_flow, saved_tasks, set_task, summarize
@@ -56,6 +56,13 @@ def pick_path(file, start):
     return {"path": r.stdout.strip().rstrip("/") or "/"}
 
 
+def open_hint(pid, tid):
+    """규칙 10: 프로젝트의 남은 일을 응답에 붙여, 이번 일과 겹치거나 끝났거나 방향이 바뀐 예전 줄을 닫게 한다."""
+    rows = open_tasks(pid, tid or 0)
+    return {"open": rows, "open_hint": "이 프로젝트의 남은 일이다(규칙 10). 이번 일과 같은 일이면 이 일을 끝낼 때 같이 done 으로,"
+            " 이미 끝났으면 done, 방향이 바뀌었으면 rejected 로 근거를 note 에 적어 닫는다. 날짜를 기다리는 판단은 todo 로 둔다"} if rows else {}
+
+
 def agent_task(body):
     """MCP 서버가 보낸 작업 기록 {op: start|update|list, sid, ...}. DB 는 이 서버만 쓴다."""
     sid, op = body.get("sid") or "", body.get("op")
@@ -68,8 +75,10 @@ def agent_task(body):
         tid = add_task(sid, body["text"][:160], "agent", tag=body.get("tag"), details=body.get("details"), project=pj)
         # 프로젝트 없이 적었으면 진행 중인 프로젝트를 돌려준다 — 세션이 열린 뒤 만든 프로젝트도 에이전트가 알게
         ps = not pj and agent_view()["projects"]
-        return ({"id": tid, "projects": ps, "hint": f'이 일이 이 중 한 프로젝트의 일이면 task_update(id={tid}, status="todo",'
-                 ' project=번호) 로 적으세요. 없으면 그대로 둡니다'} if ps else {"id": tid}), 200
+        if ps:
+            return {"id": tid, "projects": ps, "hint": f'이 일이 이 중 한 프로젝트의 일이면 task_update(id={tid}, status="todo",'
+                    ' project=번호) 로 적으세요. 없으면 그대로 둡니다'}, 200
+        return {"id": tid, **open_hint(pj, tid)}, 200
     if op == "update":
         try:  # 코드를 바꾼 일을 끝낼 때 남기는 흐름도 — 형식이 틀리면 에이전트가 고쳐 다시 보내게 알린다
             flow = norm_flow(body["flow"]) if body.get("flow") else None
@@ -77,7 +86,9 @@ def agent_task(body):
             return {"error": f"{e}. flow 는 {{trigger, steps: [{{title, detail, branch?}}], outputs}} 모양입니다"}, 400
         ok = set_task(body.get("id"), "agent", body.get("status"), note=body.get("note"), details=body.get("details"),
                       project=pj, flow=flow)
-        return ({"ok": True}, 200) if ok else ({"error": "없는 작업 id 이거나 분류가 잘못됐습니다"}, 400)
+        if not ok:
+            return {"error": "없는 작업 id 이거나 분류가 잘못됐습니다"}, 400
+        return {"ok": True, **(open_hint(pj, body.get("id")) if pj else {})}, 200  # 프로젝트를 나중에 적었을 때도 남은 일을 보여 준다
     if op == "list":
         return {"tasks": saved_tasks(sid)[0]}, 200
     if op == "projects":

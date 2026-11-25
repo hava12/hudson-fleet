@@ -237,6 +237,16 @@ def agent_view():
     return out
 
 
+def open_tasks(pid, skip=0):
+    """에이전트용: 프로젝트의 남은 일(할 일·멈춤, 오래된 것부터). task_start·task_update 응답에 붙여, 이번 일과 겹치거나
+    이미 끝났거나 방향이 바뀐 예전 줄을 에이전트가 닫게 한다(2026-11-25 옥상고 남은 일 32줄 중 16줄이 끝난 채 남아 있었다)."""
+    c = db()
+    rows = _rows(c, "SELECT id, date(created_at, 'localtime') AS date, status, text FROM session_tasks"
+                    " WHERE project_id = ? AND status IN ('todo', 'stopped') AND id != ? ORDER BY created_at", (pid, skip))
+    c.close()
+    return rows
+
+
 def project_history(pid):
     """에이전트용 (MCP project_history): 프로젝트 하나의 기록 — 기획명세서의 진행 히스토리·기능별 플로우차트 재료.
     여러 세션에 걸친 작업(오래된 것부터, 그 PC 날짜·흐름도 포함), 그 작업을 한 세션들의 push, 자료 제목. 없는 프로젝트면 None.

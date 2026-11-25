@@ -60,7 +60,11 @@ INSTRUCTIONS = """Hudson Fleet 작업 기록 — 사용자가 맡긴 일을 작�
    물을 때 함께 알린다.
    일을 시작할 때 같은 주제의 자료가 있을 법하면 resource_search 로 먼저 찾아본다.
 9. 프로젝트의 지난 기록(여러 세션의 작업·흐름도·push·자료)이 필요하면 project_history(id) 로 읽는다 — 기획명세서를 만들 때 등.
-   기획명세서는 project_history 의 spec_file 경로에 만들고, 만든 뒤 project_folder(id, folder) 로 조사한 코드 폴더를 적는다."""
+   기획명세서는 project_history 의 spec_file 경로에 만들고, 만든 뒤 project_folder(id, folder) 로 조사한 코드 폴더를 적는다.
+10. 남은 일 닫기: 프로젝트를 적어 task_start·task_update 하면 응답의 open 에 그 프로젝트의 남은 일(todo·stopped)이 온다.
+   이번 일과 같은 일이면 이번 일을 끝낼 때 그 줄도 done 으로 닫고, 이미 다른 세션이 끝냈으면 done, 사용자가 방향을 바꿨으면
+   rejected 로 닫는다. note 에는 근거(커밋·날짜·사용자 말)를 적는다. 다른 세션이 남긴 줄도 id 로 닫는다(새 줄을 또 만들지 않는다).
+   근거가 없으면 닫지 않고 그대로 둔다. 날짜를 기다리는 판단은 stopped 가 아니라 todo 로 둔다."""
 
 DETAILS = {"type": "array", "items": {"type": "string"}, "maxItems": 3}  # 3-Step-Desc (fleet/tasks.py MAX_DETAILS)
 LINES = {"type": "array", "items": {"type": "string"}, "maxItems": 6}
@@ -182,11 +186,13 @@ def call(name, args):
     if name == "task_start":
         r = api({"op": "start", "sid": sid, "text": args.get("text"), "tag": args.get("tag"), "details": args.get("details"),
                  "project": args.get("project")})
-        return (r["error"], True) if "error" in r else (json.dumps(r, ensure_ascii=False), False)  # {id, projects?, hint?}
+        return (r["error"], True) if "error" in r else (json.dumps(r, ensure_ascii=False), False)  # {id, projects?, hint?} 또는 {id, open?, open_hint?}
     if name == "task_update":
         r = api({"op": "update", "sid": sid, "id": args.get("id"), "status": args.get("status"), "note": args.get("note"),
                  "details": args.get("details"), "project": args.get("project"), "flow": args.get("flow")})
-        return (r["error"], True) if "error" in r else ("기록했습니다", False)
+        if "error" in r:
+            return r["error"], True
+        return (json.dumps({"ok": True, "open": r["open"], "open_hint": r["open_hint"]}, ensure_ascii=False) if r.get("open") else "기록했습니다"), False
     if name == "task_list":
         r = api({"op": "list", "sid": sid})
         return (r["error"], True) if "error" in r else (json.dumps(r["tasks"], ensure_ascii=False), False)
